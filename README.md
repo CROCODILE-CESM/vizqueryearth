@@ -3,7 +3,7 @@
 Draw the shapes of [queryearth](https://github.com/CROCODILE-CESM/queryearth) rules on a map in Jupyter.
 
 - `vq.draw()` shows a map to draw one polygon or box on, for a rule written in Python.
-- `vq.Editor("rules.geojson")` shows every rule of a rule file on a map. You can pick a rule, draw or edit its shape, edit its code, kind, level, title, message and facets (with dropdowns of the values the ruleset uses), add rules, and save.
+- `vq.Editor("rules.geojson")` shows every rule of a rule file on a map. Pick a rule (from the list or by clicking its shape), draw or edit its shape, and edit its code, kind, title and message. **New rule** adds one with the next free code. Facets, time, level and everything else stay as they are in the file.
 
 queryearth checks every shape and every rule, so the editor never saves a file that queryearth would refuse or read differently.
 
@@ -36,10 +36,9 @@ rule = qe.Rule(
 ```python
 ed = vq.Editor(
     "rules.geojson",
-    axes=[qe.Axis("resolution", "km")],  # the ruleset's vocabulary, as for qe.Registry
-    vocabulary={"product": ["glorys", "era5"]},  # facet values to offer
+    axes=[qe.Axis("resolution", "km")],  # what the rules use, as for qe.Registry
 )
-ed  # pick a rule, draw, Apply, Save file
+ed  # pick a rule or click New rule, draw its shape, Save
 ```
 
 `examples/demo.ipynb` walks through both, on made-up rules.
@@ -48,7 +47,7 @@ ed  # pick a rule, draw, Apply, Save file
 
 - **Rectangles** become a record `box` (`{west, width, south, north}`). Any other drawing becomes a GeoJSON polygon. Several drawings on one rule make one MultiPolygon.
 - **Across the date line**, Leaflet gives continuous longitudes, such as 165 to 200. A box keeps them (`west` 165, `width` 35). A polygon is split at ±180 in the file and joined again on the map.
-- **Near the poles**, the map stops at about 85°. Use the **Arctic cap** and **Antarctic cap** buttons or the box fields; such shapes are shown cut off at 85° and edited by their fields.
+- **Near the poles**, the map stops at about 85°, so anything drawn to its top or bottom edge reaches the pole: a rectangle drawn to the top edge is a box up to 90°N. From code, `ed.set_shape(vq.arctic(66.5))` gives a full-width cap.
 - **Holes** in rules loaded from a file are kept, but version 1 cannot draw them.
 - **Saving** changes only the rules you edited. Every other rule is written back as it was read, and the file is checked with queryearth before it is replaced.
 

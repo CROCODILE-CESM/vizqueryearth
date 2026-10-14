@@ -11,6 +11,7 @@ import copy
 import html
 import json
 import os
+import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -22,21 +23,14 @@ import shapely
 import shapely.geometry
 from queryearth.objects import KINDS
 
-from vizqueryearth.shapes import Shape, antarctic, arctic, from_leaflet, to_leaflet
+from vizqueryearth.shapes import Shape, from_leaflet, to_leaflet
 
 __all__ = ["draw", "Drawing", "Editor"]
 
 _DRAWN = {"color": "#2f55c4", "weight": 2, "fillOpacity": 0.15}
 _OTHER = {"color": "#56666e", "weight": 1, "fillOpacity": 0.08, "dashArray": "4"}
-_FIXED = {"color": "#2f55c4", "weight": 2, "fillOpacity": 0.1, "dashArray": "6"}
-_LEVELS = [
-    ("default", ""),
-    ("info", "info"),
-    ("warning", "warning"),
-    ("error", "error"),
-]
-_FORM = {"code", "kind", "level", "title", "message", "facets", "box"}
 _WIDE = W.Layout(width="100%")
+_NUMBERED = re.compile(r"(.*?)(\d{3,4})")  # a rule code: prefix, then number
 
 
 def _describe(shape: Shape | None) -> str:
@@ -56,7 +50,7 @@ def _describe(shape: Shape | None) -> str:
 class _ShapeMap(W.VBox):
     """A map whose drawing layer holds one shape."""
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         self.map = L.Map(
             center=(20, 0),
             zoom=2,
@@ -75,27 +69,20 @@ class _ShapeMap(W.VBox):
             cut=False,  # no holes in version 1
             rotate=False,
         )
-        self._fixed = L.GeoJSON(
-            data=_collection([]), style=_FIXED
-        )  # past the map's edge
-        self.map.add(self._fixed)
         self.map.add(self.control)
         self.status = W.HTML()
         self._quiet = False
         self.control.observe(self._on_data, names="data")
-        super().__init__([self.map, self.status], **kwargs)
+        super().__init__([self.map, self.status])
 
     def _show(self, shape: Shape | None) -> None:
-        """Put a shape on the map: on the drawing layer when it fits on the map."""
+        """Put a shape on the drawing layer, without treating it as a drawing."""
+        drawn = [] if shape is None else to_leaflet(shape)
+        for part in drawn:
+            part["properties"] = {"style": _DRAWN}
         self._quiet = True
         try:
-            editable = shape is not None and shape.editable
-            drawn = to_leaflet(shape) if editable else []
-            for part in drawn:
-                part["properties"] = {"style": _DRAWN}
             self.control.data = drawn
-            fixed = to_leaflet(shape) if shape is not None and not editable else []
-            self._fixed.data = _collection(fixed)
         finally:
             self._quiet = False
 
@@ -108,7 +95,6 @@ class _ShapeMap(W.VBox):
         except ValueError as err:
             self._say(f"queryearth cannot use this shape: {err}", error=True)
             return
-        self._fixed.data = _collection([])
         self._drawn(shape)
 
     def _drawn(self, shape: Shape | None) -> None:
@@ -153,11 +139,14 @@ def draw() -> Drawing:
 
 
 class Editor(_ShapeMap):
-    """Draw and edit the shapes of the rules in one rule file.
+    """Draw the shapes of the rules in one rule file.
 
-    axes, facets and dimensions declare the ruleset's vocabulary, as for
-    queryearth.Registry; the file is checked against it when saved. vocabulary
-    adds facet values to offer, beyond those the file already uses.
+    Pick a rule in the list or click its shape, then draw, edit, drag or delete
+    shapes on the map; New rule adds one. The form holds code, kind, title and
+    message; everything else stays as it is in the file. Changes are kept when
+    you pick another rule or save. axes, facets and dimensions declare what the
+    rules use, as for queryearth.Registry; the file is checked against them
+    when saved.
     """
 
     def __init__(
@@ -167,7 +156,6 @@ class Editor(_ShapeMap):
         axes: Iterable[qe.Axis] = (),
         facets: Iterable[str] = qe.Registry.FACETS,
         dimensions: Iterable[Any] = (),
-        vocabulary: Mapping[str, Iterable[str]] | None = None,
     ) -> None:
         self.path = Path(path)
         self._declared = {
@@ -177,31 +165,26 @@ class Editor(_ShapeMap):
         }
         self._collection = self._read(self.path)
         self.features: list[dict[str, Any]] = self._collection["features"]
-        self._index: int | None = None  # the rule shown in the form; None for a new one
+        self._index: int | None = None  # the rule in the form; None for a new one
         self._shape: Shape | None = None  # its shape as drawn
         self._shape_changed = False
-        # "version" holds version ranges, so it stays out of the form
-        self._labels = [f for f in self._declared["facets"] if f != "version"]
-        self._vocabulary = {name: set() for name in self._labels}
-        for name, values in (vocabulary or {}).items():
-            self._vocabulary.setdefault(name, set()).update(values)
         super().__init__()
         self._others = L.GeoJSON(
             data=_collection([]), style=_OTHER, hover_style={"weight": 3}
         )
         self._others.on_click(self._clicked)
-        self._labels_layer = L.LayerGroup()
+        self._labels = L.LayerGroup()
         self.map.add(self._others)
-        self.map.add(self._labels_layer)
-        self._build_form()
-        self.children = [W.HBox([self.map, self.form]), self.status]
-        self.map.layout = W.Layout(height="520px", width="60%")
+        self.map.add(self._labels)
+        self.map.layout = W.Layout(height="520px", width="65%")
+        self.children = [W.HBox([self.map, self._form()]), self.status]
         problems = self._check_all()
         self._refresh()
         if self.features:
             self.select(0)
         else:
-            self.new()
+            self._fill({})
+            self._say("No rules yet: click New rule.")
         if problems:
             self._say("Problems in the file: " + "; ".join(problems), error=True)
 
@@ -227,7 +210,7 @@ class Editor(_ShapeMap):
         return []
 
     def save(self, path: str | os.PathLike[str] | None = None) -> None:
-        """Apply the form, check the whole file with queryearth, then write it."""
+        """Keep the form's changes, check the whole file with queryearth, write it."""
         if self._pending():
             self.apply()
         path = Path(path) if path is not None else self.path
@@ -248,7 +231,7 @@ class Editor(_ShapeMap):
         return [f.get("properties", {}).get("code", "") for f in self.features]
 
     def select(self, rule: str | int) -> None:
-        """Show one rule, by code or position; changes to the last one are applied."""
+        """Show one rule, by code or position; changes to the last one are kept."""
         index = self.rules.index(rule) if isinstance(rule, str) else rule
         if index != self._index and self._pending():
             self.apply()
@@ -261,17 +244,13 @@ class Editor(_ShapeMap):
         self._refresh()
         self._say(_describe(self._shape))
 
-    def new(self) -> None:
-        """Start a new rule: fill in the form, draw its shape, then apply."""
-        if self._pending():
-            self.apply()
-        self._index = None
-        self._shape = None
-        self._shape_changed = False
-        self._fill({"kind": "warning"})
-        self._show(None)
-        self._refresh()
-        self._say("New rule: give it a code, title and message, and draw its shape.")
+    def new(self) -> str:
+        """Add a rule with the next free code, such as DEMO005 after DEMO004, and
+        select it; then fill in its fields and draw its shape."""
+        code = _next_code(self.rules)
+        self.add(code, title="New rule", message="Say what this rule is about.")
+        self._say(f"Added {code}: fill in its fields, draw its shape, then Save.")
+        return code
 
     def add(
         self,
@@ -292,7 +271,7 @@ class Editor(_ShapeMap):
         self.select(len(self.features) - 1)
 
     def set_shape(self, shape: Shape | None) -> None:
-        """Give the selected rule a shape (None for everywhere); apply to keep it."""
+        """Give the selected rule a shape, such as vq.arctic(66.5); None for none."""
         self._shape = shape
         self._shape_changed = True
         self._show(shape)
@@ -300,6 +279,8 @@ class Editor(_ShapeMap):
 
     def apply(self) -> str:
         """Check the form and the shape with queryearth and keep them in the file."""
+        if self._index is None:
+            raise self._fail("No rule selected: pick one or click New rule.")
         feature = self._edited()
         code = feature["properties"]["code"]
         clash = [i for i, c in enumerate(self.rules) if c == code and i != self._index]
@@ -309,14 +290,10 @@ class Editor(_ShapeMap):
             self._check(feature)
         except (ValueError, TypeError, KeyError) as err:
             raise self._fail(f"{code}: {err}") from err
-        if self._index is None:
-            self.features.append(feature)
-            self._index = len(self.features) - 1
-        else:
-            self.features[self._index] = feature
+        self.features[self._index] = feature
         self._shape_changed = False
         self._refresh()
-        self._say(f"Applied {code}. Save to write the file.")
+        self._say(f"Kept {code}. Save writes the file.")
         return code
 
     def _check(self, feature: dict[str, Any]) -> None:
@@ -328,11 +305,7 @@ class Editor(_ShapeMap):
 
     def _edited(self) -> dict[str, Any]:
         """The selected rule with the form's values and the drawn shape."""
-        if self._index is None:
-            feature = {"type": "Feature", "id": None, "geometry": None, "time": None}
-            feature["properties"] = {}
-        else:
-            feature = copy.deepcopy(self.features[self._index])
+        feature = copy.deepcopy(self.features[self._index])
         props = feature["properties"]
         old_code = props.get("code")
         props.update(
@@ -341,25 +314,9 @@ class Editor(_ShapeMap):
             title=self._title.value,
             message=self._message.value,
         )
-        if self._level.value:
-            props["level"] = self._level.value
-        else:
-            props.pop("level", None)
-        facets = props.get("facets", {})
-        for name, widget in self._facet_inputs.items():
-            if isinstance(facets.get(name), dict):
-                continue  # any_of/none_of patterns: edited in the file
-            if widget.value:
-                facets[name] = list(widget.value)
-            else:
-                facets.pop(name, None)
-        if facets:
-            props["facets"] = facets
-        else:
-            props.pop("facets", None)
         if "id" in feature and feature["id"] == old_code:
             feature["id"] = props["code"]  # an id that named the old code follows it
-        if self._shape_changed or self._index is None:
+        if self._shape_changed:
             shape = self._shape
             feature["geometry"] = None if shape is None else shape.geometry
             if shape is not None and shape.box is not None:
@@ -371,125 +328,42 @@ class Editor(_ShapeMap):
     def _pending(self) -> bool:
         """Whether the form or the shape differs from the stored rule."""
         if self._index is None:
-            return bool(self._code.value.strip())
+            return False
         return self._shape_changed or self._edited() != self.features[self._index]
 
     def _drawn(self, shape: Shape | None) -> None:
+        if self._index is None:
+            self._say("Click New rule first, then draw its shape.", error=True)
+            return
         self._shape = shape
         self._shape_changed = True
-        self._say(_describe(shape) + " Apply to keep it.")
+        self._say(_describe(shape))
 
     # ---- the form ----------------------------------------------------------------
-    def _build_form(self) -> None:
+    def _form(self) -> W.VBox:
         self._picker = W.Dropdown(description="Rule", layout=_WIDE)
         self._picker.observe(self._picked, names="value")
         self._code = W.Text(description="Code", layout=_WIDE)
         self._kind = W.Dropdown(description="Kind", options=list(KINDS), layout=_WIDE)
-        self._level = W.Dropdown(description="Level", options=_LEVELS, layout=_WIDE)
         self._title = W.Text(description="Title", layout=_WIDE)
-        self._message = W.Textarea(description="Message", rows=3, layout=_WIDE)
-        self._facet_inputs = {
-            name: W.TagsInput(allow_duplicates=False, layout=_WIDE)
-            for name in self._labels
-        }
-        facet_rows = [
-            W.HBox([W.Label(name, layout=W.Layout(width="90px")), widget])
-            for name, widget in self._facet_inputs.items()
-        ]
-        self._new_facet = W.Dropdown(options=self._labels, layout=W.Layout(width="40%"))
-        self._new_value = W.Text(placeholder="new value", layout=W.Layout(width="40%"))
-        add_value = W.Button(description="Add value", layout=W.Layout(width="20%"))
-        add_value.on_click(lambda _: self._add_value())
-        self._extra = W.HTML()
-        box = {
-            k: W.FloatText(description=k, layout=W.Layout(width="50%"))
-            for k in ("west", "width", "south", "north")
-        }
-        self._box = box
-        use_box = W.Button(description="Use box")
-        use_box.on_click(lambda _: self._use_box())
-        self._cap = W.FloatText(value=66.5, description="Cap from", layout=_WIDE)
-        north = W.Button(description="Arctic cap")
-        north.on_click(lambda _: self.set_shape(arctic(self._cap.value)))
-        south = W.Button(description="Antarctic cap")
-        south.on_click(lambda _: self.set_shape(antarctic(self._cap.value)))
-        everywhere = W.Button(description="No shape")
-        everywhere.on_click(lambda _: self.set_shape(None))
-        buttons = {
-            "Apply": self.apply,
-            "New rule": self.new,
-            "Save file": self.save,
-        }
-        actions = []
-        for label, method in buttons.items():
-            button = W.Button(
-                description=label, button_style="primary" * (label == "Apply")
-            )
-            button.on_click(lambda _, m=method: _quietly(m))
-            actions.append(button)
-        self.form = W.VBox(
-            [
-                self._picker,
-                self._code,
-                self._kind,
-                self._level,
-                self._title,
-                self._message,
-                W.HTML("<b>Facets</b>"),
-                *facet_rows,
-                W.HBox([self._new_facet, self._new_value, add_value]),
-                self._extra,
-                W.HTML("<b>Box</b> (or draw on the map)"),
-                W.HBox([box["west"], box["width"]]),
-                W.HBox([box["south"], box["north"]]),
-                W.HBox([use_box, everywhere]),
-                self._cap,
-                W.HBox([north, south]),
-                W.HBox(actions),
-            ],
-            layout=W.Layout(width="40%", padding="0 0 0 12px"),
+        self._message = W.Textarea(description="Message", rows=4, layout=_WIDE)
+        new, save = W.Button(description="New rule"), W.Button(description="Save")
+        new.on_click(lambda _: _quietly(self.new))
+        save.on_click(lambda _: _quietly(self.save))
+        save.button_style = "primary"
+        fields = [self._picker, self._code, self._kind, self._title, self._message]
+        return W.VBox(
+            [*fields, W.HBox([new, save])],
+            layout=W.Layout(width="35%", padding="0 0 0 12px"),
         )
 
     def _fill(self, props: Mapping[str, Any]) -> None:
-        """Show a rule's properties in the form."""
+        """Show a rule's fields in the form."""
+        kind = props.get("kind")
         self._code.value = props.get("code", "")
-        kind, level = props.get("kind"), props.get("level", "")
-        self._kind.value = kind if kind in KINDS else "warning"
-        self._level.value = level if level in dict(_LEVELS).values() else ""
+        self._kind.value = kind if kind in KINDS else KINDS[0]
         self._title.value = props.get("title", "")
         self._message.value = props.get("message", "")
-        facets = props.get("facets", {})
-        for name, widget in self._facet_inputs.items():
-            value = facets.get(name, [])
-            values = [] if isinstance(value, dict) else list(value)
-            self._vocabulary[name].update(values)
-            widget.allowed_tags = sorted(self._vocabulary[name])
-            widget.value = values
-        kept = [k for k in props if k not in _FORM]
-        patterns = [n for n, v in facets.items() if isinstance(v, dict)]
-        notes = []
-        if kept:
-            notes.append(f"Also has {', '.join(kept)}: kept as in the file.")
-        if patterns:
-            notes.append(f"Facet patterns for {', '.join(patterns)}: edit in the file.")
-        self._extra.value = "<br>".join(html.escape(n) for n in notes)
-        box = props.get("box") or {}
-        for key, widget in self._box.items():
-            widget.value = box.get(key, 0.0)
-
-    def _add_value(self) -> None:
-        name, value = self._new_facet.value, self._new_value.value.strip()
-        if name and value:
-            self._vocabulary[name].add(value)
-            self._facet_inputs[name].allowed_tags = sorted(self._vocabulary[name])
-            self._new_value.value = ""
-
-    def _use_box(self) -> None:
-        box = {k: w.value for k, w in self._box.items()}
-        try:
-            self.set_shape(Shape(box=box))
-        except ValueError as err:
-            self._say(f"queryearth cannot use this box: {err}", error=True)
 
     def _picked(self, change: dict[str, Any]) -> None:
         if change["new"] is not None and change["new"] != self._index:
@@ -501,19 +375,11 @@ class Editor(_ShapeMap):
             _quietly(self.select, index)
 
     def _refresh(self) -> None:
-        """Redraw the other rules, their labels and the rule list."""
+        """Redraw the other rules and their labels, and the rule list."""
         shapes, labels = [], []
         for i, feature in enumerate(self.features):
-            for name, values in (feature["properties"].get("facets") or {}).items():
-                if name in self._vocabulary and isinstance(values, list):
-                    self._vocabulary[name].update(values)
-            if i == self._index:
-                continue
-            try:
-                shape = _shape_of(feature)
-            except ValueError:
-                continue  # listed among the file's problems
-            if shape is None:
+            shape = _shape_or_none(feature)
+            if i == self._index or shape is None:
                 continue
             code = feature["properties"].get("code", f"feature {i}")
             parts = to_leaflet(shape)
@@ -523,22 +389,31 @@ class Editor(_ShapeMap):
             if parts:
                 labels.append(_label(code, parts[0]["geometry"], i, self._clicked))
         self._others.data = _collection(shapes)
-        old = self._labels_layer.layers
-        self._labels_layer.layers = tuple(labels)
+        old = self._labels.layers
+        self._labels.layers = tuple(labels)
         for marker in old:  # free the old labels' widgets in the browser too
             marker.icon.close()
             marker.close()
         options = [
-            (
-                f"{code or f'feature {i}'}{' (everywhere)' * (_shape_or_none(f) is None)}",
-                i,
-            )
-            for i, (code, f) in enumerate(zip(self.rules, self.features))
+            (f"{c or f'feature {i}'}{' (everywhere)' * (_shape_or_none(f) is None)}", i)
+            for i, (c, f) in enumerate(zip(self.rules, self.features))
         ]
         self._picker.unobserve(self._picked, names="value")
         self._picker.options = options
         self._picker.value = self._index
         self._picker.observe(self._picked, names="value")
+
+
+def _next_code(codes: list[str]) -> str:
+    """The code after the last numbered one: DEMO005 after DEMO004, ERA5-015 after
+    ERA5-014; RULE001 in an empty file."""
+    numbered = [m for c in codes if (m := _NUMBERED.fullmatch(c))]
+    if not numbered:
+        return "RULE001"
+    prefix = numbered[-1].group(1)
+    same = [m for m in numbered if m.group(1) == prefix]
+    width = len(same[-1].group(2))
+    return f"{prefix}{max(int(m.group(2)) for m in same) + 1:0{width}d}"
 
 
 def _shape_of(feature: Mapping[str, Any]) -> Shape | None:
@@ -552,6 +427,7 @@ def _shape_of(feature: Mapping[str, Any]) -> Shape | None:
 
 
 def _shape_or_none(feature: Mapping[str, Any]) -> Shape | None:
+    """As _shape_of, with None for a shape queryearth refuses (listed as a problem)."""
     try:
         return _shape_of(feature)
     except ValueError:

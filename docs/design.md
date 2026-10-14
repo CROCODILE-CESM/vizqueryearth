@@ -60,10 +60,10 @@ whereas terra-draw cannot edit a shape across ±180 (its issue #485).
 piece by 360° and joins the two; on save, queryearth splits it again. A Bering Sea box drawn from
 165°E to 160°W is edited as 165 to 200 and stored as 165 to 180 plus -180 to -160.
 
-**The poles.** Leaflet's Web Mercator map stops near 85° north and south, so polar rules use a
-box. The editor offers box fields (west, width, south, north) and two presets, "Arctic cap" and
-"Antarctic cap", which fill in a full-width box to the pole from a latitude you choose. The map
-shows the box cut off at 85°, with a note that it reaches the pole.
+**The poles.** Leaflet's Web Mercator map stops near 85° north and south. A point drawn past 85°,
+at the map's top or bottom edge, is taken to the pole, so a rectangle drawn to the top edge is a
+box that reaches 90°N, and a polar box is shown cut off at the edge and edited like any other
+shape. From code, `vq.arctic(66.5)` and `vq.antarctic(-60)` give full-width caps.
 
 **To confirm in the prototype:**
 
@@ -114,13 +114,11 @@ rule = qe.Rule(
 ```python
 ed = vq.Editor(
     "rules.geojson",  # every rule's shape, labelled by its code
-    axes=[qe.Axis("resolution", "km")],  # the ruleset's vocabulary, as for qe.Registry
-    vocabulary={"product": ["glorys", "era5"]},  # facet values to offer
+    axes=[qe.Axis("resolution", "km")],  # what the rules use, as for qe.Registry
 )
 ed.select("CROC003")  # or click a shape; then draw to replace it
-ed.add(code="CROC011", kind="warning", title="Example", message="An example rule.")
+ed.new()  # adds CROC012 after CROC011, selected; or ed.add(code, kind, title, message)
 ed.set_shape(vq.arctic(70))  # or draw it
-ed.apply()  # checks the rule with queryearth
 ed.save()  # checks the whole file, then writes it
 ```
 
@@ -171,11 +169,13 @@ possible later feature, computed with xarray or Earth Engine.
 
 1. **No hole drawing in version 1.** Geoman's cut tool is off; holes in rules loaded from a file are
    kept.
-2. **Dropdowns.** Kind and level are dropdowns. Each facet is a tag input that offers the values
-   the file already uses plus those passed as `vocabulary=`, and an **Add value** row adds more.
-   Facet names come from the editor's `facets` (queryearth's defaults unless given); `version`
-   holds version ranges and stays in the file. Fields the form does not show are listed and kept.
-3. **ipyleaflet is fine.**
+2. **ipyleaflet is fine.**
+3. **A lean form (2026-10-14).** After trying it, the form was cut to code, kind (a dropdown),
+   title and message, with **New rule** and **Save**. Facets, level, time and every other field
+   are edited in the file and kept as they are; facets are part of a rule's scope, but they are set
+   once when a rule is written. **New rule** adds a rule with the next free code at once. There is
+   no Apply button: changes are kept when you pick another rule or save. Box fields and polar-cap
+   buttons gave way to drawing at the map's edge, which reaches the pole.
 
 ## 11. Plan
 

@@ -47,8 +47,7 @@ def test_opening_shows_the_first_rule(path):
     ed = vq.Editor(path)
     assert ed.rules == ["DEMO001", "DEMO002", "DEMO003", "DEMO004"]
     assert ed._code.value == "DEMO001"
-    assert ed._facet_inputs["product"].value == ["demo_ocean"]
-    assert "demo_ocean" in ed._facet_inputs["product"].allowed_tags
+    assert ed._title.value.startswith("demo_ocean is too fresh")
     assert len(ed.control.data) == 1  # its shape is on the drawing layer
 
 
@@ -60,10 +59,16 @@ def test_saving_without_changes_rewrites_the_same_bytes(path):
     assert path.read_bytes() == before
 
 
-def test_a_polar_cap_stays_off_the_drawing_layer(path):
+def test_a_polar_cap_is_edited_on_the_map_and_keeps_the_pole(path):
     ed = vq.Editor(path)
     ed.select("DEMO003")
-    assert ed.control.data == [] and ed._fixed.data["features"]
+    (shown,) = ed.control.data  # cut off at the map's edge
+    lats = {p[1] for p in shown["geometry"]["coordinates"][0]}
+    assert max(lats) < 86
+    ed.control.data = [shown]  # as the browser sends it back after an edit
+    ed.apply()
+    box = ed.features[2]["properties"]["box"]
+    assert box == {"west": -180, "width": 360, "south": 66.5, "north": 90}
 
 
 def test_redrawing_a_shape_changes_only_that_rule(path):
@@ -105,9 +110,13 @@ def test_a_drawn_polygon_replaces_a_box(path):
 
 def test_adding_a_rule_and_drawing_its_shape(path):
     ed = vq.Editor(path)
-    ed.add("DEMO005", title="A new rule", message="Drawn in the editor.")
+    ed.add(
+        "DEMO005",
+        title="A new rule",
+        message="Drawn in the editor.",
+        facets={"product": ["demo_ocean"]},
+    )
     ed.control.data = [rectangle(-10, 40, 5, 50)]
-    ed._facet_inputs["product"].value = ["demo_ocean"]
     ed.save()
     registry = qe.Registry("check")
     assert registry.load(path)[-1] == "DEMO005"
@@ -117,14 +126,33 @@ def test_adding_a_rule_and_drawing_its_shape(path):
     assert "DEMO005" in [f.code for f in found]
 
 
-def test_a_new_rule_from_the_form(path):
+def test_new_rule_adds_the_next_code_at_once(path):
     ed = vq.Editor(path)
-    ed.new()
-    ed._code.value, ed._title.value, ed._message.value = "DEMO006", "T", "M"
+    assert ed.new() == "DEMO005"
+    assert ed.rules[-1] == "DEMO005" and ed._code.value == "DEMO005"
+    ed._title.value, ed._message.value = "Arctic rule", "North of 80N."
     ed.set_shape(vq.arctic(80))
-    assert ed.apply() == "DEMO006"
-    assert ed.features[-1]["id"] == "DEMO006"
-    assert ed.features[-1]["properties"]["box"]["south"] == 80
+    ed.save()
+    rule = json.loads(path.read_text())["features"][-1]
+    assert rule["id"] == "DEMO005" and rule["properties"]["title"] == "Arctic rule"
+    assert rule["properties"]["box"]["south"] == 80
+    assert ed.new() == "DEMO006"
+
+
+def test_the_next_code_follows_the_file():
+    from vizqueryearth.widgets import _next_code
+
+    assert _next_code([]) == "RULE001"
+    assert _next_code(["CRU001", "CRU009"]) == "CRU010"
+    assert _next_code(["ERA5-014"]) == "ERA5-015"
+    assert _next_code(["CRU001", "NWM0003"]) == "NWM0004"
+
+
+def test_drawing_with_no_rule_selected_says_what_to_do(tmp_path):
+    ed = vq.Editor(tmp_path / "empty.geojson")
+    ed.control.data = [rectangle(0, 0, 10, 10)]
+    assert "New rule" in ed.status.value
+    assert ed.new() == "RULE001"
 
 
 def test_a_duplicate_code_is_refused(path):
@@ -153,14 +181,6 @@ def test_undeclared_names_are_found_when_saving(path):
     with pytest.raises(qe.LoadError) as err:
         ed.save()
     assert any("model" in p for p in err.value.problems)
-
-
-def test_vocabulary_adds_values_to_offer(path):
-    ed = vq.Editor(path, vocabulary={"product": ["demo_atmos"]})
-    assert "demo_atmos" in ed._facet_inputs["product"].allowed_tags
-    ed._new_facet.value, ed._new_value.value = "variable", "uo"
-    ed._add_value()
-    assert "uo" in ed._facet_inputs["variable"].allowed_tags
 
 
 def test_removing_the_shape_makes_a_rule_global(path):

@@ -5,6 +5,10 @@ to 160W arrives as 165 to 200, and one drawn on a world copy may be shifted by
 any multiple of 360. queryearth reads all of these and splits them at ±180, so a
 drawn ring goes to queryearth as it is, and queryearth decides what the shape
 is. Rule files get the split form, which other GeoJSON tools also read.
+
+The map ends near 85° north and south, so a point drawn at its top or bottom
+edge (past 85°) is taken to the pole: a rectangle drawn to the top edge is a box
+that reaches 90°N.
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ __all__ = ["Shape", "from_leaflet", "to_leaflet", "arctic", "antarctic", "MAP_LA
 
 DIGITS = 6  # decimals kept, about 0.1 m; matches what the file gets
 MAP_LAT = 85.0511  # Leaflet's Web Mercator map ends at this latitude
+POLE = 85.0  # a point drawn past this latitude is taken to the pole
 _EDGE = 180.0 - 1e-9
 
 
@@ -47,12 +52,6 @@ class Shape:
     def space(self) -> sp.Space:
         """The shape as queryearth reads it from a record."""
         return self._space
-
-    @property
-    def editable(self) -> bool:
-        """False when the shape reaches past the map's edge near a pole."""
-        south, north = self.space.geometry.bounds[1::2]
-        return -MAP_LAT <= south and north <= MAP_LAT
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Shape):
@@ -121,8 +120,19 @@ def to_leaflet(shape: Shape) -> list[dict[str, Any]]:
     ]
 
 
+def _number(value: float) -> float | int:
+    """A coordinate rounded to DIGITS decimals; a whole number as an int."""
+    value = round(float(value), DIGITS) + 0.0  # no -0.0
+    return int(value) if value.is_integer() else value
+
+
 def _rounded_ring(ring: list[list[float]]) -> list[list[float]]:
-    return [[round(float(lon), DIGITS), round(float(lat), DIGITS)] for lon, lat in ring]
+    """A drawn ring, rounded, with points at the map's edge taken to the pole."""
+    return [[_number(lon), _number(_to_pole(lat))] for lon, lat in ring]
+
+
+def _to_pole(lat: float) -> float:
+    return 90.0 if lat >= POLE else -90.0 if lat <= -POLE else lat
 
 
 def _box(ring: list[list[float]]) -> dict[str, float] | None:
@@ -132,8 +142,8 @@ def _box(ring: list[list[float]]) -> dict[str, float] | None:
     if len(corners) != 4 or len(lons) != 2 or len(lats) != 2:
         return None
     west, east = min(lons), max(lons)
-    width = min(round(east - west, DIGITS), 360.0)
-    west = -180.0 if width == 360.0 else round((west + 180.0) % 360.0 - 180.0, DIGITS)
+    width = min(_number(east - west), 360)
+    west = -180 if width == 360 else _number((west + 180.0) % 360.0 - 180.0)
     return {"west": west, "width": width, "south": min(lats), "north": max(lats)}
 
 
@@ -159,11 +169,11 @@ def _joined(geometry: shapely.Geometry) -> shapely.Geometry:
 
 
 def _mapping(geometry: shapely.Geometry) -> dict[str, Any]:
-    """GeoJSON for a geometry, with coordinates rounded to six decimals."""
+    """GeoJSON for a geometry, with coordinates rounded as _number does."""
 
     def rounded(value: Any) -> Any:
         if isinstance(value, (list, tuple)) and value and isinstance(value[0], float):
-            return [round(v, 6) + 0.0 for v in value]
+            return [_number(v) for v in value]
         if isinstance(value, (list, tuple)):
             return [rounded(v) for v in value]
         return value

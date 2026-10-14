@@ -107,12 +107,25 @@ def test_polar_caps_are_boxes_beyond_the_map():
     cap = arctic(70)
     assert cap.box == {"west": -180, "width": 360, "south": 70, "north": 90}
     assert sp.meets(cap.space, sp.point(123, 90))
-    assert not cap.editable
     (shown,) = to_leaflet(cap)
     lats = {p[1] for p in shown["geometry"]["coordinates"][0]}
     assert max(lats) == pytest.approx(85.0511)
     assert antarctic(-60).box["south"] == -90
-    assert from_leaflet(drawn(rectangle(0, 0, 10, 10))).editable
+
+
+def test_drawing_to_the_map_edge_reaches_the_pole():
+    shape = from_leaflet(drawn(rectangle(-180, 66.5, 180, 85.0511)))
+    assert shape == arctic(66.5)
+    south = from_leaflet(drawn(rectangle(-180, -85.0511, 180, -60)))
+    assert south == antarctic(-60)
+    peak = from_leaflet(drawn([[0, 80], [10, 85.04], [20, 80], [0, 80]]))
+    assert max(p[1] for p in peak.geometry["coordinates"][0]) == 90
+    assert from_leaflet(to_leaflet(arctic(70))) == arctic(70)
+
+
+def test_whole_numbers_are_written_as_integers():
+    box = from_leaflet(drawn(rectangle(165.0, 52.0, 200.0, 66.0))).box
+    assert all(type(v) is int for v in box.values())
 
 
 def test_a_full_width_band_is_not_shifted():
