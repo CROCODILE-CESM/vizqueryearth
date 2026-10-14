@@ -13,16 +13,22 @@ The first visit downloads about 20 MB (Python and queryearth, see [How it works]
 
 ## Using the page
 
-The globe is on the left and the panel on the right. The panel has five parts.
+The globe is on the left and the panel on the right. The page has two modes, switched at the top: **Check**, for people who read the rules, and **Edit**, for people who write them. **Open file** and **Open link** work in both.
 
-**Check your area.** Draw a rectangle or a polygon where you work, or leave it empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. "No rule applies" means only that no rule matched, not that all is well. Tick **Also list rules that need more information** to see the rules that would apply if they knew more, such as a variable you left empty. Click a result to select that rule below.
+### Check
 
-**Rules.** The list is sorted by code: by group, in the order the file gives its groups, then by number. Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`), or pick a group with its button; the globe then shows only those rules, and turns to the group. The page remembers your filter in this browser.
+**Check your area.** Draw a rectangle or a polygon where you work, or leave it empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. "No rule applies" means only that no rule matched, not that all is well. Tick **Also list rules that need more information** to see the rules that would apply if they knew more, such as a variable you left empty. Click a result to open that rule below.
 
-Click a rule in the list, its label or its shape on the globe to select it; the globe turns to it, and its form opens in the list:
+**Rules.** The list is sorted by code: by group, in the order the file gives its groups, then by number. Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`, `gulf`), or pick a group with its button; the globe then shows only those rules and turns to them. The page remembers your filter in this browser.
+
+Click a rule in the list, its label or its shape on the globe to open its card: the globe turns to it, and the card shows what the rule says and what it covers: its level, code, title and message, what to do, any changes, where and when it applies, what it applies to, and its references and evidence. Edge rules (see below) have a dashed outline and a lighter fill on the globe, and an "edge" tag.
+
+### Edit
+
+**Rules.** The same list, filter and group buttons. Clicking a rule opens its form in the list:
 
 - code, level, title and message;
-- **Where:** draw a rectangle or a polygon, move the corners of the current shape, remove it (the rule then applies anywhere), or give it an Arctic or Antarctic cap from a latitude. Tick **Applies where a domain's edge crosses this area** for an edge rule: it applies where the edge of the area you check crosses its shape, not wherever they overlap, for advice about where to put a domain's open boundaries. Edge rules have a dashed outline and a lighter fill on the globe, and an "edge" tag in the lists;
+- **Where:** draw a rectangle or a polygon, move the corners of the current shape, remove it (the rule then applies anywhere), or give it an Arctic or Antarctic cap from a latitude. Tick **Applies where a domain's edge crosses this area** for an edge rule: it applies where the edge of the area you check crosses its shape, not wherever they overlap, for advice about where to put a domain's open boundaries;
 - **When:** from and to dates, and the months of every year it applies;
 - **What it applies to:** one field per dimension (see the table below);
 - **Changes:** what to change when the rule applies, as rows of target, key, value and an optional reason. The value is JSON, such as `900`, `true` or `"CICE"`; plain text is taken as text. A rule with changes is info by default, one without is a warning;
@@ -36,7 +42,13 @@ Every edit is checked by queryearth before it is kept. If queryearth refuses one
 
 **Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers with a unit, such as a resolution in km; versions are such as `4.07` or `ERA5T`. Add or remove them here; the rules file keeps the list.
 
-**File.** **Download rules file** saves the rules. **Download as web page** saves a page that shows them; see [Sharing](#sharing). The same two buttons are at the top of the page.
+**File.** **Download rules file** saves the rules. **Download as web page** saves a page that shows them; see [Sharing](#sharing). The same two buttons are at the top of the page in Edit mode.
+
+Edits you have not downloaded are kept in your browser. When you come back to the same page address, Edit mode offers them back; the page switches to Edit to show you, unless its address asked for Check.
+
+### Which mode a page opens in
+
+`#edit` at the end of the address opens Edit mode and `#check` opens Check mode, also after a link's `?src=`: `https://crocodile-cesm.github.io/vizqueryearth/?src=<link>#edit`. Otherwise the page itself opens in the mode you used last, and a site's page or a downloaded web page opens in Check. Switching modes changes the `#` in the address, so you can share the address as it is.
 
 What to type for a dimension:
 
@@ -76,7 +88,7 @@ Rules you do not edit are written back as they were read.
 
 ## Sharing
 
-**A link.** Put your rules file where other sites may read it, then share the page with `?src=`:
+**A link.** Put your rules file where other sites may read it, then share the page with `?src=` (and `#edit` at the end for people who will edit it):
 
 ```
 https://crocodile-cesm.github.io/vizqueryearth/?src=https://raw.githubusercontent.com/<you>/<repo>/main/rules.geojson

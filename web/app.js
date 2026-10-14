@@ -1,5 +1,8 @@
 // vizqueryearth: check and edit queryearth rules on a globe, in the browser.
 //
+// The page has two modes: Check, for people who read the rules (which apply to
+// my area?), and Edit, for people who write them.
+//
 // The page reads its settings, shows a globe (MapLibre) with drawing tools
 // (Terra Draw), and starts Python (Pyodide) with queryearth and vizqueryearth's
 // own Python, which does everything that touches rules: Session.call() in
@@ -131,6 +134,9 @@ function browserStore(name, place) {
 const store = browserStore("draft", () => location.pathname + location.search);
 // each viewer's filter of the rules list, for this page
 const filterStore = browserStore("filter", () => location.pathname);
+// the mode each viewer used last, Check or Edit
+const modeStore = browserStore("mode", () => "last");
+const MODES = ["check", "edit"];
 
 // ---- settings: inline, from a site's site.json, then ?src= ----------------------
 async function readSettings() {
@@ -148,6 +154,7 @@ async function readSettings() {
   else if (typeof site.rules === "string") source = { url: new URL(site.rules, location.href).href };
   else if (site.rules) source = { text: JSON.stringify(site.rules), name: "rules.geojson" };
   return {
+    site: Boolean(inline || document.body.dataset.site), // a page made for a set of rules
     title: site.title || "vizqueryearth",
     description: site.description || "",
     dimensions: site.dimensions || null, // for rules files that do not declare them
@@ -184,6 +191,7 @@ async function call(name, args = {}) {
 
 // ---- the page -------------------------------------------------------------------
 const page = {
+  mode: "check", // "check": read the rules, check an area; "edit": write them
   settings: null,
   state: null, // what Python says about the rules: Session.do_state()
   selected: null, // the rule being edited, by position
@@ -210,11 +218,17 @@ function build() {
       "header",
       { class: "bar" },
       el("h1", {}, s.title),
+      el(
+        "div",
+        { class: "modes", role: "group", "aria-label": "Mode" },
+        el("button", { type: "button", "data-mode": "check", title: "Read the rules, and check which apply to your area", onclick: () => setMode("check") }, "Check"),
+        el("button", { type: "button", "data-mode": "edit", title: "Write the rules: their fields, shapes, groups and dimensions", onclick: () => setMode("edit") }, "Edit")
+      ),
       el("span", { class: "grow" }),
       el("button", { onclick: () => fileInput.click() }, "Open file"),
       el("button", { id: "open-link", "aria-expanded": false, "aria-controls": "linkbar", onclick: () => showLinkBar(document.getElementById("linkbar").hidden) }, "Open link"),
-      el("button", { onclick: downloadRules }, "Download rules file"),
-      el("button", { onclick: downloadPage }, "Download as web page"),
+      el("button", { class: "edit-only", onclick: downloadRules }, "Download rules file"),
+      el("button", { class: "edit-only", onclick: downloadPage }, "Download as web page"),
       fileInput
     ),
     el(
@@ -232,10 +246,34 @@ function build() {
 }
 
 function render() {
-  document.getElementById("panel").replaceChildren(
-    ...[page.draft ? draftNotice() : null, checkSection(), rulesSection(), groupsSection(), dimensionsSection(), fileSection()].filter(Boolean)
-  );
+  const parts =
+    page.mode === "edit"
+      ? [page.draft ? draftNotice() : null, rulesSection(), groupsSection(), dimensionsSection(), fileSection()]
+      : [page.draft ? draftPointer() : null, checkSection(), rulesSection()];
+  document.getElementById("panel").replaceChildren(...parts.filter(Boolean));
   drawRules();
+  drawArea();
+}
+
+// ---- modes: Check to read the rules, Edit to write them -------------------------
+function setMode(mode) {
+  if (!MODES.includes(mode)) return;
+  stopDrawing(); // a drawing belongs to the mode it was started in
+  page.mode = mode;
+  document.body.dataset.mode = mode;
+  for (const button of document.querySelectorAll(".modes button")) button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+  modeStore.set(mode);
+  if (location.hash !== `#${mode}`) history.replaceState(null, "", `${location.pathname}${location.search}#${mode}`);
+  render();
+}
+
+// #edit or #check in the address, else the viewer's last mode, else Check. A
+// page made for a set of rules opens in Check unless its address says #edit.
+function chosenMode() {
+  const asked = location.hash.slice(1);
+  if (MODES.includes(asked)) return { mode: asked, asked: true };
+  const last = page.settings.site ? null : modeStore.get();
+  return { mode: MODES.includes(last) ? last : "check", asked: false };
 }
 
 // ---- check your area: which rules apply to my area, time and values? ------------
@@ -251,7 +289,7 @@ function checkSection() {
       ? el(
           "div",
           { class: "notice" },
-          el("p", {}, "No rules loaded yet. Open a rules file or a link to one, or click New rule below to start a set."),
+          el("p", {}, "No rules loaded yet. Open a rules file or a link to one, or switch to Edit to start a set."),
           el("p", {}, el("a", { href: new URL("sites/demo/", APP).href }, "Try the demo"))
         )
       : null,
@@ -378,19 +416,22 @@ function filterGroup(prefix) {
   fitRules(); // turn to the rules the group has
 }
 
+let fitSoon = null;
 function filterText(event) {
   setFilter({ text: event.target.value });
   document.getElementById("rule-list").replaceChildren(...ruleItems());
   document.getElementById("rule-count").textContent = countText();
   drawRules();
+  clearTimeout(fitSoon); // once typing stops, turn to the rules it leaves
+  fitSoon = setTimeout(() => fitRules({ quiet: true }), 500);
 }
 
 function countText() {
   const total = page.state?.rules.length || 0;
   const n = page.state ? page.state.rules.filter(matches).length : 0;
-  if (!total) return "No rules yet: click New rule, or open a rules file.";
+  if (!total) return page.mode === "edit" ? "No rules yet: click New rule, or open a rules file." : "No rules yet.";
   const showing = n === total ? `${total} rule${total === 1 ? "" : "s"}` : `${n} of ${total} rules`;
-  return `${showing}. Click a rule, here or on the globe, to see and edit it.`;
+  return `${showing}. Click a rule, here or on the globe, to ${page.mode === "edit" ? "edit" : "read"} it.`;
 }
 
 function rulesSection() {
@@ -417,14 +458,16 @@ function rulesSection() {
     ),
     el("p", { id: "rule-count", class: "hint" }, countText()),
     el("ul", { id: "rule-list", class: "rules" }, ruleItems()),
-    el(
-      "div",
-      { class: "row" },
-      groups.length
-        ? el("select", { id: "new-group", "aria-label": "Group of the new rule" }, groups.map((g) => el("option", { value: g.prefix, selected: g.prefix === preferred }, `${g.prefix}: ${g.title}`)))
-        : null,
-      el("button", { onclick: newRule }, "New rule")
-    )
+    page.mode === "edit"
+      ? el(
+          "div",
+          { class: "row" },
+          groups.length
+            ? el("select", { id: "new-group", "aria-label": "Group of the new rule" }, groups.map((g) => el("option", { value: g.prefix, selected: g.prefix === preferred }, `${g.prefix}: ${g.title}`)))
+            : null,
+          el("button", { onclick: newRule }, "New rule")
+        )
+      : null
   );
 }
 
@@ -443,9 +486,50 @@ function ruleItems() {
         r.edge ? edgeTag() : null,
         r.problem ? el("span", { class: "problem", title: r.problem }, "⚠") : null
       ),
-      selected ? ruleForm(r) : null
+      selected ? (page.mode === "edit" ? ruleForm(r) : ruleCard(r)) : null
     );
   });
+}
+
+// ---- a rule as people read it, in Check mode --------------------------------------
+function ruleCard(rule) {
+  const dims = Object.entries(rule.dimensions).filter(([, text]) => text);
+  const facts = [rule.confidence && `Confidence: ${rule.confidence}`, rule.status && `Status: ${rule.status}`].filter(Boolean);
+  return el(
+    "div",
+    { class: "rule-card" },
+    el("p", {}, rule.message),
+    rule.instruction ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), rule.instruction) : null,
+    rule.changes.length
+      ? [el("h3", {}, "Changes"), el("ul", { class: "plain" }, rule.changes.map((c) => el("li", { class: "change" }, `${c.target} ${c.key} = ${c.value}`, c.rationale ? el("span", { class: "hint" }, ` (${c.rationale})`) : null)))]
+      : null,
+    el("h3", {}, "Where"),
+    el("p", {}, rule.fill ? (rule.edge ? "Where a domain's edge crosses the area shown on the globe." : "In the area shown on the globe.") : "Anywhere."),
+    el("h3", {}, "When"),
+    el("p", {}, timeText(rule.time)),
+    dims.length ? [el("h3", {}, "What it applies to"), el("ul", { class: "plain" }, dims.map(([name, text]) => el("li", {}, el("strong", {}, `${name}: `), text)))] : null,
+    rule.references.length ? [el("h3", {}, "References"), el("ul", { class: "plain" }, rule.references.map((ref) => el("li", {}, linked(ref.title || ref.citation || ref.url || ref.doi || JSON.stringify(ref), ref.url || (ref.doi ? `https://doi.org/${ref.doi}` : "")))))] : null,
+    rule.evidence.length ? [el("h3", {}, "Evidence"), rule.evidence.map((ev) => el("blockquote", {}, ev.quote || ev.text || JSON.stringify(ev), ev.url ? [" ", linked("source", ev.url)] : null))] : null,
+    facts.length ? el("p", { class: "hint" }, facts.join(" · ")) : null,
+    rule.problem ? el("p", { class: "problem" }, rule.problem) : null
+  );
+}
+
+function timeText(time) {
+  const range = time.start && time.end ? `From ${time.start} to ${time.end}` : time.start ? `From ${time.start}` : time.end ? `Until ${time.end}` : "";
+  const months = time.months.length ? `${range ? "in" : "In"} ${time.months.map((m) => MONTHS[m - 1]).join(", ")}` : "";
+  const text = [range, months].filter(Boolean).join(", ");
+  return [text ? `${text}.` : time.kept ? "" : "Any time.", time.kept ? `Also: ${time.kept}.` : ""].filter(Boolean).join(" ");
+}
+
+// A link only for a web address, never for script or data URLs from a file.
+function linked(text, url) {
+  let href = null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") href = parsed.href;
+  } catch {}
+  return href ? el("a", { href, target: "_blank", rel: "noopener noreferrer" }, text) : String(text);
 }
 
 function ruleForm(rule) {
@@ -866,6 +950,16 @@ function draftNotice() {
   );
 }
 
+// In Check mode, a pointer to the edits waiting in Edit mode.
+function draftPointer() {
+  return el(
+    "div",
+    { class: "notice" },
+    el("p", {}, `You have edits from ${new Date(page.draft.saved).toLocaleString()} that were not downloaded.`),
+    el("div", { class: "row" }, el("button", { class: "primary", onclick: () => setMode("edit") }, "Go to Edit to restore them"))
+  );
+}
+
 // ---- opening files --------------------------------------------------------------
 async function open(text, name, { fit = true } = {}) {
   page.state = await call("open", { text, name, dimensions: page.settings.dimensions });
@@ -903,7 +997,7 @@ async function submitLink(event) {
   if (await openUrl(url)) {
     const params = new URLSearchParams(location.search);
     params.set("src", url);
-    history.replaceState(null, "", `?${params}`); // this page's address now shows these rules
+    history.replaceState(null, "", `?${params}${location.hash}`); // this page's address now shows these rules
   }
 }
 
@@ -1037,9 +1131,10 @@ function drawRules() {
   const properties = (r) => ({ index: r.index, level: r.level, edge: r.edge });
   map.getSource("rules").setData(collection(rules.map((r) => ({ type: "Feature", geometry: r.fill, properties: properties(r) }))));
   map.getSource("outlines").setData(collection(rules.filter((r) => r.outline).map((r) => ({ type: "Feature", geometry: r.outline, properties: properties(r) }))));
-  const hits = new Set(page.results?.findings.map((f) => f.code) || []);
+  const results = page.mode === "check" ? page.results : null; // the check belongs to Check mode
+  const hits = new Set(results?.findings.map((f) => f.code) || []);
   for (const r of rules) {
-    const state = { selected: r.index === page.selected, hit: hits.has(r.code), dim: page.results !== null && !hits.has(r.code) };
+    const state = { selected: r.index === page.selected, hit: hits.has(r.code), dim: results !== null && !hits.has(r.code) };
     map.setFeatureState({ source: "rules", id: r.index }, state);
     map.setFeatureState({ source: "outlines", id: r.index }, state);
   }
@@ -1058,7 +1153,7 @@ function drawRules() {
 
 function drawArea() {
   if (!map?.getSource("area")) return;
-  const shape = page.areaShape;
+  const shape = page.mode === "check" ? page.areaShape : null; // kept, but shown only in Check
   const features = shape ? [{ type: "Feature", geometry: shape.fill, properties: {} }] : [];
   if (shape?.outline) features.push({ type: "Feature", geometry: shape.outline, properties: {} });
   map.getSource("area").setData(collection(features));
@@ -1082,10 +1177,10 @@ function focusRule(code) {
   if (rule) select(rule.index, { reveal: true });
 }
 
-async function fitRules() {
+async function fitRules({ quiet = false } = {}) {
   const extent = page.state ? await call("extent", { indexes: shown().map((r) => r.index) }) : null;
   if (extent) fitExtent(extent);
-  else say("No rule shown has a shape.");
+  else if (!quiet) say("No rule shown has a shape.");
 }
 
 // Turn the globe to an extent [west, south, east, north] from Python, where
@@ -1225,7 +1320,12 @@ async function main() {
   page.settings = await readSettings();
   const kept = filterStore.get();
   if (typeof kept?.text === "string" && typeof kept?.group === "string") page.filter = { text: kept.text, group: kept.group };
+  const chosen = chosenMode();
+  page.mode = chosen.mode;
+  document.body.dataset.mode = chosen.mode;
   build();
+  for (const button of document.querySelectorAll(".modes button")) button.setAttribute("aria-pressed", String(button.dataset.mode === page.mode));
+  window.addEventListener("hashchange", () => setMode(location.hash.slice(1)));
   say("Starting… The first visit downloads Python and queryearth (about 20 MB); later visits are quicker.");
   pythonReady = startPython();
   const mapReady = startMap().catch((err) => say(`The globe could not start: ${err.message}`, true));
@@ -1249,8 +1349,12 @@ async function main() {
   }
   const draft = store.get();
   if (draft && page.state && draft.text !== (await call("text").catch(() => null))) {
+    // edits waiting: show them in Edit mode, unless the address asked for Check,
+    // where a notice points to them
     page.draft = draft;
-    render();
+    if (page.mode !== "edit" && !chosen.asked) setMode("edit");
+    else render();
+    say("You have edits that were not downloaded: restore or discard them in Edit.");
   }
   window.__vizqueryearth = { page, call, map: () => map, draw: () => draw }; // for tests
 }

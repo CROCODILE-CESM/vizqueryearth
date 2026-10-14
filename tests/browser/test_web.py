@@ -6,6 +6,7 @@ Without playwright these tests are skipped.
 
 QUERYEARTH_WHEEL=path/to/queryearth-X-py3-none-any.whl tests a queryearth that
 is not on PyPI yet: the tests then serve a copy of web/ that installs it.
+CROCODASH_RULES=path/to/qe_rules.geojson adds a test on CrocoDash's rules.
 """
 
 import functools
@@ -16,6 +17,7 @@ import re
 import shutil
 import threading
 from pathlib import Path
+from urllib.parse import urljoin
 
 import pytest
 
@@ -88,6 +90,9 @@ def context():
 def visit(context, url, rules, fresh=True):
     """Open a page and wait until it shows its rules; returns it and its errors."""
     page = context.new_page()
+    if fresh:  # forget the drafts, filters and modes of earlier tests
+        page.goto(urljoin(url, "/app.css"))
+        page.evaluate("localStorage.clear()")
     errors = []
     page.on("pageerror", lambda err: errors.append(f"pageerror: {err}"))
     page.on(
@@ -96,10 +101,12 @@ def visit(context, url, rules, fresh=True):
     )
     page.on("dialog", lambda d: (errors.append(f"dialog: {d.message}"), d.dismiss()))
     page.goto(url)
-    if fresh:
-        page.evaluate("localStorage.clear()")  # before the page looks for a draft
     ready(page, rules)
     return page, errors
+
+
+def mode(page):
+    return page.evaluate(f"{APP}.page.mode")
 
 
 def ready(page, rules):
@@ -177,12 +184,14 @@ def test_check_an_area(app, context):
     page.locator(".card", has_text="OCN002").click()  # selects it, below
     page.wait_for_timeout(500)
     assert page.evaluate(f"{APP}.page.selected") == 1
-    assert page.input_value("#f-code") == "OCN002"
+    card = page.locator(".rules li[aria-current=true]")
+    assert "too warm in the Bering Sea" in card.inner_text()
+    assert page.locator(".rule-form").count() == 0  # read only
     assert not errors
 
 
 def test_edit_rules_and_download_them(app, context, serve, tmp_path):
-    page, errors = visit(context, f"{app}/sites/demo/", 5)
+    page, errors = visit(context, f"{app}/sites/demo/#edit", 5)
     page.get_by_role(
         "button", name="New rule", exact=True
     ).click()  # in the first group
@@ -329,12 +338,16 @@ def test_open_a_rules_file_by_link(app, context):
 
 
 def test_unsaved_edits_are_offered_back(app, context):
-    page, errors = visit(context, f"{app}/sites/demo/", 5)
+    page, errors = visit(context, f"{app}/sites/demo/#edit", 5)
     page.get_by_role("button", name="New rule", exact=True).click()
     page.wait_for_function(f"{APP}.page.state.rules.length === 6")
     page.wait_for_timeout(500)
-    page.reload()
+    page.goto(f"{app}/sites/demo/")  # a site page opens in Check, but for the draft
     ready(page, 5)
+    assert mode(page) == "edit" and page.url.endswith("#edit")
+    page.goto(f"{app}/sites/demo/#check")  # asked for Check: a notice points to Edit
+    page.wait_for_function(f"{APP}.page.mode === 'check'")
+    page.get_by_role("button", name="Go to Edit to restore them").click()
     page.get_by_role("button", name="Restore them").click()
     ready(page, 6)
     assert not errors
@@ -347,6 +360,10 @@ def test_sort_and_filter_the_rules(app, context):
     assert listed(page) == ["ICE001"] and on_globe(page) == [2]
     page.fill("#rule-filter", "bering")
     assert listed(page) == ["OCN002"] and on_globe(page) == [1]
+    page.wait_for_timeout(700)  # once typing stops, the globe turns to the rules left
+    settle(page)
+    lon = page.evaluate(f"{APP}.map().getCenter().lng")
+    assert lon > 165 or lon < -160  # the Bering Sea, across the date line
     page.fill("#rule-filter", "")
 
     groups = page.locator("#rules .group-buttons")
@@ -370,7 +387,7 @@ def test_sort_and_filter_the_rules(app, context):
 
 
 def test_groups_new_codes_and_edge_rules(app, context):
-    page, errors = visit(context, f"{app}/sites/demo/", 5)
+    page, errors = visit(context, f"{app}/sites/demo/#edit", 5)
     groups = page.locator("#groups")
     page.fill("#g-prefix", "grid")  # taken in capitals
     page.fill("#g-title", "Grids")
@@ -429,4 +446,102 @@ def test_a_file_for_a_later_queryearth_is_not_opened(app, context, serve, tmp_pa
     )
     assert "this file needs queryearth 0.5 or later" in page.inner_text("#status")
     assert len(state(page)["rules"]) == 5 and "src=" not in page.url
+    assert not errors
+
+
+def test_check_and_edit_modes(app, context):
+    page, errors = visit(context, f"{app}/sites/demo/", 5)
+    assert mode(page) == "check"  # a site page opens in Check
+    assert page.locator("#check").is_visible()
+    for hidden in ("#groups", "#dimensions", "#file", "#new-group", ".rule-form"):
+        assert page.locator(hidden).count() == 0
+    assert page.get_by_role("button", name="New rule", exact=True).count() == 0
+    header = page.locator("header")
+    assert not header.get_by_role("button", name="Download rules file").is_visible()
+    assert header.get_by_role("button", name="Open link").is_visible()
+
+    # a rule's card, read only: its row, then what it says
+    page.locator(".rule-row", has_text="OCN002").click()
+    settle(page)
+    card = page.locator(".rules li[aria-current=true]")
+    text = card.inner_text()
+    for shown in (
+        "WARNING",  # level
+        "OCN002",
+        "demo_ocean is too warm in the Bering Sea",  # title
+        "runs about 1 K too warm",  # message
+        "What to do: Compare demo_ocean",  # instruction
+        "product: demo_ocean",  # dimensions
+        "Any time.",
+        "Made up for this demo",  # evidence
+    ):
+        assert shown in text
+    link = card.get_by_role("link", name="queryearth: writing rules")
+    assert link.get_attribute("href") == "https://crocodile-cesm.github.io/queryearth/"
+    page.locator(".rule-row", has_text="ICE001").click()
+    assert 'case ice = "CICE"' in page.locator(".rule-card").inner_text()  # changes
+    page.locator(".rule-row", has_text="OCN003").click()
+    assert "From 1993-01-01 to 2003-12-31." in page.locator(".rule-card").inner_text()
+    page.locator(".rule-row", has_text="OBC001").click()
+    settle(page)
+    row = page.locator(".rules li[aria-current=true]")
+    assert "edge" in row.locator(".tag").inner_text()
+    assert "Where a domain's edge crosses" in row.inner_text()
+
+    # an area drawn in Check stays there; Edit hides it, and cancels drawing
+    page.evaluate(f"{APP}.map().jumpTo({{center: [0, 20], zoom: 2}})")
+    settle(page)
+    page.locator("#check").get_by_role("button", name="Draw rectangle").click()
+    click_at(page, -10, 10)
+    click_at(page, 10, 30)
+    page.wait_for_function(f"{APP}.page.areaShape !== null")
+    page.locator("#check").get_by_role("button", name="Draw polygon").click()
+    page.locator(".modes").get_by_role("button", name="Edit").click()
+    assert mode(page) == "edit" and page.url.endswith("#edit")
+    assert page.evaluate(f"{APP}.page.drawing") is None
+    assert area_on_globe(page) == 0
+    assert page.locator("#check").count() == 0
+    assert page.locator(".rule-form").count() == 1  # the rule selected, to edit
+    assert header.get_by_role("button", name="Download rules file").is_visible()
+    pressed = page.locator(".modes button[aria-pressed=true]")
+    assert pressed.inner_text() == "Edit"
+    page.locator(".modes").get_by_role("button", name="Check").focus()
+    page.keyboard.press("Enter")  # the switch works from the keyboard
+    assert mode(page) == "check" and area_on_globe(page) == 2  # fill and outline
+    page.locator(".modes").get_by_role("button", name="Edit").click()
+
+    # the main page opens in the viewer's last mode, a site page in Check;
+    # the address can ask for either
+    others = []
+    for url, rules, expected in [
+        (f"{app}/", 0, "edit"),
+        (f"{app}/sites/demo/", 5, "check"),
+        (f"{app}/?src={app}/sites/demo/rules.geojson#check", 5, "check"),
+        (f"{app}/sites/demo/#edit", 5, "edit"),
+    ]:
+        other, more = visit(context, url, rules, fresh=False)
+        assert mode(other) == expected, url
+        others += more
+        other.close()
+    assert not errors and not others
+
+
+def area_on_globe(page):
+    script = f"""(async () =>
+        (await {APP}.map().getSource("area").getData()).features.length)()"""
+    return page.evaluate(script)
+
+
+@pytest.mark.skipif(
+    not os.environ.get("CROCODASH_RULES"), reason="CROCODASH_RULES is not set"
+)
+def test_typing_gulf_turns_to_the_gulf_stream(app, context, serve):
+    rules = Path(os.environ["CROCODASH_RULES"])
+    page, errors = visit(context, f"{app}/?src={serve(rules.parent)}/{rules.name}", 26)
+    page.fill("#rule-filter", "gulf")
+    assert listed(page) == ["OBC001"]
+    page.wait_for_timeout(700)
+    settle(page)
+    lon, lat = page.evaluate(f"{APP}.map().getCenter().toArray()")
+    assert -85 < lon < -50 and 20 < lat < 50  # off North America
     assert not errors

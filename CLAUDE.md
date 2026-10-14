@@ -4,7 +4,7 @@ Guidance for Claude Code in this repository.
 
 ## What this is
 
-vizqueryearth is a browser-only web page for [queryearth](https://github.com/CROCODILE-CESM/queryearth) rule files: it shows rules on a globe, checks which apply to an area, dates and dimension values, and edits them. It is hosted on GitHub Pages: no server, no sign-in, nothing stored by us. Files are opened from disk or a link (`?src=`) and saved by download, as a rules file or as a single-file web page. It is a separate repository because queryearth itself must stay free of UI code.
+vizqueryearth is a browser-only web page for [queryearth](https://github.com/CROCODILE-CESM/queryearth) rule files: it shows rules on a globe, checks which apply to an area, dates and dimension values, and edits them. It has two modes on one page: Check (read the rules, check an area; the default) and Edit (write them), chosen by `#check`/`#edit`, else the viewer's last mode on the main page, else Check. It is hosted on GitHub Pages: no server, no sign-in, nothing stored by us. Files are opened from disk or a link (`?src=`) and saved by download, as a rules file or as a single-file web page. It is a separate repository because queryearth itself must stay free of UI code.
 
 ## Rules
 
@@ -24,10 +24,10 @@ vizqueryearth is a browser-only web page for [queryearth](https://github.com/CRO
 | `vizqueryearth/shapes.py` | `Shape` (a geometry or a box), `from_drawn` (drawn GeoJSON to a Shape; rectangles span the short way round, points within 0.5° of a pole go to it), `fill`/`outline`/`editable`/`label_point`/`extent` (what the globe shows), `arctic`, `antarctic` |
 | `vizqueryearth/rulefile.py` | `RuleFile`: a rule file edited one rule at a time, each edit checked by queryearth; its `"queryearth"`, `"groups"` and `"dimensions"` members; `order()` (by group, then number), `new(prefix)` (codes from queryearth's `Registry.next_code`), edge rules; `guess_dimensions` for files that declare none. Dimension descriptions use queryearth's `dimension_from`/`describe_dimension` |
 | `vizqueryearth/session.py` | `Session.call(name, json)`: the page's only link to Python. Reads what is typed on the page (axis bounds such as `<8`, change values as JSON) |
-| `web/index.html`, `web/app.js`, `web/app.css` | The page. Pinned library URLs (MapLibre GL, Terra Draw, Natural Earth land, Pyodide) and the queryearth version are at the top of `app.js` |
+| `web/index.html`, `web/app.js`, `web/app.css` | The page. Pinned library URLs (MapLibre GL, Terra Draw, Natural Earth land, Pyodide) and the queryearth version are at the top of `app.js`. `render()` builds the panel for the mode (`page.mode`); header buttons for Edit only have the class `edit-only` |
 | `web/py/vizqueryearth` | A symlink to `../../vizqueryearth`: the page fetches the package's Python from here. The Pages workflow copies `web/` with links followed (`cp -rL`) |
 | `web/sites/<name>/` | Curated pages, added by pull request: an `index.html` stub, `site.json`, `rules.geojson`. `demo/` is the made-up example |
-| `tests/` | `test_shapes.py`, `test_rulefile.py`, `test_session.py` (no browser); `browser/test_web.py` drives the page in headless Chromium and is skipped without Playwright. `QUERYEARTH_WHEEL=<wheel>` makes it serve a copy of `web/` that installs that wheel, to test a queryearth not on PyPI yet |
+| `tests/` | `test_shapes.py`, `test_rulefile.py`, `test_session.py` (no browser); `browser/test_web.py` drives the page in headless Chromium and is skipped without Playwright. `QUERYEARTH_WHEEL=<wheel>` makes it serve a copy of `web/` that installs that wheel, to test a queryearth not on PyPI yet; `CROCODASH_RULES=<qe_rules.geojson>` adds a check on CrocoDash's rules |
 | `.github/workflows/` | `tests.yml` (pytest on 3.11 to 3.14, plus one browser job), `quality_control.yml` (black), `pages.yml` (deploys `web/` to GitHub Pages from main) |
 | `docs/design.md` | The design and its decisions |
 

@@ -237,6 +237,11 @@ class Session:
             "declared_level": props.get("level") or "",
             "group": self.file.group(index) or "",
             "edge": props.get("edge") is True,
+            "instruction": _text(props.get("instruction")),
+            "confidence": _text(props.get("confidence")),
+            "status": _text(props.get("status")),
+            "references": _mappings(props.get("references")),
+            "evidence": _mappings(props.get("evidence")),
             "time": _time(feature),
             "dimensions": dims,
             "changes": [
@@ -350,6 +355,17 @@ def _dimension_text(kind: str | None, value: Any) -> str:
                 f"{_SIGNS[k]}{_number_text(bounds[k])}" for k in _SIGNS if k in bounds
             )
     return json.dumps(value)
+
+
+def _text(value: Any) -> str:
+    return value if isinstance(value, str) else ""
+
+
+def _mappings(value: Any) -> list[dict[str, Any]]:
+    """A record's references or evidence, as the page shows them."""
+    if not isinstance(value, list):
+        return []
+    return [dict(item) for item in value if isinstance(item, Mapping)]
 
 
 def _strings(value: Any) -> bool:

@@ -97,7 +97,19 @@
           "variable": [
             "thetao"
           ]
-        }
+        },
+        "instruction": "Compare demo_ocean with observations before you rely on its sea temperature here.",
+        "references": [
+          {
+            "title": "queryearth: writing rules",
+            "url": "https://crocodile-cesm.github.io/queryearth/"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Made up for this demo: no real product is described here."
+          }
+        ]
       }
     },
     {
@@ -120,7 +132,15 @@
           "model": [
             "demo_model"
           ]
-        }
+        },
+        "changes": [
+          {
+            "target": "case",
+            "key": "ice",
+            "value": "CICE",
+            "rationale": "an active sea-ice model"
+          }
+        ]
       }
     },
     {

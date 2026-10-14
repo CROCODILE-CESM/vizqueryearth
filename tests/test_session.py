@@ -136,6 +136,17 @@ def test_the_state_has_what_the_page_shows():
     gulf, bering, arctic, early, edge = state["rules"]
     assert (gulf["group"], gulf["edge"]) == ("OCN", False)
     assert (edge["group"], edge["edge"]) == ("OBC", True)
+    # what a rule's card shows besides its fields
+    assert bering["instruction"].startswith("Compare demo_ocean with observations")
+    assert bering["references"] == [
+        {
+            "title": "queryearth: writing rules",
+            "url": "https://crocodile-cesm.github.io/queryearth/",
+        }
+    ]
+    assert bering["evidence"][0]["quote"].startswith("Made up for this demo")
+    assert (bering["status"], bering["confidence"]) == ("draft", "")
+    assert gulf["instruction"] == "" and gulf["references"] == []
     assert gulf["index"] == 0 and gulf["level"] == "warning"
     assert gulf["declared_level"] == ""
     assert gulf["fill"]["type"] == "Polygon" and gulf["outline"]["type"] == "LineString"

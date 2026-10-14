@@ -24,7 +24,9 @@ A page where anyone can see queryearth rules on a globe, check which of them app
 
 **Edge rules.** A rule can apply where a domain's edge crosses its area rather than wherever they overlap (queryearth's `edge`). On the globe an edge rule has a dashed outline and a lighter fill, since it is about a line through the area, not the area.
 
-**One view.** Checking an area and editing rules are on one panel: selecting a rule, from the list, its label or its shape, opens its form in place. There are no modes and no browser dialogs: `prompt()` and `confirm()` return nothing in some embedded browsers, so titles, links and deletion use fields and a second click.
+**Two modes on one page.** Check is for people who read the rules: check an area, filter the list, and open a rule's read-only card. Edit is for people who write them: the rule form, New rule, groups, dimensions, downloads and drawing rule shapes. They are one page with a switch rather than two pages, so a file, its filter and the globe stay as they are when switching; switching cancels a drawing, and the area being checked is kept but shown only in Check. `#check` or `#edit` in the address chooses the mode, so a link can say which; otherwise the main page opens in the viewer's last mode (browser storage) and a site's page or a downloaded page opens in Check, since most of their visitors read. Unsaved edits are offered back in Edit, which the page switches to unless the address asked for Check (a notice then points to Edit), so a draft is not missed. In either mode, selecting a rule, from the list, its label or its shape, opens it in place in the list. There are no browser dialogs: `prompt()` and `confirm()` return nothing in some embedded browsers, so titles, links and deletion use fields and a second click.
+
+**Read-only cards link out safely.** References and evidence come from rule files, which anyone can write, so only `http` and `https` addresses become links, opened in a new tab without access to the page.
 
 ## 3. Globe and drawing
 
