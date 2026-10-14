@@ -40,7 +40,7 @@ page, and a place where anyone can see their own rules on a map.
     Pure Python, so it is tested in CI without a browser. This is the part that could be wrong
     without anyone noticing.
   - `vizqueryearth/widgets.py`: `draw()` and `Editor`, thin layers over ipyleaflet.
-  - `examples/draw.ipynb`, `tests/`, and a CI workflow that runs pytest and black.
+  - `examples/demo.ipynb`, `tests/`, and a CI workflow that runs pytest and black.
 - The widgets themselves are checked by hand in a notebook.
 
 ## 4. Map and drawing

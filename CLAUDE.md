@@ -23,7 +23,7 @@ vizqueryearth draws the shapes of [queryearth](https://github.com/CROCODILE-CESM
 | `vizqueryearth/shapes.py` | `Shape` (a geometry or a box), `from_leaflet` (drawing layer to Shape), `to_leaflet` (Shape to map features, joining pieces split at ±180 and cutting at 85°), `arctic`, `antarctic`. Pure Python; this is where correctness lives |
 | `vizqueryearth/widgets.py` | `draw()`/`Drawing` and `Editor`, thin layers over ipyleaflet. The drawing control's synced `data` list is the only channel from the browser |
 | `tests/` | `test_shapes.py` (conversions, round trips) and `test_editor.py` (the editor driven without a browser by setting `control.data`) |
-| `examples/` | `demo.py` (`# %%` cells) and `demo_rules.geojson` (made up) |
+| `examples/` | `demo.ipynb` (a walk-through) and `demo_rules.geojson` (made up) |
 | `docs/design.md` | The design and its decisions |
 
 ## Development
@@ -34,4 +34,4 @@ pytest
 black .
 ```
 
-Widgets can only be checked by eye: run `examples/demo.py` cell by cell in VS Code or JupyterLab.
+Widgets can only be checked by eye: run `examples/demo.ipynb` in JupyterLab or VS Code. Examples are notebooks, not `# %%` scripts. Commit them without outputs.

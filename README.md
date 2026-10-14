@@ -42,7 +42,7 @@ ed = vq.Editor(
 ed  # pick a rule, draw, Apply, Save file
 ```
 
-`examples/demo.py` walks through both, on made-up rules.
+`examples/demo.ipynb` walks through both, on made-up rules.
 
 ## How shapes are stored
 
