@@ -41,7 +41,6 @@
       "time": null,
       "properties": {
         "code": "DEMO001",
-        "kind": "warning",
         "title": "demo_ocean is too fresh near the coast",
         "message": "Near this coast, demo_ocean surface salinity runs low.",
         "status": "draft",
@@ -62,7 +61,6 @@
       "time": null,
       "properties": {
         "code": "DEMO002",
-        "kind": "warning",
         "title": "demo_ocean is too warm in the Bering Sea",
         "message": "In the Bering Sea, demo_ocean sea temperature runs about 1 K too warm.",
         "box": {
@@ -89,7 +87,6 @@
       "time": null,
       "properties": {
         "code": "DEMO003",
-        "kind": "warning",
         "title": "Arctic domain: think about sea ice",
         "message": "Part of this domain lies north of the Arctic Circle.",
         "box": {
@@ -118,7 +115,6 @@
       },
       "properties": {
         "code": "DEMO004",
-        "kind": "warning",
         "title": "demo_ocean salinity is poorly constrained before 2004",
         "message": "Few salinity profiles went into demo_ocean before 2004.",
         "status": "draft",

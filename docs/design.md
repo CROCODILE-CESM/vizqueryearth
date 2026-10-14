@@ -12,7 +12,7 @@ Version 1 does one thing: **draw and edit the shapes of rules.**
 
 - Draw a polygon or a box and get it back in Python, ready for a rule written in Python.
 - Open a rule file, see every rule's shape labelled by its code, draw or redraw a rule's shape, add
-  a rule with its four required fields (code, kind, title, message), and save the file.
+  a rule with its required fields (code, title, message), and save the file.
 
 Later, and not designed here (section 8): browsing and filtering a ruleset, test queries, a web
 page, and a place where anyone can see their own rules on a map.
@@ -104,7 +104,6 @@ d.space  # the shape as a queryearth Space
 d.geometry  # the GeoJSON geometry, or the box, to paste into a rule file
 rule = qe.Rule(
     code="CROC010",
-    kind="warning",
     title="Example",
     message="An example rule.",
     scope=qe.Scope(space=d.space),
@@ -117,7 +116,7 @@ ed = vq.Editor(
     dimensions=[qe.Axis("resolution", "km"), qe.Labels("product")],  # as for qe.Registry
 )
 ed.select("CROC003")  # or click a shape; then draw to replace it
-ed.new()  # adds CROC012 after CROC011, selected; or ed.add(code, kind, title, message)
+ed.new()  # adds CROC012 after CROC011, selected; or ed.add(code, title, message)
 ed.set_shape(vq.arctic(70))  # or draw it
 ed.save()  # checks the whole file, then writes it
 ```
@@ -141,7 +140,7 @@ possible later feature, computed with xarray or Earth Engine.
 
 ## 8. Later
 
-- **Browse a ruleset:** a table beside the map, filters by kind, dimension and time, click to select.
+- **Browse a ruleset:** a table beside the map, filters by level, dimension and time, click to select.
 - **Test queries:** draw a domain or load one (for example a CrocoDash domain outline), choose
   dates and axes, and list the findings with their area and time fractions, highlighted on the map.
 - **A web page:** the same Leaflet and Geoman on a static page, with Pyodide running the real
@@ -170,7 +169,7 @@ possible later feature, computed with xarray or Earth Engine.
 1. **No hole drawing in version 1.** Geoman's cut tool is off; holes in rules loaded from a file are
    kept.
 2. **ipyleaflet is fine.**
-3. **A lean form (2026-10-14).** After trying it, the form was cut to code, kind (a dropdown),
+3. **A lean form (2026-10-14).** After trying it, the form was cut to code, level (a dropdown),
    title and message, with **New rule** and **Save**. Dimensions, level, time and every other field
    are edited in the file and kept as they are; dimensions are part of a rule's scope, but they are set
    once when a rule is written. **New rule** adds a rule with the next free code at once. There is

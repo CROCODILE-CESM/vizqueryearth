@@ -21,7 +21,6 @@ import ipywidgets as W
 import queryearth as qe
 import shapely
 import shapely.geometry
-from queryearth.objects import KINDS
 
 from vizqueryearth.shapes import Shape, from_leaflet, to_leaflet
 
@@ -30,6 +29,12 @@ __all__ = ["draw", "Drawing", "Editor"]
 _DRAWN = {"color": "#2f55c4", "weight": 2, "fillOpacity": 0.15}
 _OTHER = {"color": "#56666e", "weight": 1, "fillOpacity": 0.08, "dashArray": "4"}
 _WIDE = W.Layout(width="100%")
+_LEVELS = [
+    ("default", ""),
+    ("info", "info"),
+    ("warning", "warning"),
+    ("error", "error"),
+]
 _NUMBERED = re.compile(r"(.*?)(\d{3,4})")  # a rule code: prefix, then number
 
 
@@ -142,7 +147,7 @@ class Editor(_ShapeMap):
     """Draw the shapes of the rules in one rule file.
 
     Pick a rule in the list or click its shape, then draw, edit, drag or delete
-    shapes on the map; New rule adds one. The form holds code, kind, title and
+    shapes on the map; New rule adds one. The form holds code, level, title and
     message; everything else stays as it is in the file. Changes are kept when
     you pick another rule or save. dimensions declares the dimensions the
     rules use besides space and time, as for queryearth.Registry; the file is
@@ -249,7 +254,6 @@ class Editor(_ShapeMap):
     def add(
         self,
         code: str,
-        kind: str = "warning",
         title: str = "",
         message: str = "",
         **properties: Any,
@@ -257,7 +261,7 @@ class Editor(_ShapeMap):
         """Add a rule without a shape and select it; draw its shape next."""
         if code in self.rules:
             raise ValueError(f"{code} is already in the file")
-        props = {"code": code, "kind": kind, "title": title, "message": message}
+        props = {"code": code, "title": title, "message": message}
         feature = {"type": "Feature", "id": code, "geometry": None, "time": None}
         feature["properties"] = props | properties
         self._check(feature)
@@ -304,10 +308,13 @@ class Editor(_ShapeMap):
         old_code = props.get("code")
         props.update(
             code=self._code.value.strip(),
-            kind=self._kind.value,
             title=self._title.value,
             message=self._message.value,
         )
+        if self._level.value:
+            props["level"] = self._level.value
+        else:
+            props.pop("level", None)  # the default: WARNING, or INFO with changes
         if "id" in feature and feature["id"] == old_code:
             feature["id"] = props["code"]  # an id that named the old code follows it
         if self._shape_changed:
@@ -338,14 +345,14 @@ class Editor(_ShapeMap):
         self._picker = W.Dropdown(description="Rule", layout=_WIDE)
         self._picker.observe(self._picked, names="value")
         self._code = W.Text(description="Code", layout=_WIDE)
-        self._kind = W.Dropdown(description="Kind", options=list(KINDS), layout=_WIDE)
+        self._level = W.Dropdown(description="Level", options=_LEVELS, layout=_WIDE)
         self._title = W.Text(description="Title", layout=_WIDE)
         self._message = W.Textarea(description="Message", rows=4, layout=_WIDE)
         new, save = W.Button(description="New rule"), W.Button(description="Save")
         new.on_click(lambda _: _quietly(self.new))
         save.on_click(lambda _: _quietly(self.save))
         save.button_style = "primary"
-        fields = [self._picker, self._code, self._kind, self._title, self._message]
+        fields = [self._picker, self._code, self._level, self._title, self._message]
         return W.VBox(
             [*fields, W.HBox([new, save])],
             layout=W.Layout(width="35%", padding="0 0 0 12px"),
@@ -353,9 +360,9 @@ class Editor(_ShapeMap):
 
     def _fill(self, props: Mapping[str, Any]) -> None:
         """Show a rule's fields in the form."""
-        kind = props.get("kind")
+        level = props.get("level", "")
         self._code.value = props.get("code", "")
-        self._kind.value = kind if kind in KINDS else KINDS[0]
+        self._level.value = level if level in dict(_LEVELS).values() else ""
         self._title.value = props.get("title", "")
         self._message.value = props.get("message", "")
 

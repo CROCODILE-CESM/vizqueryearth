@@ -170,11 +170,11 @@ def test_queryearth_refuses_a_bad_rule_and_nothing_is_written(path):
     before = path.read_bytes()
     ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO001")
-    ed._kind.value = "suggestion"  # a suggestion needs suggestions
-    with pytest.raises(ValueError, match="suggestion"):
+    ed._code.value = "not a code"  # queryearth refuses the rule
+    with pytest.raises(ValueError, match="rule code"):
         ed.save()
     assert path.read_bytes() == before
-    assert "suggestion" in ed.status.value
+    assert "rule code" in ed.status.value
 
 
 def test_undeclared_names_are_found_when_saving(path):
