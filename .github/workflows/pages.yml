@@ -1,0 +1,34 @@
+name: Pages
+
+# Publishes web/ to GitHub Pages: the page at the site root and the curated
+# pages under sites/. The repository's Pages source must be "GitHub Actions"
+# (Settings > Pages), set once by hand.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:  # one deploy at a time; a newer push waits for the running one
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copy the site, following web/py's link to the Python package
+        run: cp -rL web _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4

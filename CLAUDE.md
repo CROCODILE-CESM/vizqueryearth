@@ -4,15 +4,16 @@ Guidance for Claude Code in this repository.
 
 ## What this is
 
-vizqueryearth draws the shapes of [queryearth](https://github.com/CROCODILE-CESM/queryearth) rules on a map in Jupyter: `draw()` for one shape, `Editor` for the shapes of a rule file. It is a separate package because queryearth itself must stay free of UI code.
+vizqueryearth is a browser-only web page for [queryearth](https://github.com/CROCODILE-CESM/queryearth) rule files: it shows rules on a globe, checks which apply to an area, dates and dimension values, and edits them. It is hosted on GitHub Pages: no server, no sign-in, nothing stored by us. Files are opened from disk or a link (`?src=`) and saved by download, as a rules file or as a single-file web page. It is a separate repository because queryearth itself must stay free of UI code.
 
 ## Rules
 
-- **queryearth is the only judge.** Every shape goes through `queryearth.space.polygon` or a record `box` (`queryearth.rules.box_of`), every rule through `Registry.add`, and every saved file is checked with queryearth before it replaces the old one. Never re-implement queryearth's rules here.
-- **No UI code in queryearth.** If the editor needs something from queryearth, it must be a general engine API, proposed in that repo.
-- **Small.** No JavaScript of our own: ipyleaflet and its Leaflet-Geoman control do the drawing. Prefer Leaflet over MapLibre.
-- **Saving changes only what was edited.** Other rules are written back exactly as read (`json.dumps(indent=2)`), so a file written by the editor and saved again without changes is byte-identical.
-- **Not on PyPI.** Installed from GitHub; no release workflow. It depends on `queryearth>=0.2,<0.3` from PyPI; raise the bound when queryearth's API changes.
+- **queryearth is the only judge.** Every shape goes through `queryearth.space.polygon` or a record `box` (`queryearth.rules.box_of`), every rule through `Registry.add`, and every saved file is checked with queryearth first. Never re-implement queryearth's rules here, in Python or in JavaScript.
+- **No UI code in queryearth.** If the page needs something from queryearth, it must be a general engine API, proposed in that repo.
+- **Small.** One page (`web/app.js`, `web/app.css`), no build step, no framework, no bundler. Libraries come from pinned CDN URLs. The JavaScript only draws and wires events; everything that touches a rule is Python in `vizqueryearth/`, called through `Session.call`.
+- **Browser-only.** No server, no accounts, no analytics, nothing sent anywhere. Browser storage is only a safety net for unsaved edits.
+- **Saving changes only what was edited.** Other rules are written back exactly as read (`json.dumps(indent=2)`); the file's `"dimensions"` member is always written.
+- **Not on PyPI.** The package is used by the page and in tests; no release workflow. It depends on `queryearth>=0.3,<0.4`; raise the bound, and `QUERYEARTH` in `web/app.js`, together when queryearth's API changes.
 - **Python 3.11 or later**, black, frozen dataclasses where data is passed around.
 - **Git:** never add Co-Authored-By lines; ask before committing or pushing.
 
@@ -20,10 +21,14 @@ vizqueryearth draws the shapes of [queryearth](https://github.com/CROCODILE-CESM
 
 | Path | What |
 |---|---|
-| `vizqueryearth/shapes.py` | `Shape` (a geometry or a box), `from_leaflet` (drawing layer to Shape), `to_leaflet` (Shape to map features, joining pieces split at ±180 and cutting at 85°), `arctic`, `antarctic`. Pure Python; this is where correctness lives |
-| `vizqueryearth/widgets.py` | `draw()`/`Drawing` and `Editor`, thin layers over ipyleaflet. The drawing control's synced `data` list is the only channel from the browser |
-| `tests/` | `test_shapes.py` (conversions, round trips) and `test_editor.py` (the editor driven without a browser by setting `control.data`) |
-| `examples/` | `demo.ipynb` (a walk-through) and `demo_rules.geojson` (made up) |
+| `vizqueryearth/shapes.py` | `Shape` (a geometry or a box), `from_drawn` (drawn GeoJSON to a Shape; rectangles span the short way round, points within 0.5° of a pole go to it), `fill`/`outline`/`editable`/`label_point`/`extent` (what the globe shows), `arctic`, `antarctic` |
+| `vizqueryearth/rulefile.py` | `RuleFile`: a rule file edited one rule at a time, each edit checked by queryearth; its `"dimensions"` member; `guess_dimensions` for files that declare none. Dimension descriptions use queryearth's `dimension_from`/`describe_dimension` |
+| `vizqueryearth/session.py` | `Session.call(name, json)`: the page's only link to Python. Reads what is typed on the page (axis bounds such as `<8`, change values as JSON) |
+| `web/index.html`, `web/app.js`, `web/app.css` | The page. Pinned library URLs (MapLibre GL, Terra Draw, Natural Earth land, Pyodide) and the queryearth version are at the top of `app.js` |
+| `web/py/vizqueryearth` | A symlink to `../../vizqueryearth`: the page fetches the package's Python from here. The Pages workflow copies `web/` with links followed (`cp -rL`) |
+| `web/sites/<name>/` | Curated pages, added by pull request: an `index.html` stub, `site.json`, `rules.geojson`. `demo/` is the made-up example |
+| `tests/` | `test_shapes.py`, `test_rulefile.py`, `test_session.py` (no browser); `browser/test_web.py` drives the page in headless Chromium and is skipped without Playwright |
+| `.github/workflows/` | `tests.yml` (pytest on 3.11 to 3.14, plus one browser job), `quality_control.yml` (black), `pages.yml` (deploys `web/` to GitHub Pages from main) |
 | `docs/design.md` | The design and its decisions |
 
 ## Development
@@ -32,6 +37,14 @@ vizqueryearth draws the shapes of [queryearth](https://github.com/CROCODILE-CESM
 pip install -e ".[test]"
 pytest
 black .
+python -m http.server 8000 -d web   # then http://localhost:8000/sites/demo/
 ```
 
-Widgets can only be checked by eye: run `examples/demo.ipynb` in JupyterLab or VS Code. Examples are notebooks, not `# %%` scripts. Commit them without outputs.
+The browser tests need Playwright and network access (CDNs and PyPI):
+
+```bash
+pip install playwright && python -m playwright install chromium
+pytest tests/browser
+```
+
+`window.__vizqueryearth` exposes the page state, `call`, the map and Terra Draw for these tests. Keep the browser tests to what only a browser can check; test behaviour in Python where possible. After changing `app.js`, look at a screenshot of the page, including both poles.

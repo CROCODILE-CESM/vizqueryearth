@@ -5,16 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "vizqueryearth"
 version = "0.1.0"
-description = "Draw the shapes of queryearth rules on a map in Jupyter."
+description = "Check and edit queryearth rules on a globe, in the browser."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Manish Venumuddula" }]
 requires-python = ">=3.11"
-dependencies = [
-    "queryearth>=0.2,<0.3",
-    "ipyleaflet>=0.19",
-]
+dependencies = ["queryearth>=0.3,<0.4"]
 
 [project.optional-dependencies]
 test = ["pytest"]

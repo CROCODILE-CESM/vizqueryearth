@@ -1,0 +1,6 @@
+{
+  "title": "vizqueryearth demo",
+  "description": "Made-up rules about a made-up ocean product, demo_ocean. Draw your area, pick a time and a product, and see which rules apply.",
+  "rules": "rules.geojson",
+  "view": {"center": [-150, 45], "zoom": 1.6}
+}

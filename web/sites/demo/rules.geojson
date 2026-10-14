@@ -3,6 +3,20 @@
   "conformsTo": [
     "http://www.opengis.net/spec/json-fg-1/1.0/conf/core"
   ],
+  "dimensions": [
+    {
+      "name": "product",
+      "kind": "labels"
+    },
+    {
+      "name": "variable",
+      "kind": "labels"
+    },
+    {
+      "name": "model",
+      "kind": "labels"
+    }
+  ],
   "features": [
     {
       "type": "Feature",

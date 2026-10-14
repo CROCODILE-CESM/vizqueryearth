@@ -6,3 +6,4 @@ dist/
 .pytest_cache/
 .ipynb_checkpoints/
 examples/my_rules.geojson
+_site/

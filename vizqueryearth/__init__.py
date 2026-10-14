@@ -1,19 +1,18 @@
-"""vizqueryearth: draw the shapes of queryearth rules on a map in Jupyter.
+"""vizqueryearth: check and edit queryearth rules on a globe, in the browser.
 
-draw() shows a map to draw one shape on; Editor draws and edits the shapes of
-the rules in a rule file. queryearth checks every shape and every rule.
+The web page (web/) runs this package in the browser with queryearth. The same
+package works in Python: RuleFile edits a rule file, checked by queryearth at
+every step, and the shapes module turns drawn GeoJSON into rule shapes.
 """
 
-from vizqueryearth.shapes import Shape, antarctic, arctic, from_leaflet, to_leaflet
-from vizqueryearth.widgets import Drawing, Editor, draw
+from vizqueryearth.rulefile import RuleFile, guess_dimensions
+from vizqueryearth.shapes import Shape, antarctic, arctic, from_drawn
 
 __all__ = [
-    "Drawing",
-    "Editor",
+    "RuleFile",
     "Shape",
     "antarctic",
     "arctic",
-    "draw",
-    "from_leaflet",
-    "to_leaflet",
+    "from_drawn",
+    "guess_dimensions",
 ]
