@@ -1,0 +1,136 @@
+{
+  "type": "FeatureCollection",
+  "conformsTo": [
+    "http://www.opengis.net/spec/json-fg-1/1.0/conf/core"
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "id": "DEMO001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -98.0,
+              18.0
+            ],
+            [
+              -80.0,
+              18.0
+            ],
+            [
+              -80.0,
+              31.0
+            ],
+            [
+              -90.0,
+              31.0
+            ],
+            [
+              -98.0,
+              26.0
+            ],
+            [
+              -98.0,
+              18.0
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "code": "DEMO001",
+        "kind": "warning",
+        "title": "demo_ocean is too fresh near the coast",
+        "message": "Near this coast, demo_ocean surface salinity runs low.",
+        "facets": {
+          "product": [
+            "demo_ocean"
+          ],
+          "variable": [
+            "so"
+          ]
+        },
+        "status": "draft"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "DEMO002",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "code": "DEMO002",
+        "kind": "warning",
+        "title": "demo_ocean is too warm in the Bering Sea",
+        "message": "In the Bering Sea, demo_ocean sea temperature runs about 1 K too warm.",
+        "box": {
+          "west": 165,
+          "width": 35,
+          "south": 52,
+          "north": 66
+        },
+        "facets": {
+          "product": [
+            "demo_ocean"
+          ],
+          "variable": [
+            "thetao"
+          ]
+        },
+        "status": "draft"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "DEMO003",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "code": "DEMO003",
+        "kind": "warning",
+        "title": "Arctic domain: think about sea ice",
+        "message": "Part of this domain lies north of the Arctic Circle.",
+        "box": {
+          "west": -180,
+          "width": 360,
+          "south": 66.5,
+          "north": 90
+        },
+        "facets": {
+          "model": [
+            "demo_model"
+          ]
+        },
+        "status": "draft"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "DEMO004",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1993-01-01",
+          "2003-12-31"
+        ]
+      },
+      "properties": {
+        "code": "DEMO004",
+        "kind": "warning",
+        "title": "demo_ocean salinity is poorly constrained before 2004",
+        "message": "Few salinity profiles went into demo_ocean before 2004.",
+        "facets": {
+          "product": [
+            "demo_ocean"
+          ],
+          "variable": [
+            "so"
+          ]
+        },
+        "status": "draft"
+      }
+    }
+  ]
+}
