@@ -10,13 +10,13 @@ import copy
 import json
 import logging
 import os
-import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
 import queryearth as qe
 from queryearth.dimensions import describe_dimension, dimension_from
+from queryearth.rules import split_code
 
 from vizqueryearth.shapes import Shape
 
@@ -32,8 +32,8 @@ EDITED = (
     "months",
     "dimensions",
     "changes",
+    "edge",
 )
-_NUMBERED = re.compile(r"(.*?)(\d{3,4})")  # a rule code: prefix, then number
 _RANGE_KEYS = {"gt", "ge", "lt", "le", "unit"}
 _VERSION_KEYS = {"introduced", "fixed", "last_affected", "versions"}
 
@@ -71,11 +71,20 @@ class RuleFile:
 
     Every edit is checked with queryearth before it is kept, and text() checks
     the whole file before writing it. Rules you do not edit are written back as
-    they were read. dimensions declares the dimensions the rules use besides
-    space and time, as queryearth Dimension objects or in the form of a rule
-    file's "dimensions" member ({"name": "resolution", "kind": "axis", "unit":
-    "km"}); without it, the file's own "dimensions" member declares them. The
-    file is written with that member, so it says which dimensions its rules use.
+    they were read.
+
+    dimensions declares the dimensions the rules use besides space and time, as
+    queryearth Dimension objects or in the form of a rule file's "dimensions"
+    member ({"name": "resolution", "kind": "axis", "unit": "km"}); groups
+    declares the code groups, prefix to title ({"ITF": "Indonesian
+    Throughflow"}), as for queryearth.Registry. Without them, the file's own
+    "dimensions" and "groups" members declare them. Once there are groups, every
+    rule's prefix must be one.
+
+    The file is written as queryearth writes one: a "queryearth" member naming
+    the release whose file format it uses (queryearth.FORMAT), its "groups" when
+    there are any, and its "dimensions". A file that needs a later queryearth
+    than this one is refused with queryearth.LoadError.
     """
 
     def __init__(
@@ -83,6 +92,7 @@ class RuleFile:
         collection: Mapping[str, Any] | None = None,
         *,
         dimensions: Iterable[qe.Dimension | Mapping[str, Any]] | None = None,
+        groups: Mapping[str, str] | None = None,
     ) -> None:
         collection = collection or {"type": "FeatureCollection", "features": []}
         if (
@@ -90,11 +100,16 @@ class RuleFile:
             or collection.get("type") != "FeatureCollection"
         ):
             raise ValueError("a rule file is a GeoJSON FeatureCollection")
+        if "queryearth" in collection:  # queryearth says whether it can read it
+            empty = {"type": "FeatureCollection", "features": []}
+            qe.Registry().add(empty | {"queryearth": collection["queryearth"]})
         self.collection = copy.deepcopy(dict(collection))
         self.collection.setdefault("features", [])
         if dimensions is None:
             dimensions = self.collection.get("dimensions") or []
-        self.set_dimensions(dimensions)
+        if groups is None:
+            groups = self.collection.get("groups") or {}
+        self._declare(dimensions, groups)
 
     @classmethod
     def from_text(cls, text: str, **kwargs: Any) -> RuleFile:
@@ -129,9 +144,40 @@ class RuleFile:
 
     def registry(self) -> qe.Registry:
         """A Registry holding every rule; raises queryearth.LoadError on problems."""
-        registry = qe.Registry("vizqueryearth", dimensions=self.dimensions)
+        registry = self._registry()
         registry.add(self.collection)
         return registry
+
+    def group(self, index: int) -> str | None:
+        """A rule's group, the prefix of its code (ITF for ITF001), or None when
+        queryearth cannot read its code."""
+        try:
+            return split_code(self.codes[index])[0]
+        except ERRORS:
+            return None
+
+    def prefixes(self) -> list[str]:
+        """The prefixes the rules' codes use, in the order they first appear."""
+        found = (self.group(i) for i in range(len(self.features)))
+        return list(dict.fromkeys(p for p in found if p is not None))
+
+    def order(self) -> list[int]:
+        """The positions of the rules, sorted by code: by group, in the order the
+        groups are declared, then prefixes that are not groups, alphabetically,
+        then by number. Codes queryearth cannot read come last."""
+        declared = {prefix: n for n, prefix in enumerate(self.groups)}
+
+        def key(index: int) -> tuple[int, int, str, int]:
+            code = self.codes[index]
+            try:
+                prefix, number = split_code(code)
+            except ERRORS:
+                return (2, 0, str(code), 0)
+            if prefix in declared:
+                return (0, declared[prefix], "", number)
+            return (1, 0, prefix, number)
+
+        return sorted(range(len(self.features)), key=key)
 
     def problems(self) -> list[str]:
         """What queryearth refuses in the file as it stands."""
@@ -177,7 +223,7 @@ class RuleFile:
     def accepted(self) -> qe.Registry:
         """A Registry holding the rules queryearth accepts; the rules it refuses
         (see problems()) are left out."""
-        registry = qe.Registry("vizqueryearth", dimensions=self.dimensions)
+        registry = self._registry()
         for feature in self.features:
             try:
                 registry.add(feature)
@@ -196,22 +242,29 @@ class RuleFile:
         """Declare the dimensions the rules use, as Dimension objects or in the
         form of the file's "dimensions" member, which follows. Rules that use a
         name no longer declared become problems()."""
-        if isinstance(dimensions, (str, Mapping)) or not isinstance(
-            dimensions, Iterable
-        ):
-            raise ValueError(f"dimensions are a list, not {dimensions!r}")
-        dimensions = tuple(
-            d if isinstance(d, qe.Dimension) else dimension_from(d) for d in dimensions
-        )
-        qe.Registry("vizqueryearth", dimensions=dimensions)  # checks the names
-        self.dimensions = dimensions
-        described = [describe_dimension(d) for d in dimensions]
-        if "dimensions" in self.collection:
-            self.collection["dimensions"] = described
-        else:  # before the features, where a reader sees it first
-            features = self.collection.pop("features")
-            self.collection["dimensions"] = described
-            self.collection["features"] = features
+        self._declare(dimensions, self.groups)
+
+    def set_groups(self, groups: Mapping[str, str]) -> None:
+        """Declare the code groups, prefix to title, in order; the file's "groups"
+        member follows. Every rule's prefix must stay a group: a group that rules
+        use cannot be removed, and the first groups of a file with rules must
+        take in every prefix the rules use."""
+        if not isinstance(groups, Mapping):
+            raise ValueError(f"groups map each prefix to a title, not {groups!r}")
+        used = self.prefixes()
+        gone = [p for p in self.groups if p not in groups and p in used]
+        if gone:
+            raise ValueError(
+                f"rules still use {', '.join(gone)}: change their codes or delete "
+                "them first"
+            )
+        missing = [p for p in used if p not in groups] if groups else []
+        if missing:
+            raise ValueError(
+                "once there are groups, every rule's prefix must be one: add "
+                f"{', '.join(missing)} too"
+            )
+        self._declare(self.dimensions, groups)
 
     def add(
         self, code: str, title: str = "", message: str = "", **properties: Any
@@ -223,9 +276,15 @@ class RuleFile:
         self._keep(len(self.features), feature)
         return len(self.features) - 1
 
-    def new(self) -> int:
-        """Add a rule with the next free code, such as DEMO005 after DEMO004."""
-        code = _next_code(self.codes)
+    def new(self, prefix: str | None = None) -> int:
+        """Add a rule with the code queryearth gives next in a group, such as
+        ITF009 after ITF008; returns its position. Without a prefix, the first
+        group's, or in a file without groups the prefix of the last rule's code,
+        or RULE in an empty file."""
+        if prefix is None:
+            last = [p for p in map(self.group, range(len(self.features))) if p]
+            prefix = next(iter(self.groups), None) or (last[-1] if last else "RULE")
+        code = self._numbering().next_code(prefix)
         return self.add(code, title="New rule", message="Say what this rule is about.")
 
     def update(self, index: int, **fields: Any) -> None:
@@ -243,6 +302,8 @@ class RuleFile:
           {"product": ["era5"], "resolution": {"lt": 10}}; a value of None, ""
           or [] removes that name. Names not given are kept.
         - changes: a list of {target, key, value, rationale}; empty for none.
+        - edge: True for a rule that applies where a domain's edge meets its
+          shape, rather than wherever they overlap.
         """
         unknown = set(fields) - set(EDITED)
         if unknown:
@@ -279,6 +340,10 @@ class RuleFile:
             _put(props, "dimensions", given or None)
         if "changes" in fields:
             _put(props, "changes", [dict(c) for c in fields["changes"] or []] or None)
+        if "edge" in fields:
+            if not isinstance(fields["edge"], bool):
+                raise ValueError(f"edge is true or false, not {fields['edge']!r}")
+            _put(props, "edge", True if fields["edge"] else None)
         if feature.get("id") == old_code:
             feature["id"] = props["code"]  # an id that named the old code follows it
         self._keep(index, feature)
@@ -297,8 +362,59 @@ class RuleFile:
     def delete(self, index: int) -> None:
         del self.features[index]
 
+    def _registry(self) -> qe.Registry:
+        return qe.Registry(
+            "vizqueryearth", dimensions=self.dimensions, groups=self.groups
+        )
+
+    def _numbering(self) -> qe.Registry:
+        """A Registry holding a stand-in for every rule whose code queryearth
+        reads, refused rules too, to ask queryearth for the next code."""
+        registry = qe.Registry("vizqueryearth", groups=self.groups)
+        for code in self.codes:
+            stand_in = {"code": code, "title": code, "message": code}
+            try:
+                registry.add(
+                    {"type": "Feature", "geometry": None, "properties": stand_in}
+                )
+            except ERRORS:
+                pass
+        return registry
+
+    def _declare(
+        self,
+        dimensions: Iterable[qe.Dimension | Mapping[str, Any]],
+        groups: Mapping[str, str],
+    ) -> None:
+        """Check dimensions and groups with queryearth, keep them, and write them
+        into the file, with the "queryearth" member, before the features."""
+        if isinstance(dimensions, (str, Mapping)) or not isinstance(
+            dimensions, Iterable
+        ):
+            raise ValueError(f"dimensions are a list, not {dimensions!r}")
+        if not isinstance(groups, Mapping):
+            raise ValueError(f"groups map each prefix to a title, not {groups!r}")
+        dimensions = tuple(
+            d if isinstance(d, qe.Dimension) else dimension_from(d) for d in dimensions
+        )
+        groups = dict(groups)
+        qe.Registry("vizqueryearth", dimensions=dimensions, groups=groups)  # checks
+        self.dimensions, self.groups = dimensions, groups
+        written = {"queryearth": qe.FORMAT}
+        if groups:
+            written["groups"] = dict(groups)
+        written["dimensions"] = [describe_dimension(d) for d in dimensions]
+        before, after, features = {}, {}, None
+        for key, value in self.collection.items():  # other members stay put
+            if key == "features":
+                features = value
+            elif key not in ("type", "queryearth", "groups", "dimensions"):
+                (before if features is None else after)[key] = value
+        self.collection = {"type": self.collection["type"]} | before | written
+        self.collection |= {"features": features} | after
+
     def _check(self, feature: Mapping[str, Any]) -> None:
-        qe.Registry("vizqueryearth", dimensions=self.dimensions).add(feature)
+        self._registry().add(feature)
 
     def _keep(self, index: int, feature: dict[str, Any]) -> None:
         """Check one rule with queryearth and store it at index (appending at the end)."""
@@ -318,15 +434,3 @@ def _put(props: dict[str, Any], name: str, value: Any) -> None:
         props.pop(name, None)
     else:
         props[name] = value
-
-
-def _next_code(codes: list[str]) -> str:
-    """The code after the last numbered one: DEMO005 after DEMO004, ERA5-015 after
-    ERA5-014; RULE001 in an empty file."""
-    numbered = [m for c in codes if (m := _NUMBERED.fullmatch(c))]
-    if not numbered:
-        return "RULE001"
-    prefix = numbered[-1].group(1)
-    same = [m for m in numbered if m.group(1) == prefix]
-    width = len(same[-1].group(2))
-    return f"{prefix}{max(int(m.group(2)) for m in same) + 1:0{width}d}"

@@ -14,6 +14,7 @@ LABELS = [
     {"name": "model", "kind": "labels"},
 ]
 RESOLUTION = {"name": "resolution", "kind": "axis", "unit": "km"}
+CODES = ["OCN001", "OCN002", "ICE001", "OCN003", "OBC001"]  # in file order
 BERING = [[172, 56], [172, 63], [-168, 63], [-168, 56], [172, 56]]  # across 180
 
 
@@ -75,8 +76,7 @@ def test_open_reads_the_files_own_dimensions():
     assert state["name"] == "demo.geojson"
     assert state["dimensions"] == LABELS
     assert state["problems"] == []
-    codes = [r["code"] for r in state["rules"]]
-    assert codes == ["DEMO001", "DEMO002", "DEMO003", "DEMO004"]
+    assert [r["code"] for r in state["rules"]] == CODES
     # the file's own declaration wins over the page's
     state = ok(Session(), "open", text=DEMO.read_text(), dimensions=[RESOLUTION])
     assert state["dimensions"] == LABELS
@@ -86,7 +86,7 @@ def test_open_takes_the_pages_dimensions_or_guesses_them():
     axis = {"name": "model", "kind": "axis", "unit": "km"}
     state = ok(Session(), "open", text=undeclared(), dimensions=LABELS[:2] + [axis])
     assert state["dimensions"] == LABELS[:2] + [axis]
-    assert any("DEMO003" in p for p in state["problems"])  # model is not an axis
+    assert any("ICE001" in p for p in state["problems"])  # model is not an axis
     assert state["rules"][2]["problem"] and state["rules"][0]["problem"] is None
     assert ok(Session(), "open", text=undeclared())["dimensions"] == LABELS
 
@@ -99,6 +99,16 @@ def test_open_refuses_what_is_not_a_rule_file():
     assert "axis, labels or versions" in out["error"]
 
 
+def test_a_file_for_a_later_queryearth_leaves_the_open_file():
+    session = opened(name="demo.geojson")
+    later = json.loads(DEMO.read_text()) | {"queryearth": "0.5"}
+    out = call(session, "open", text=json.dumps(later), name="later.geojson")
+    assert out["error"].startswith("this file needs queryearth 0.5 or later; this is")
+    assert out["error"].endswith("which reads files up to 0.4")
+    state = ok(session, "state")
+    assert state["name"] == "demo.geojson" and len(state["rules"]) == 5
+
+
 # ---- the state ------------------------------------------------------------------
 def test_the_state_has_what_the_page_shows():
     state = ok(opened(), "state")
@@ -107,8 +117,25 @@ def test_the_state_has_what_the_page_shows():
         "variable": ["so", "thetao"],
         "model": ["demo_model"],
     }
-    assert state["extent"] == [165, 18, 280, 90]  # the Arctic cap counts for latitude
-    gulf, bering, arctic, early = state["rules"]
+    assert state["extent"] == [128, 18, 280, 90]  # the Arctic cap counts for latitude
+    assert [state["rules"][i]["code"] for i in state["order"]] == [
+        "OCN001",
+        "OCN002",
+        "OCN003",
+        "ICE001",
+        "OBC001",
+    ]
+    assert state["groups"] == [
+        {"prefix": "OCN", "title": "demo_ocean, the product", "rules": 3},
+        {"prefix": "ICE", "title": "Sea ice", "rules": 1},
+        {"prefix": "OBC", "title": "Open boundaries", "rules": 1},
+    ]
+    assert state["filters"] == [
+        {"prefix": g["prefix"], "title": g["title"]} for g in state["groups"]
+    ]
+    gulf, bering, arctic, early, edge = state["rules"]
+    assert (gulf["group"], gulf["edge"]) == ("OCN", False)
+    assert (edge["group"], edge["edge"]) == ("OBC", True)
     assert gulf["index"] == 0 and gulf["level"] == "warning"
     assert gulf["declared_level"] == ""
     assert gulf["fill"]["type"] == "Polygon" and gulf["outline"]["type"] == "LineString"
@@ -155,15 +182,63 @@ def test_other_forms_of_time_are_shown_as_kept():
 def test_new_update_and_delete():
     session = opened()
     out = ok(session, "new")
-    assert out["index"] == 4 and out["state"]["rules"][4]["code"] == "DEMO005"
-    state = ok(session, "update", index=4, fields={"title": "Mine", "level": "error"})
-    assert (state["rules"][4]["title"], state["rules"][4]["level"]) == ("Mine", "error")
-    assert call(session, "update", index=4, fields={"code": "DEMO001"}) == {
-        "error": "DEMO001 is already in the file"
+    assert out["index"] == 5 and out["state"]["rules"][5]["code"] == "OCN004"
+    state = ok(session, "update", index=5, fields={"title": "Mine", "level": "error"})
+    assert (state["rules"][5]["title"], state["rules"][5]["level"]) == ("Mine", "error")
+    assert call(session, "update", index=5, fields={"code": "OCN001"}) == {
+        "error": "OCN001 is already in the file"
     }
     state = ok(session, "delete", index=0)
     codes = [r["code"] for r in state["rules"]]
-    assert codes == ["DEMO002", "DEMO003", "DEMO004", "DEMO005"]
+    assert codes == CODES[1:] + ["OCN004"]
+
+
+def test_a_new_rule_takes_the_next_code_in_its_group():
+    session = opened()
+    out = ok(session, "new", prefix="OBC")
+    assert out["state"]["rules"][out["index"]]["code"] == "OBC002"
+    assert "undeclared group" in call(session, "new", prefix="XYZ")["error"]
+    bare = opened(collection(rule("ZED007"), rule("ABC001")))
+    out = ok(bare, "new")  # no groups: the prefix of the last code
+    assert out["state"]["rules"][out["index"]]["code"] == "ABC002"
+    assert ok(bare, "state")["filters"] == [
+        {"prefix": "ABC", "title": ""},
+        {"prefix": "ZED", "title": ""},
+    ]
+
+
+def test_groups_are_declared_as_a_list():
+    session = opened()
+    groups = ok(session, "state")["groups"]
+    listed = [{"prefix": g["prefix"], "title": g["title"]} for g in groups]
+    state = ok(
+        session, "groups", groups=listed + [{"prefix": "GRID", "title": "Grids"}]
+    )
+    assert [g["prefix"] for g in state["groups"]] == ["OCN", "ICE", "OBC", "GRID"]
+    assert json.loads(ok(session, "text"))["groups"]["GRID"] == "Grids"
+    renamed = [g | {"title": "Ice"} if g["prefix"] == "ICE" else g for g in listed]
+    state = ok(session, "groups", groups=renamed)  # and GRID removed
+    assert [g["title"] for g in state["groups"]][1] == "Ice"
+    assert "rules still use OBC" in call(session, "groups", groups=listed[:2])["error"]
+    out = call(session, "groups", groups=listed + [{"prefix": "x", "title": "X"}])
+    assert "not a code prefix" in out["error"]
+    out = call(session, "groups", groups=listed + [listed[0]])
+    assert "one group" in out["error"]
+    bare = opened(collection(rule("OBC001"), rule("ITF001")))
+    out = call(bare, "groups", groups=[{"prefix": "OBC", "title": "Open boundaries"}])
+    assert "add ITF too" in out["error"]
+
+
+def test_the_edge_box_is_ticked_and_some_rules_have_an_extent():
+    session = opened()
+    state = ok(session, "update", index=0, fields={"edge": True})
+    assert state["rules"][0]["edge"] and session.file.features[0]["properties"]["edge"]
+    assert (
+        "needs a space"
+        in call(session, "update", index=3, fields={"edge": True})["error"]
+    )
+    assert ok(session, "extent", indexes=[1, 4]) == [128, 28, 200, 66]
+    assert ok(session, "extent", indexes=[3]) is None
 
 
 def test_time_and_months_are_edited():
@@ -348,17 +423,17 @@ def test_a_query_with_an_area_dates_and_labels():
     values = {"product": "demo_ocean", "variable": "thetao"}
     out = ok(session, "query", **winter, values=values)
     (finding,) = out["findings"]
-    assert finding["code"] == "DEMO002" and finding["level"] == "warning"
+    assert finding["code"] == "OCN002" and finding["level"] == "warning"
     assert finding["area_fraction"] == 1.0 and finding["conditional_on"] == []
-    assert "DEMO002" in out["report"]
+    assert "OCN002" in out["report"]
     values = {"product": "demo_ocean", "variable": ""}
     out = ok(session, "query", **winter, values=values, include_conditional=True)
     found = {f["code"]: f["conditional_on"] for f in out["findings"]}
-    assert found["DEMO004"] == ["variable"]
+    assert found["OCN003"] == ["variable"]
     later = {"start": "2001-01-01", "end": "2001-12-31"}  # no area: anywhere
     values = {"product": "other, demo_ocean", "variable": "so"}
     out = ok(session, "query", **later, values=values)
-    assert [f["code"] for f in out["findings"]] == ["DEMO004"]
+    assert [f["code"] for f in out["findings"]] == ["OCN003"]
 
 
 def test_axis_query_values_are_a_number_or_a_range():

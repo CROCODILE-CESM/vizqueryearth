@@ -18,7 +18,11 @@ A page where anyone can see queryearth rules on a globe, check which of them app
 
 **Self-hosting.** "Download as web page" gives one `index.html` that embeds the settings and the rules and loads `app.js` and `app.css` from wherever the app is hosted. It can go on any static host, or be opened from disk, with nothing of ours involved beyond the app's files.
 
-**Files describe themselves.** A rules file declares its dimensions in a top-level `"dimensions"` member, the form queryearth 0.3 reads (`Registry.from_file`). The page always writes it. When opening, the file's member wins, then the site's `dimensions`, then a guess from the rules.
+**Files describe themselves.** A rules file is written as queryearth 0.4 writes one (`Registry.to_file`): a `"queryearth"` member naming the release whose file format it uses, its `"groups"` and its `"dimensions"`, before the features. The page always writes them; the features keep their order and the rules not edited are written back as read. When opening, the file's dimensions win, then the site's `dimensions`, then a guess from the rules. A file that needs a later queryearth is refused with queryearth's own message, and the open file stays as it was.
+
+**Groups.** A code's prefix is its group (queryearth 0.4), and a file can give each group a title. The list is sorted by group, in the file's order, then by number, and filtered by text or by group; each viewer's filter is kept in browser storage. New codes come from queryearth's `next_code`, so a number is never given twice. Once a file has groups, queryearth refuses a rule whose prefix is not one, so the page refuses group edits that would leave rules out (removing a group in use, or a first group that leaves other prefixes out) and offers to make a group for each prefix in use instead.
+
+**Edge rules.** A rule can apply where a domain's edge crosses its area rather than wherever they overlap (queryearth's `edge`). On the globe an edge rule has a dashed outline and a lighter fill, since it is about a line through the area, not the area.
 
 **One view.** Checking an area and editing rules are on one panel: selecting a rule, from the list, its label or its shape, opens its form in place. There are no modes and no browser dialogs: `prompt()` and `confirm()` return nothing in some embedded browsers, so titles, links and deletion use fields and a second click.
 

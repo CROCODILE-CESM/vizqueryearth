@@ -3,6 +3,12 @@
   "conformsTo": [
     "http://www.opengis.net/spec/json-fg-1/1.0/conf/core"
   ],
+  "queryearth": "0.4",
+  "groups": {
+    "OCN": "demo_ocean, the product",
+    "ICE": "Sea ice",
+    "OBC": "Open boundaries"
+  },
   "dimensions": [
     {
       "name": "product",
@@ -20,7 +26,7 @@
   "features": [
     {
       "type": "Feature",
-      "id": "DEMO001",
+      "id": "OCN001",
       "geometry": {
         "type": "Polygon",
         "coordinates": [
@@ -54,7 +60,7 @@
       },
       "time": null,
       "properties": {
-        "code": "DEMO001",
+        "code": "OCN001",
         "title": "demo_ocean is too fresh near the coast",
         "message": "Near this coast, demo_ocean surface salinity runs low.",
         "status": "draft",
@@ -70,11 +76,11 @@
     },
     {
       "type": "Feature",
-      "id": "DEMO002",
+      "id": "OCN002",
       "geometry": null,
       "time": null,
       "properties": {
-        "code": "DEMO002",
+        "code": "OCN002",
         "title": "demo_ocean is too warm in the Bering Sea",
         "message": "In the Bering Sea, demo_ocean sea temperature runs about 1 K too warm.",
         "box": {
@@ -96,11 +102,11 @@
     },
     {
       "type": "Feature",
-      "id": "DEMO003",
+      "id": "ICE001",
       "geometry": null,
       "time": null,
       "properties": {
-        "code": "DEMO003",
+        "code": "ICE001",
         "title": "Arctic domain: think about sea ice",
         "message": "Part of this domain lies north of the Arctic Circle.",
         "box": {
@@ -119,7 +125,7 @@
     },
     {
       "type": "Feature",
-      "id": "DEMO004",
+      "id": "OCN003",
       "geometry": null,
       "time": {
         "interval": [
@@ -128,7 +134,7 @@
         ]
       },
       "properties": {
-        "code": "DEMO004",
+        "code": "OCN003",
         "title": "demo_ocean salinity is poorly constrained before 2004",
         "message": "Few salinity profiles went into demo_ocean before 2004.",
         "status": "draft",
@@ -140,6 +146,25 @@
             "so"
           ]
         }
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "OBC001",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "code": "OBC001",
+        "title": "A domain's edge here crosses a strong current",
+        "message": "Where a domain's edge crosses this box, its open boundary cuts across a strong (made-up) current: move the edge, or give the boundary a wide sponge.",
+        "box": {
+          "west": 128,
+          "width": 22,
+          "south": 28,
+          "north": 40
+        },
+        "edge": true,
+        "status": "draft"
       }
     }
   ]

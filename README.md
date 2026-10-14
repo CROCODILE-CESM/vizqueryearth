@@ -13,20 +13,26 @@ The first visit downloads about 20 MB (Python and queryearth, see [How it works]
 
 ## Using the page
 
-The globe is on the left and the panel on the right. The panel has four parts.
+The globe is on the left and the panel on the right. The panel has five parts.
 
 **Check your area.** Draw a rectangle or a polygon where you work, or leave it empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. "No rule applies" means only that no rule matched, not that all is well. Tick **Also list rules that need more information** to see the rules that would apply if they knew more, such as a variable you left empty. Click a result to select that rule below.
 
-**Rules.** Click a rule in the list, its label or its shape on the globe to select it; the globe turns to it, and its form opens in the list:
+**Rules.** The list is sorted by code: by group, in the order the file gives its groups, then by number. Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`), or pick a group with its button; the globe then shows only those rules, and turns to the group. The page remembers your filter in this browser.
+
+Click a rule in the list, its label or its shape on the globe to select it; the globe turns to it, and its form opens in the list:
 
 - code, level, title and message;
-- **Where:** draw a rectangle or a polygon, move the corners of the current shape, remove it (the rule then applies anywhere), or give it an Arctic or Antarctic cap from a latitude;
+- **Where:** draw a rectangle or a polygon, move the corners of the current shape, remove it (the rule then applies anywhere), or give it an Arctic or Antarctic cap from a latitude. Tick **Applies where a domain's edge crosses this area** for an edge rule: it applies where the edge of the area you check crosses its shape, not wherever they overlap, for advice about where to put a domain's open boundaries. Edge rules have a dashed outline and a lighter fill on the globe, and an "edge" tag in the lists;
 - **When:** from and to dates, and the months of every year it applies;
 - **What it applies to:** one field per dimension (see the table below);
 - **Changes:** what to change when the rule applies, as rows of target, key, value and an optional reason. The value is JSON, such as `900`, `true` or `"CICE"`; plain text is taken as text. A rule with changes is info by default, one without is a warning;
 - **Delete**, which asks you to click a second time.
 
+**New rule** adds a rule with the next code in the group picked beside it, such as `OBC010` after `OBC009`; numbers are never given twice. In a file without groups it continues the last rule's prefix.
+
 Every edit is checked by queryearth before it is kept. If queryearth refuses one, the field keeps what you typed, marked in red, and the line at the bottom of the page says why.
+
+**Groups.** A rule's group is the prefix of its code: `OBC` for `OBC001`. Each group has a title, which you can edit here; add a group, or remove one that no rule uses. Once a file has groups, every rule's prefix must be one of them, so a file whose rules have no groups yet gets them all at once, with **Make a group for each prefix**, one per prefix in use; then give them titles.
 
 **Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers with a unit, such as a resolution in km; versions are such as `4.07` or `ERA5T`. Add or remove them here; the rules file keeps the list.
 
@@ -46,11 +52,16 @@ Anything else queryearth reads, such as a list of ranges `[{"lt": 5}, {"gt": 50}
 
 A rules file is a GeoJSON FeatureCollection of queryearth records; see [Writing rules](https://crocodile-cesm.github.io/queryearth/) in the queryearth docs. Open one with **Open file** or **Open link**, or give its address in the page's own: `?src=<link>`.
 
-A rules file can say which dimensions its rules use, in a `dimensions` member next to `features`:
+A rules file says, next to its `features`, which queryearth file format it uses, its groups and the dimensions its rules use:
 
 ```json
 {
   "type": "FeatureCollection",
+  "queryearth": "0.4",
+  "groups": {
+    "OBC": "Open boundaries",
+    "ITF": "Coral Triangle and the Indonesian Throughflow"
+  },
   "dimensions": [
     {"name": "product", "kind": "labels"},
     {"name": "resolution", "kind": "axis", "unit": "km"}
@@ -59,7 +70,7 @@ A rules file can say which dimensions its rules use, in a `dimensions` member ne
 }
 ```
 
-queryearth 0.3 reads it too (`queryearth.Registry.from_file`). Files the page saves always have it. For a file without it, the page uses the dimensions its site declares, or else guesses them from the rules.
+This is how queryearth 0.4 writes and reads rule files (`Registry.to_file`, `Registry.from_file`), and the page always writes these members; `groups` only when there are some. All of them are optional when you open a file. Without `dimensions`, the page uses the dimensions its site declares, or else guesses them from the rules. A file that needs a later queryearth than the page's is not opened, and the line at the bottom of the page says which release it needs.
 
 Rules you do not edit are written back as they were read.
 
@@ -73,7 +84,7 @@ https://crocodile-cesm.github.io/vizqueryearth/?src=https://raw.githubuserconten
 
 The file's host must allow cross-origin reads, as raw files on GitHub and gists do. Many other hosts do not; the page then says it could not open the link.
 
-**Your own page.** **Download as web page** gives an `index.html` that holds the rules, the title you give it and the view of the globe you see. It loads the app itself from GitHub Pages, so it is one small file you can host anywhere:
+**Your own page.** **Download as web page** gives an `index.html` that holds the rules file, with its groups and dimensions, the title you give it and the view of the globe you see. It loads the app itself from GitHub Pages, so it is one small file you can host anywhere:
 
 - GitHub Pages: make a repository, add `index.html`, then in Settings → Pages choose "Deploy from a branch", `main` and `/ (root)`. The page appears at `https://<you>.github.io/<repository>/` after a minute.
 - Netlify Drop: drag a folder holding `index.html` onto https://app.netlify.com/drop.
@@ -118,14 +129,14 @@ The page's Python is a small package you can use in scripts. It is not on PyPI:
 pip install git+https://github.com/CROCODILE-CESM/vizqueryearth
 ```
 
-It needs Python 3.11 or later and `queryearth>=0.3,<0.4`.
+It needs Python 3.11 or later and `queryearth>=0.4,<0.5`.
 
 ```python
 import queryearth as qe
 from vizqueryearth import RuleFile, arctic
 
-rules = RuleFile.read("rules.geojson")  # its "dimensions" member declares the dimensions
-i = rules.new()  # the next free code, such as DEMO005
+rules = RuleFile.read("rules.geojson")  # with the groups and dimensions it declares
+i = rules.new("ICE")  # the next code in the group, such as ICE002
 rules.update(
     i,
     title="Sea ice",
@@ -144,7 +155,7 @@ findings = rules.query(
 print(qe.report(findings))
 ```
 
-`RuleFile` checks every edit with queryearth and refuses what queryearth would refuse; `problems()` lists what queryearth refuses in the file as it stands. `vizqueryearth.shapes` turns drawn GeoJSON into rule shapes (`from_drawn`).
+`RuleFile` checks every edit with queryearth and refuses what queryearth would refuse; `problems()` lists what queryearth refuses in the file as it stands. `set_groups()` and `set_dimensions()` declare groups and dimensions, `order()` gives the rules sorted by code, and `update(i, edge=True)` makes an edge rule. `vizqueryearth.shapes` turns drawn GeoJSON into rule shapes (`from_drawn`).
 
 ## Local development
 

@@ -2,8 +2,8 @@
 
 The page runs this module in the browser through Pyodide and calls
 Session.call(name, arguments) for everything that needs queryearth: opening a
-file, editing a rule, giving it a drawn shape, declaring dimensions, writing
-the file and answering queries. Every call returns JSON text: {"ok": result}
+file, editing a rule, giving it a drawn shape, declaring dimensions and groups,
+writing the file and answering queries. Every call returns JSON text: {"ok": result}
 or {"error": message}. Values typed on the page, such as "<8" for an axis or
 "900" for a change, are read here, so the page itself never interprets them.
 """
@@ -57,7 +57,9 @@ class Session:
     ) -> dict[str, Any]:
         """Read a rule file. The file's own "dimensions" member declares its
         dimensions; without one, dimensions is the page's description of them,
-        or None to guess them from the rules."""
+        or None to guess them from the rules. A file this queryearth cannot
+        read, such as one that needs a later release, leaves the open file as
+        it was."""
         collection = json.loads(text)
         if not isinstance(collection, Mapping):
             raise ValueError("a rule file is a GeoJSON FeatureCollection")
@@ -66,19 +68,39 @@ class Session:
             spec = (
                 dimensions if dimensions is not None else guess_dimensions(collection)
             )
-        self.file = RuleFile(collection, dimensions=spec)
+        try:
+            self.file = RuleFile(collection, dimensions=spec)
+        except qe.LoadError as err:  # queryearth names the file "collection"
+            raise qe.LoadError(
+                [p.removeprefix("collection: ") for p in err.problems]
+            ) from None
         self.name = name
         return self.do_state()
 
     def do_state(self) -> dict[str, Any]:
         """Everything the page shows: the rules, their shapes and any problems."""
         found = [self.file.shape(i) for i in range(len(self.file.features))]
+        groups = [self.file.group(i) for i in range(len(found))]
+        others = sorted(set(self.file.prefixes()) - set(self.file.groups))
         return {
             "name": self.name,
             "dimensions": [describe_dimension(d) for d in self.file.dimensions],
+            "groups": [
+                {"prefix": prefix, "title": title, "rules": groups.count(prefix)}
+                for prefix, title in self.file.groups.items()
+            ],
+            # what the rules can be filtered by: the groups, then any other
+            # prefixes the codes use
+            "filters": [
+                {"prefix": prefix, "title": title}
+                for prefix, title in self.file.groups.items()
+            ]
+            + [{"prefix": prefix, "title": ""} for prefix in others],
+            "prefixes": self.file.prefixes(),
             "values": self._values(),
             "problems": self.file.problems(),
             "extent": shapes.extent(s for s in found if s is not None),
+            "order": self.file.order(),
             "rules": [self._rule(i, shape) for i, shape in enumerate(found)],
         }
 
@@ -107,6 +129,19 @@ class Session:
         self.file.set_dimensions(dimensions)
         return self.do_state()
 
+    def do_groups(self, groups: list[Mapping[str, str]]) -> dict[str, Any]:
+        """Declare the code groups, as [{prefix, title}] in order."""
+        declared = {g["prefix"]: g["title"].strip() for g in groups}
+        if len(declared) != len(groups):
+            raise ValueError("each prefix is one group")
+        self.file.set_groups(declared)
+        return self.do_state()
+
+    def do_extent(self, indexes: list[int]) -> list[float] | None:
+        """The extent of some rules' shapes, as the globe turns to them."""
+        found = (self.file.shape(i) for i in indexes)
+        return shapes.extent(s for s in found if s is not None)
+
     def do_draw(self, index: int, features: list[dict[str, Any]]) -> dict[str, Any]:
         """Give a rule the shape drawn on the globe."""
         self.file.set_shape(index, shapes.from_drawn(features))
@@ -122,8 +157,9 @@ class Session:
         self.file.set_shape(index, None)
         return self.do_state()
 
-    def do_new(self) -> dict[str, Any]:
-        index = self.file.new()
+    def do_new(self, prefix: str | None = None) -> dict[str, Any]:
+        """Add a rule with the next code in a group (see RuleFile.new)."""
+        index = self.file.new(prefix or None)
         return {"state": self.do_state(), "index": index}
 
     def do_delete(self, index: int) -> dict[str, Any]:
@@ -199,6 +235,8 @@ class Session:
             "message": props.get("message", ""),
             "level": self.file.level(index),
             "declared_level": props.get("level") or "",
+            "group": self.file.group(index) or "",
+            "edge": props.get("edge") is True,
             "time": _time(feature),
             "dimensions": dims,
             "changes": [

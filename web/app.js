@@ -17,7 +17,7 @@ const LIBS = {
   land: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@v5.1.2/geojson/ne_50m_land.geojson",
   pyodide: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js",
 };
-const QUERYEARTH = "queryearth==0.3.0";
+const QUERYEARTH = "queryearth==0.4.0"; // a requirement or a wheel URL, for micropip
 const PY_FILES = ["__init__.py", "shapes.py", "rulefile.py", "session.py"];
 const LEVEL_COLOR = { error: "#c62828", warning: "#e08a00", info: "#1e6fd9" };
 const LEVELS = [
@@ -104,28 +104,33 @@ function collection(features) {
   return { type: "FeatureCollection", features };
 }
 
-const store = {
-  // Unsaved edits are kept in this browser, in case the tab is closed. Browser
-  // storage can be missing or blocked, so every use is allowed to fail.
-  key: () => `vizqueryearth:draft:${location.pathname}${location.search}`,
-  get() {
-    try {
-      return JSON.parse(localStorage.getItem(this.key()));
-    } catch {
-      return null;
-    }
-  },
-  set(value) {
-    try {
-      localStorage.setItem(this.key(), JSON.stringify(value));
-    } catch {}
-  },
-  clear() {
-    try {
-      localStorage.removeItem(this.key());
-    } catch {}
-  },
-};
+// Browser storage can be missing or blocked, so every use is allowed to fail.
+function browserStore(name, place) {
+  return {
+    key: () => `vizqueryearth:${name}:${place()}`,
+    get() {
+      try {
+        return JSON.parse(localStorage.getItem(this.key()));
+      } catch {
+        return null;
+      }
+    },
+    set(value) {
+      try {
+        localStorage.setItem(this.key(), JSON.stringify(value));
+      } catch {}
+    },
+    clear() {
+      try {
+        localStorage.removeItem(this.key());
+      } catch {}
+    },
+  };
+}
+// unsaved edits, in case the tab is closed, for this page and these rules
+const store = browserStore("draft", () => location.pathname + location.search);
+// each viewer's filter of the rules list, for this page
+const filterStore = browserStore("filter", () => location.pathname);
 
 // ---- settings: inline, from a site's site.json, then ?src= ----------------------
 async function readSettings() {
@@ -191,6 +196,7 @@ const page = {
   markers: [],
   draft: null, // edits kept in this browser from an earlier visit
   pageTitle: "",
+  filter: { text: "", group: "" }, // which rules the list and the globe show
 };
 let map, draw, maplibregl, pythonReady;
 
@@ -227,7 +233,7 @@ function build() {
 
 function render() {
   document.getElementById("panel").replaceChildren(
-    ...[page.draft ? draftNotice() : null, checkSection(), rulesSection(), dimensionsSection(), fileSection()].filter(Boolean)
+    ...[page.draft ? draftNotice() : null, checkSection(), rulesSection(), groupsSection(), dimensionsSection(), fileSection()].filter(Boolean)
   );
   drawRules();
 }
@@ -316,7 +322,7 @@ function resultsView(results) {
       el(
         "div",
         { class: "card", role: "button", tabindex: "0", title: `Select ${f.code}`, onclick: () => focusRule(f.code), onkeydown: (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), focusRule(f.code)) },
-        el("div", { class: "head" }, el("span", { class: `chip ${f.level}` }, f.level), el("strong", {}, f.code), el("span", {}, f.title)),
+        el("div", { class: "head" }, el("span", { class: `chip ${f.level}` }, f.level), el("strong", {}, f.code), el("span", {}, f.title), isEdge(f.code) ? edgeTag() : null),
         el("p", {}, f.message),
         f.area_fraction !== null && f.area_fraction !== undefined ? el("p", { class: "needs" }, `Covers ${Math.round(f.area_fraction * 100)}% of your area`) : null,
         f.conditional_on.length ? el("p", { class: "needs" }, `Applies only if it matches your ${f.conditional_on.join(", ")}: give them to know.`) : null,
@@ -337,36 +343,109 @@ function clearArea() {
   render();
 }
 
-// ---- rules: pick one to see and edit it -----------------------------------------
+// ---- rules: filter them, pick one to see and edit it ----------------------------
+function matches(rule) {
+  const { text, group } = page.filter;
+  const words = text.trim().toLowerCase();
+  if (group && rule.group !== group) return false;
+  return !words || rule.code.toLowerCase().includes(words) || rule.title.toLowerCase().includes(words);
+}
+
+// The rules the list and the globe show, sorted by code: those the filter
+// leaves, and the selected one.
+function shown() {
+  const state = page.state;
+  if (!state) return [];
+  return state.order.map((i) => state.rules[i]).filter((r) => r.index === page.selected || matches(r));
+}
+
+function isEdge(code) {
+  return Boolean(page.state?.rules.find((r) => r.code === code)?.edge);
+}
+
+function edgeTag() {
+  return el("span", { class: "tag", title: "Applies where a domain's edge crosses its area" }, "edge");
+}
+
+function setFilter(change) {
+  page.filter = { ...page.filter, ...change };
+  filterStore.set(page.filter);
+}
+
+function filterGroup(prefix) {
+  setFilter({ group: prefix });
+  render();
+  fitRules(); // turn to the rules the group has
+}
+
+function filterText(event) {
+  setFilter({ text: event.target.value });
+  document.getElementById("rule-list").replaceChildren(...ruleItems());
+  document.getElementById("rule-count").textContent = countText();
+  drawRules();
+}
+
+function countText() {
+  const total = page.state?.rules.length || 0;
+  const n = page.state ? page.state.rules.filter(matches).length : 0;
+  if (!total) return "No rules yet: click New rule, or open a rules file.";
+  const showing = n === total ? `${total} rule${total === 1 ? "" : "s"}` : `${n} of ${total} rules`;
+  return `${showing}. Click a rule, here or on the globe, to see and edit it.`;
+}
+
 function rulesSection() {
-  const rules = page.state?.rules || [];
+  const state = page.state;
+  const filters = state?.filters || [];
+  const groups = state?.groups || [];
+  const preferred = groups.some((g) => g.prefix === page.filter.group) ? page.filter.group : groups[0]?.prefix;
   return el(
     "section",
     { id: "rules" },
     el("h2", {}, "Rules"),
-    el("p", { class: "hint" }, rules.length ? "Click a rule, here or on the globe, to see and edit it." : "No rules yet: click New rule, or open a rules file."),
     el(
-      "ul",
-      { class: "rules" },
-      rules.map((r) => {
-        const selected = r.index === page.selected;
-        return el(
-          "li",
-          { "aria-current": selected },
-          el(
-            "button",
-            { type: "button", class: "rule-row", "aria-expanded": selected, onclick: () => select(selected ? null : r.index) },
-            el("span", { class: `chip ${r.level}` }, r.level),
-            el("span", { class: "code" }, r.code),
-            el("span", { class: "title" }, r.title),
-            r.problem ? el("span", { class: "problem", title: r.problem }, "⚠") : null
-          ),
-          selected ? ruleForm(r) : null
-        );
-      })
+      "div",
+      { class: "filter" },
+      el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter by code or title", value: page.filter.text, oninput: filterText }),
+      filters.length
+        ? el(
+            "div",
+            { class: "row group-buttons", role: "group", "aria-label": "Show one group" },
+            el("button", { type: "button", "aria-pressed": !page.filter.group, onclick: () => filterGroup("") }, "All"),
+            filters.map((f) => el("button", { type: "button", "aria-pressed": page.filter.group === f.prefix, title: f.title || f.prefix, onclick: () => filterGroup(f.prefix) }, f.title ? `${f.title} (${f.prefix})` : f.prefix))
+          )
+        : null
     ),
-    el("div", { class: "row" }, el("button", { onclick: newRule }, "New rule"))
+    el("p", { id: "rule-count", class: "hint" }, countText()),
+    el("ul", { id: "rule-list", class: "rules" }, ruleItems()),
+    el(
+      "div",
+      { class: "row" },
+      groups.length
+        ? el("select", { id: "new-group", "aria-label": "Group of the new rule" }, groups.map((g) => el("option", { value: g.prefix, selected: g.prefix === preferred }, `${g.prefix}: ${g.title}`)))
+        : null,
+      el("button", { onclick: newRule }, "New rule")
+    )
   );
+}
+
+function ruleItems() {
+  return shown().map((r) => {
+    const selected = r.index === page.selected;
+    return el(
+      "li",
+      { "aria-current": selected },
+      el(
+        "button",
+        { type: "button", class: "rule-row", "aria-expanded": selected, onclick: () => select(selected ? null : r.index) },
+        el("span", { class: `chip ${r.level}` }, r.level),
+        el("span", { class: "code" }, r.code),
+        el("span", { class: "title" }, r.title),
+        r.edge ? edgeTag() : null,
+        r.problem ? el("span", { class: "problem", title: r.problem }, "⚠") : null
+      ),
+      selected ? ruleForm(r) : null
+    );
+  });
 }
 
 function ruleForm(rule) {
@@ -434,6 +513,12 @@ function ruleForm(rule) {
       el("button", { onclick: () => shapeCall("cap", { pole: "south", latitude: Number(document.getElementById("cap-south").value) }) }, "Antarctic cap from"),
       el("input", { id: "cap-south", class: "inline-number", type: "number", value: -60, step: 0.5, min: -89, max: 0, "aria-label": "Antarctic cap latitude" }),
       el("span", {}, "°")
+    ),
+    el(
+      "div",
+      { class: "row" },
+      el("input", { id: "f-edge", type: "checkbox", style: "width:auto", checked: rule.edge, onchange: edit((e) => ({ edge: e.target.checked })) }),
+      el("label", { for: "f-edge" }, "Applies where a domain's edge crosses this area")
     ),
 
     el("h3", {}, "When"),
@@ -532,7 +617,8 @@ function edit(fields) {
       say(`Kept ${page.state.rules[index].code}.`);
       render();
     } catch (err) {
-      event.target.setAttribute?.("aria-invalid", "true");
+      if (event.target.type === "checkbox") event.target.checked = !event.target.checked;
+      else event.target.setAttribute?.("aria-invalid", "true");
       say(`Not kept: ${err.message}`, true);
     }
   };
@@ -549,7 +635,7 @@ function select(index, { reveal = false } = {}) {
 
 async function newRule() {
   try {
-    const out = await call("new");
+    const out = await call("new", { prefix: document.getElementById("new-group")?.value || null });
     page.state = out.state;
     saveDraft();
     select(out.index, { reveal: true });
@@ -580,6 +666,67 @@ async function shapeCall(name, args) {
     say(err.message, true);
   }
   render();
+}
+
+// ---- groups: the prefixes of the codes, with titles ------------------------------
+function groupsSection() {
+  const state = page.state;
+  const groups = state?.groups || [];
+  const ungrouped = !groups.length && state?.prefixes.length ? state.prefixes : null;
+  const listed = groups.map(({ prefix, title }) => ({ prefix, title }));
+  return el(
+    "section",
+    { id: "groups" },
+    el("h2", {}, "Groups"),
+    el("p", { class: "hint" }, "A rule's group is the prefix of its code: OBC for OBC001. Once a file has groups, every rule's code uses one, and a new rule takes the next number in its group."),
+    el(
+      "ul",
+      { class: "dims" },
+      groups.map((g) =>
+        el(
+          "li",
+          {},
+          el("strong", {}, g.prefix),
+          el("input", { "aria-label": `Title of ${g.prefix}`, value: g.title, onchange: (e) => setGroups(listed.map((h) => (h.prefix === g.prefix ? { ...h, title: e.target.value } : h))) }),
+          el("span", { class: "count" }, `${g.rules} rule${g.rules === 1 ? "" : "s"}`),
+          el("button", { type: "button", class: "remove", "aria-label": `Remove ${g.prefix}`, title: g.rules ? `${g.prefix} has rules` : `Remove ${g.prefix}`, disabled: g.rules > 0, onclick: () => setGroups(listed.filter((h) => h.prefix !== g.prefix)) }, "×")
+        )
+      )
+    ),
+    ungrouped
+      ? el(
+          "div",
+          { class: "notice" },
+          el("p", {}, `These rules have no groups. Once there are groups, every rule's prefix must be one, so groups start with one for each prefix in use: ${ungrouped.join(", ")}.`),
+          el("div", { class: "row" }, el("button", { onclick: () => setGroups(ungrouped.map((prefix) => ({ prefix, title: prefix }))) }, "Make a group for each prefix"))
+        )
+      : el(
+          "form",
+          { class: "row add-dim", onsubmit: addGroup },
+          el("input", { id: "g-prefix", "aria-label": "Prefix of the group", placeholder: "prefix, such as OBC", required: true, autocapitalize: "characters" }),
+          el("input", { id: "g-title", "aria-label": "Title of the group", placeholder: "title, such as Open boundaries", required: true }),
+          el("button", { type: "submit" }, "Add")
+        )
+  );
+}
+
+async function addGroup(event) {
+  event.preventDefault();
+  const prefix = document.getElementById("g-prefix").value.trim().toUpperCase();
+  const title = document.getElementById("g-title").value.trim();
+  const listed = (page.state?.groups || []).map(({ prefix, title }) => ({ prefix, title }));
+  await setGroups([...listed, { prefix, title }]);
+}
+
+async function setGroups(groups) {
+  try {
+    page.state = await call("groups", { groups });
+    saveDraft();
+    say("Kept the groups.");
+    render();
+  } catch (err) {
+    say(`Not kept: ${err.message}`, true);
+  }
 }
 
 // ---- dimensions: what rules can depend on besides place and time ----------------
@@ -724,6 +871,7 @@ async function open(text, name, { fit = true } = {}) {
   page.state = await call("open", { text, name, dimensions: page.settings.dimensions });
   page.selected = null;
   page.results = null;
+  if (page.filter.group && !page.state.filters.some((f) => f.prefix === page.filter.group)) setFilter({ group: "" });
   const n = page.state.rules.length;
   say(`Opened ${name}: ${n} rule${n === 1 ? "" : "s"}${page.state.problems.length ? ", with problems (see File)" : ""}.`);
   render();
@@ -782,6 +930,7 @@ async function startMap() {
   const color = ["match", ["get", "level"], "error", LEVEL_COLOR.error, "warning", LEVEL_COLOR.warning, LEVEL_COLOR.info];
   const selected = ["boolean", ["feature-state", "selected"], false];
   const hit = ["boolean", ["feature-state", "hit"], false];
+  const edge = ["==", ["get", "edge"], true];
   map = new maplibregl.Map({
     container: "map",
     center: view.center,
@@ -806,11 +955,13 @@ async function startMap() {
           source: "rules",
           paint: {
             "fill-color": color,
-            "fill-opacity": ["case", selected, 0.45, hit, 0.4, ["boolean", ["feature-state", "dim"], false], 0.05, 0.2],
+            // an edge rule is lighter: it applies along a domain's edge, not all over
+            "fill-opacity": ["*", ["case", edge, 0.45, 1], ["case", selected, 0.45, hit, 0.4, ["boolean", ["feature-state", "dim"], false], 0.05, 0.2]],
             "fill-antialias": false, // no faint edge where the globe cuts shapes near the poles
           },
         },
-        { id: "rules-line", type: "line", source: "outlines", paint: { "line-color": color, "line-width": ["case", selected, 3.5, hit, 2.5, 1.2] } },
+        { id: "rules-line", type: "line", source: "outlines", filter: ["!", edge], paint: { "line-color": color, "line-width": ["case", selected, 3.5, hit, 2.5, 1.2] } },
+        { id: "rules-edge", type: "line", source: "outlines", filter: edge, paint: { "line-color": color, "line-width": ["case", selected, 3.5, hit, 2.5, 1.5], "line-dasharray": [2, 1.5] } },
         { id: "area-fill", type: "fill", source: "area", filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": "#111", "fill-opacity": 0.12, "fill-antialias": false } },
         { id: "area-line", type: "line", source: "area", paint: { "line-color": "#111", "line-width": 2, "line-dasharray": [2, 1] } },
       ],
@@ -882,11 +1033,10 @@ function landForGlobe(land) {
 
 function drawRules() {
   if (!map?.getSource("rules") || !page.state) return;
-  const rules = page.state.rules.filter((r) => r.fill);
-  map.getSource("rules").setData(collection(rules.map((r) => ({ type: "Feature", geometry: r.fill, properties: { index: r.index, level: r.level } }))));
-  map.getSource("outlines").setData(
-    collection(rules.filter((r) => r.outline).map((r) => ({ type: "Feature", geometry: r.outline, properties: { index: r.index, level: r.level } })))
-  );
+  const rules = shown().filter((r) => r.fill);
+  const properties = (r) => ({ index: r.index, level: r.level, edge: r.edge });
+  map.getSource("rules").setData(collection(rules.map((r) => ({ type: "Feature", geometry: r.fill, properties: properties(r) }))));
+  map.getSource("outlines").setData(collection(rules.filter((r) => r.outline).map((r) => ({ type: "Feature", geometry: r.outline, properties: properties(r) }))));
   const hits = new Set(page.results?.findings.map((f) => f.code) || []);
   for (const r of rules) {
     const state = { selected: r.index === page.selected, hit: hits.has(r.code), dim: page.results !== null && !hits.has(r.code) };
@@ -932,9 +1082,10 @@ function focusRule(code) {
   if (rule) select(rule.index, { reveal: true });
 }
 
-function fitRules() {
-  if (page.state?.extent) fitExtent(page.state.extent);
-  else say("No rule has a shape yet.");
+async function fitRules() {
+  const extent = page.state ? await call("extent", { indexes: shown().map((r) => r.index) }) : null;
+  if (extent) fitExtent(extent);
+  else say("No rule shown has a shape.");
 }
 
 // Turn the globe to an extent [west, south, east, north] from Python, where
@@ -943,11 +1094,16 @@ function fitExtent(extent, { animate = true } = {}) {
   if (!map || !extent) return;
   const [west, south, east, north] = extent;
   let camera;
-  if (east - west > 270) {
-    // all the way round: look down on the pole it is about, or at the whole globe
-    if (south > 0) camera = polarCamera(south);
-    else if (north < 0) camera = polarCamera(north);
-    else camera = { ...(page.settings.view || DEFAULT_VIEW), bearing: 0 };
+  if (east - west > 180) {
+    // more than half way round, which a globe cannot show at once: look down
+    // on the pole the rules are about, or at the side of the globe they centre on
+    if (south >= 30) camera = cameraShowing([0, 85], [0, 90, 180, -90].map((lon) => [lon, south]));
+    else if (north <= -30) camera = cameraShowing([0, -85], [0, 90, 180, -90].map((lon) => [lon, north]));
+    else {
+      const center = [(west + east) / 2, Math.max(-60, Math.min(60, (south + north) / 2))];
+      const [lon, lat] = center;
+      camera = cameraShowing(center, [[lon - 80, lat], [lon + 80, lat], [lon, Math.min(lat + 80, 85)], [lon, Math.max(lat - 80, -85)]]);
+    }
   } else {
     camera = map.cameraForBounds([[west, Math.max(south, -85)], [east, Math.min(north, 85)]], { padding: 40, maxZoom: 6 });
   }
@@ -957,10 +1113,9 @@ function fitExtent(extent, { animate = true } = {}) {
   else map.jumpTo({ ...camera, pitch: 0 });
 }
 
-// Looking down on a pole: the closest view that shows the whole cap down to
-// the latitude edge, found by trying zoom levels.
-function polarCamera(edge) {
-  const center = [0, edge > 0 ? 85 : -85];
+// The closest view from above center that shows every point, found by trying
+// zoom levels: the globe's zoom depends on latitude, so it is hard to compute.
+function cameraShowing(center, points) {
   const before = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
   const { width, height } = map.getContainer().getBoundingClientRect();
   let low = map.getMinZoom();
@@ -968,8 +1123,8 @@ function polarCamera(edge) {
   for (let i = 0; i < 12; i++) {
     const zoom = (low + high) / 2;
     map.jumpTo({ center, zoom, bearing: 0, pitch: 0 });
-    const fits = [0, 90, 180, -90].every((lon) => {
-      const p = map.project([lon, edge]);
+    const fits = points.every((point) => {
+      const p = map.project(point);
       return p.x >= 30 && p.x <= width - 30 && p.y >= 30 && p.y <= height - 30;
     });
     if (fits) low = zoom;
@@ -1068,6 +1223,8 @@ document.addEventListener("keydown", (event) => {
 // ---- start ----------------------------------------------------------------------
 async function main() {
   page.settings = await readSettings();
+  const kept = filterStore.get();
+  if (typeof kept?.text === "string" && typeof kept?.group === "string") page.filter = { text: kept.text, group: kept.group };
   build();
   say("Starting… The first visit downloads Python and queryearth (about 20 MB); later visits are quicker.");
   pythonReady = startPython();
@@ -1083,10 +1240,11 @@ async function main() {
   const source = page.settings.source;
   const fit = !page.settings.view; // a page that sets its view keeps it
   if (source?.url) await openUrl(source.url, { fit });
-  else if (source?.text) await open(source.text, source.name, { fit });
-  else {
+  else if (source?.text) await open(source.text, source.name, { fit }).catch((err) => say(`Could not open the rules: ${err.message}`, true));
+  if (!page.state) {
+    // nothing to open, or it could not be opened: the status line says why
     page.state = await call("state");
-    say("Ready. Open a rules file, or click New rule to start one.");
+    if (!source) say("Ready. Open a rules file, or click New rule to start one.");
     render();
   }
   const draft = store.get();

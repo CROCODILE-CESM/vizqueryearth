@@ -217,3 +217,13 @@ main {
 }
 #status.error { color: var(--error); }
 .maplibregl-popup-content { background: var(--panel); color: var(--text); }
+
+/* filtering the rules, groups and edge rules */
+.filter input[type="search"] { margin: 2px 0 4px; }
+.group-buttons { gap: 4px; }
+.group-buttons button { padding: 3px 8px; font-size: 13px; }
+.group-buttons button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.tag { font-size: 11px; border: 1px dashed currentColor; border-radius: 4px; padding: 0 4px; color: var(--muted); white-space: nowrap; }
+.dims li input { flex: 1; min-width: 0; }
+.dims li .count { flex: none; font-size: 12px; white-space: nowrap; }
+#new-group { width: auto; max-width: 60%; }
