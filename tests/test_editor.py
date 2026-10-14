@@ -14,6 +14,7 @@ import queryearth as qe
 import vizqueryearth as vq
 
 EXAMPLE = Path(__file__).parent.parent / "examples" / "demo_rules.geojson"
+DIMENSIONS = [qe.Labels("product"), qe.Labels("variable"), qe.Labels("model")]
 
 
 def rectangle(west, south, east, north):
@@ -44,7 +45,7 @@ def test_draw_reads_the_drawing_layer():
 
 
 def test_opening_shows_the_first_rule(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     assert ed.rules == ["DEMO001", "DEMO002", "DEMO003", "DEMO004"]
     assert ed._code.value == "DEMO001"
     assert ed._title.value.startswith("demo_ocean is too fresh")
@@ -53,14 +54,14 @@ def test_opening_shows_the_first_rule(path):
 
 def test_saving_without_changes_rewrites_the_same_bytes(path):
     before = path.read_bytes()
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO003")
     ed.save()
     assert path.read_bytes() == before
 
 
 def test_a_polar_cap_is_edited_on_the_map_and_keeps_the_pole(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO003")
     (shown,) = ed.control.data  # cut off at the map's edge
     lats = {p[1] for p in shown["geometry"]["coordinates"][0]}
@@ -72,7 +73,7 @@ def test_a_polar_cap_is_edited_on_the_map_and_keeps_the_pole(path):
 
 
 def test_redrawing_a_shape_changes_only_that_rule(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO002")
     ed.control.data = [rectangle(160, 50, 205, 65)]  # as the browser would
     ed.apply()
@@ -86,11 +87,11 @@ def test_redrawing_a_shape_changes_only_that_rule(path):
         "north": 65,
     }
     assert after[0] == before[0] and after[2:] == before[2:]
-    assert qe.Registry("check").load(path) == ed.rules
+    assert qe.Registry("check", dimensions=DIMENSIONS).load(path) == ed.rules
 
 
 def test_a_drawn_polygon_replaces_a_box(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO002")
     ed.control.data = [
         {
@@ -109,25 +110,25 @@ def test_a_drawn_polygon_replaces_a_box(path):
 
 
 def test_adding_a_rule_and_drawing_its_shape(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.add(
         "DEMO005",
         title="A new rule",
         message="Drawn in the editor.",
-        facets={"product": ["demo_ocean"]},
+        dimensions={"product": ["demo_ocean"]},
     )
     ed.control.data = [rectangle(-10, 40, 5, 50)]
     ed.save()
-    registry = qe.Registry("check")
+    registry = qe.Registry("check", dimensions=DIMENSIONS)
     assert registry.load(path)[-1] == "DEMO005"
     found = registry.query(
-        space=qe.space.point(0, 45), facets={"product": "demo_ocean"}
+        space=qe.space.point(0, 45), dimensions={"product": "demo_ocean"}
     )
     assert "DEMO005" in [f.code for f in found]
 
 
 def test_new_rule_adds_the_next_code_at_once(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     assert ed.new() == "DEMO005"
     assert ed.rules[-1] == "DEMO005" and ed._code.value == "DEMO005"
     ed._title.value, ed._message.value = "Arctic rule", "North of 80N."
@@ -156,7 +157,7 @@ def test_drawing_with_no_rule_selected_says_what_to_do(tmp_path):
 
 
 def test_a_duplicate_code_is_refused(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO002")
     ed._code.value = "DEMO001"
     with pytest.raises(ValueError, match="already in the file"):
@@ -167,7 +168,7 @@ def test_a_duplicate_code_is_refused(path):
 
 def test_queryearth_refuses_a_bad_rule_and_nothing_is_written(path):
     before = path.read_bytes()
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO001")
     ed._kind.value = "suggestion"  # a suggestion needs suggestions
     with pytest.raises(ValueError, match="suggestion"):
@@ -177,14 +178,15 @@ def test_queryearth_refuses_a_bad_rule_and_nothing_is_written(path):
 
 
 def test_undeclared_names_are_found_when_saving(path):
-    ed = vq.Editor(path, facets=["product", "variable"])  # the file also uses "model"
+    # the file also uses "model"
+    ed = vq.Editor(path, dimensions=[qe.Labels("product"), qe.Labels("variable")])
     with pytest.raises(qe.LoadError) as err:
         ed.save()
     assert any("model" in p for p in err.value.problems)
 
 
 def test_removing_the_shape_makes_a_rule_global(path):
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     ed.select("DEMO001")
     ed.control.data = []  # everything removed on the map
     ed.apply()
@@ -193,7 +195,7 @@ def test_removing_the_shape_makes_a_rule_global(path):
 
 def test_a_new_file_is_created_on_save(tmp_path):
     path = tmp_path / "new.geojson"
-    ed = vq.Editor(path)
+    ed = vq.Editor(path, dimensions=DIMENSIONS)
     assert ed.rules == []
     ed.add("NEW001", title="T", message="M")
     ed.save()

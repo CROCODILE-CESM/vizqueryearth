@@ -11,7 +11,12 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Manish Venumuddula" }]
 requires-python = ">=3.11"
-dependencies = ["queryearth>=0.1,<0.2", "ipyleaflet>=0.19"]
+# queryearth's dimensions= API is on its main branch, not yet on PyPI;
+# use "queryearth>=0.2,<0.3" once 0.2.0 is released
+dependencies = [
+    "queryearth @ git+https://github.com/CROCODILE-CESM/queryearth",
+    "ipyleaflet>=0.19",
+]
 
 [project.optional-dependencies]
 test = ["pytest"]

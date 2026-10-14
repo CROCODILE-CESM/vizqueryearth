@@ -144,25 +144,19 @@ class Editor(_ShapeMap):
     Pick a rule in the list or click its shape, then draw, edit, drag or delete
     shapes on the map; New rule adds one. The form holds code, kind, title and
     message; everything else stays as it is in the file. Changes are kept when
-    you pick another rule or save. axes, facets and dimensions declare what the
-    rules use, as for queryearth.Registry; the file is checked against them
-    when saved.
+    you pick another rule or save. dimensions declares the dimensions the
+    rules use besides space and time, as for queryearth.Registry; the file is
+    checked against them when saved.
     """
 
     def __init__(
         self,
         path: str | os.PathLike[str],
         *,
-        axes: Iterable[qe.Axis] = (),
-        facets: Iterable[str] = qe.Registry.FACETS,
         dimensions: Iterable[Any] = (),
     ) -> None:
         self.path = Path(path)
-        self._declared = {
-            "axes": tuple(axes),
-            "facets": tuple(facets),
-            "dimensions": tuple(dimensions),
-        }
+        self._dimensions = tuple(dimensions)
         self._collection = self._read(self.path)
         self.features: list[dict[str, Any]] = self._collection["features"]
         self._index: int | None = None  # the rule in the form; None for a new one
@@ -199,7 +193,7 @@ class Editor(_ShapeMap):
         return data
 
     def _registry(self) -> qe.Registry:
-        return qe.Registry("vizqueryearth", **self._declared)
+        return qe.Registry("vizqueryearth", dimensions=self._dimensions)
 
     def _check_all(self) -> list[str]:
         """Problems queryearth finds in the file as it stands."""

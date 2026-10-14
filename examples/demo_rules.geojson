@@ -44,15 +44,15 @@
         "kind": "warning",
         "title": "demo_ocean is too fresh near the coast",
         "message": "Near this coast, demo_ocean surface salinity runs low.",
-        "facets": {
+        "status": "draft",
+        "dimensions": {
           "product": [
             "demo_ocean"
           ],
           "variable": [
             "so"
           ]
-        },
-        "status": "draft"
+        }
       }
     },
     {
@@ -71,15 +71,15 @@
           "south": 52,
           "north": 66
         },
-        "facets": {
+        "status": "draft",
+        "dimensions": {
           "product": [
             "demo_ocean"
           ],
           "variable": [
             "thetao"
           ]
-        },
-        "status": "draft"
+        }
       }
     },
     {
@@ -98,12 +98,12 @@
           "south": 66.5,
           "north": 90
         },
-        "facets": {
+        "status": "draft",
+        "dimensions": {
           "model": [
             "demo_model"
           ]
-        },
-        "status": "draft"
+        }
       }
     },
     {
@@ -121,15 +121,15 @@
         "kind": "warning",
         "title": "demo_ocean salinity is poorly constrained before 2004",
         "message": "Few salinity profiles went into demo_ocean before 2004.",
-        "facets": {
+        "status": "draft",
+        "dimensions": {
           "product": [
             "demo_ocean"
           ],
           "variable": [
             "so"
           ]
-        },
-        "status": "draft"
+        }
       }
     }
   ]

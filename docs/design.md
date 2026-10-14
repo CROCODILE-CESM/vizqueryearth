@@ -83,7 +83,7 @@ shape. From code, `vq.arctic(66.5)` and `vq.antarctic(-60)` give full-width caps
    Its error messages appear under the map, for example for a ring that crosses itself.
 4. For a rule file, the editor builds each rule as a record and checks it with `Rule.from_feature`.
 5. `save()` checks the whole file by adding it to a fresh `queryearth.Registry` declared with the
-   editor's `axes`, `facets` and `dimensions`, which checks every record and every name, then writes
+   editor's `dimensions`, which checks every record and every name, then writes
    it to a temporary file and moves that over the old one. Rules that were not edited are written
    back as they were read; an edited rule keeps its other properties and its key order.
 
@@ -114,7 +114,7 @@ rule = qe.Rule(
 ```python
 ed = vq.Editor(
     "rules.geojson",  # every rule's shape, labelled by its code
-    axes=[qe.Axis("resolution", "km")],  # what the rules use, as for qe.Registry
+    dimensions=[qe.Axis("resolution", "km"), qe.Labels("product")],  # as for qe.Registry
 )
 ed.select("CROC003")  # or click a shape; then draw to replace it
 ed.new()  # adds CROC012 after CROC011, selected; or ed.add(code, kind, title, message)
@@ -141,7 +141,7 @@ possible later feature, computed with xarray or Earth Engine.
 
 ## 8. Later
 
-- **Browse a ruleset:** a table beside the map, filters by kind, facet and time, click to select.
+- **Browse a ruleset:** a table beside the map, filters by kind, dimension and time, click to select.
 - **Test queries:** draw a domain or load one (for example a CrocoDash domain outline), choose
   dates and axes, and list the findings with their area and time fractions, highlighted on the map.
 - **A web page:** the same Leaflet and Geoman on a static page, with Pyodide running the real
@@ -171,8 +171,8 @@ possible later feature, computed with xarray or Earth Engine.
    kept.
 2. **ipyleaflet is fine.**
 3. **A lean form (2026-10-14).** After trying it, the form was cut to code, kind (a dropdown),
-   title and message, with **New rule** and **Save**. Facets, level, time and every other field
-   are edited in the file and kept as they are; facets are part of a rule's scope, but they are set
+   title and message, with **New rule** and **Save**. Dimensions, level, time and every other field
+   are edited in the file and kept as they are; dimensions are part of a rule's scope, but they are set
    once when a rule is written. **New rule** adds a rule with the next free code at once. There is
    no Apply button: changes are kept when you pick another rule or save. Box fields and polar-cap
    buttons gave way to drawing at the map's edge, which reaches the pole.

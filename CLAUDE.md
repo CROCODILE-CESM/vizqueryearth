@@ -12,7 +12,7 @@ vizqueryearth draws the shapes of [queryearth](https://github.com/CROCODILE-CESM
 - **No UI code in queryearth.** If the editor needs something from queryearth, it must be a general engine API, proposed in that repo.
 - **Small.** No JavaScript of our own: ipyleaflet and its Leaflet-Geoman control do the drawing. Prefer Leaflet over MapLibre.
 - **Saving changes only what was edited.** Other rules are written back exactly as read (`json.dumps(indent=2)`), so a file written by the editor and saved again without changes is byte-identical.
-- **Not on PyPI.** Installed from GitHub; no release workflow. It depends on queryearth from PyPI (`queryearth>=0.1,<0.2`); raise the bound when queryearth's API changes.
+- **Not on PyPI.** Installed from GitHub; no release workflow. It depends on queryearth's GitHub `main` until queryearth 0.2.0 (the `dimensions=` API) is on PyPI; then use `queryearth>=0.2,<0.3`, and raise the bound when queryearth's API changes.
 - **Python 3.11 or later**, black, frozen dataclasses where data is passed around.
 - **Git:** never add Co-Authored-By lines; ask before committing or pushing.
 

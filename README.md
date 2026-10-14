@@ -3,7 +3,7 @@
 Draw the shapes of [queryearth](https://github.com/CROCODILE-CESM/queryearth) rules on a map in Jupyter.
 
 - `vq.draw()` shows a map to draw one polygon or box on, for a rule written in Python.
-- `vq.Editor("rules.geojson")` shows every rule of a rule file on a map. Pick a rule (from the list or by clicking its shape), draw or edit its shape, and edit its code, kind, title and message. **New rule** adds one with the next free code. Facets, time, level and everything else stay as they are in the file.
+- `vq.Editor("rules.geojson")` shows every rule of a rule file on a map. Pick a rule (from the list or by clicking its shape), draw or edit its shape, and edit its code, kind, title and message. **New rule** adds one with the next free code. Time, the other dimensions, level and everything else stay as they are in the file.
 
 queryearth checks every shape and every rule, so the editor never saves a file that queryearth would refuse or read differently.
 
@@ -36,7 +36,7 @@ rule = qe.Rule(
 ```python
 ed = vq.Editor(
     "rules.geojson",
-    axes=[qe.Axis("resolution", "km")],  # what the rules use, as for qe.Registry
+    dimensions=[qe.Axis("resolution", "km"), qe.Labels("product")],  # as for qe.Registry
 )
 ed  # pick a rule or click New rule, draw its shape, Save
 ```
