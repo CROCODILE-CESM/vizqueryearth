@@ -20,21 +20,14 @@ const LIBS = {
   land: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@v5.1.2/geojson/ne_50m_land.geojson",
   pyodide: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js",
 };
-const QUERYEARTH = "queryearth==0.6.0"; // a requirement or a wheel URL, for micropip
-const PY_FILES = ["__init__.py", "shapes.py", "rulefile.py", "session.py"];
+const QUERYEARTH = "queryearth==0.7.0"; // a requirement or a wheel URL, for micropip
+const PY_FILES = ["__init__.py", "shapes.py", "session.py"];
 const LEVEL_COLOR = { error: "#c62828", warning: "#e08a00", info: "#1e6fd9" };
-const LEVELS = [
-  ["", "default"],
-  ["info", "info"],
-  ["warning", "warning"],
-  ["error", "error"],
-];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const KINDS = ["labels", "axis", "versions"];
+const LEVELS = ["info", "warning", "error"];
+const KINDS = ["labels", "axis"];
 const HINTS = {
   labels: "names, separated by commas; * and ? match any letters",
   axis: "<8, <=8, >2, >=2, or 2-8 (from 2 up to, not including, 8)",
-  versions: 'versions, such as 4.07, ERA5T, or {"introduced": "4.00", "fixed": "4.09"}',
 };
 const DEFAULT_VIEW = { center: [-30, 30], zoom: 1.3 };
 // A page shown inside another (such as an editor's preview) may not be allowed to download.
@@ -159,7 +152,7 @@ async function readSettings() {
     site: Boolean(inline || document.body.dataset.site), // a page made for a set of rules
     title: site.title || "vizqueryearth",
     description: site.description || "",
-    dimensions: site.dimensions || null, // for rules files that do not declare them
+    dimensions: site.dimensions || null, // declared before those inferred from the rules
     view: site.view || null, // without one, the globe turns to the rules
     source,
   };
@@ -199,15 +192,16 @@ const page = {
   selected: null, // the rule being edited, by position
   area: [], // the area to check, as drawn
   areaShape: null, // and as queryearth reads it
-  query: { start: "", end: "", values: {}, include_conditional: false },
-  results: null,
+  query: { start: "", end: "", values: {} },
+  results: null, // the positions of the rules that apply
   drawing: null, // what the drawing tools are for: "area", "rule" or "corners"
   drawingEnded: 0, // when the last drawing ended
   markers: [],
   draft: null, // edits kept in this browser from an earlier visit
   pageTitle: "",
   filter: { text: "", category: "" }, // which rules the tree and the globe show
-  panel: null, // the category whose actions are open in Edit ("all": the root's)
+  empty: [], // categories made in Edit that hold no rule yet, by path
+  panel: null, // the category whose actions are open in Edit (ALL: the root's)
   treeFocus: null, // the tree item that takes the keyboard
 };
 let map, draw, maplibregl, pythonReady;
@@ -259,6 +253,13 @@ function render() {
   drawArea();
 }
 
+// Keep the rules as an edit left them: the check is stale, and a draft is kept.
+function edited(state) {
+  page.state = state;
+  page.results = null;
+  saveDraft();
+}
+
 // ---- modes: Check to read the rules, Edit to write them -------------------------
 function setMode(mode) {
   if (!MODES.includes(mode)) return;
@@ -306,7 +307,6 @@ function checkSection() {
       el("button", { onclick: () => startDrawing("polygon", "area") }, "Draw polygon"),
       el("button", { onclick: clearArea, disabled: !page.area.length }, "Clear")
     ),
-    page.areaShape ? el("p", { class: "hint" }, `Area: ${page.areaShape.km2.toLocaleString()} km²`) : null,
     el(
       "div",
       { class: "two" },
@@ -326,19 +326,14 @@ function checkSection() {
         ]
       );
     }),
-    el(
-      "div",
-      { class: "row" },
-      el("input", { id: "q-conditional", type: "checkbox", style: "width:auto", checked: q.include_conditional, onchange: (e) => (q.include_conditional = e.target.checked) }),
-      el("label", { for: "q-conditional" }, "Also list rules that need more information")
-    ),
+    el("p", { class: "hint" }, "A rule about a dimension you leave empty does not apply."),
     el("div", { class: "row" }, el("button", { class: "primary", onclick: runQuery, disabled: !state?.rules.length }, "Check")),
     page.results ? resultsView(page.results) : null
   );
 }
 
 function unit(dim) {
-  return dim.kind === "axis" && dim.unit && dim.unit !== "unknown" ? el("span", { class: "unit" }, ` (${dim.unit})`) : null;
+  return dim.kind === "axis" && dim.unit !== "unknown" ? el("span", { class: "unit" }, ` (${dim.unit})`) : null;
 }
 
 async function runQuery() {
@@ -346,8 +341,8 @@ async function runQuery() {
   const declared = new Set(page.state.dimensions.map((d) => d.name));
   const values = Object.fromEntries(Object.entries(q.values).filter(([name]) => declared.has(name)));
   try {
-    page.results = await call("query", { area: page.area, start: q.start, end: q.end, values, include_conditional: q.include_conditional });
-    const n = page.results.findings.length;
+    page.results = await call("query", { area: page.area, start: q.start, end: q.end, values });
+    const n = page.results.length;
     say(n === 0 ? "No rule applies. That means only that no rule matched, not that all is well." : n === 1 ? "1 rule applies." : `${n} rules apply.`);
   } catch (err) {
     page.results = null;
@@ -357,23 +352,21 @@ async function runQuery() {
 }
 
 function resultsView(results) {
-  const n = results.findings.length;
+  const n = results.length;
   return [
     el("h3", {}, n === 0 ? "No rule applies" : n === 1 ? "1 rule applies" : `${n} rules apply`),
-    results.findings.map((f) =>
-      el(
+    results.map((i) => {
+      const r = page.state.rules[i];
+      const instruction = r.properties.instruction;
+      return el(
         "div",
-        { class: "card", role: "button", tabindex: "0", title: `Select ${f.code}`, onclick: () => focusRule(f.code), onkeydown: (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), focusRule(f.code)) },
-        el("div", { class: "head" }, el("span", { class: `chip ${f.level}` }, f.level), el("strong", {}, f.code), el("span", {}, f.title), isEdge(f.code) ? edgeTag() : null),
-        el("p", {}, f.message),
-        f.area_fraction !== null && f.area_fraction !== undefined ? el("p", { class: "needs" }, `Covers ${Math.round(f.area_fraction * 100)}% of your area`) : null,
-        f.conditional_on.length ? el("p", { class: "needs" }, `Applies only if it matches your ${f.conditional_on.join(", ")}: give them to know.`) : null,
-        f.changes.map((c) => el("p", { class: "change" }, `Change: ${c.target} ${c.key} = ${JSON.stringify(c.value)}${c.rationale ? ` (${c.rationale})` : ""}`))
-      )
-    ),
-    results.report
-      ? el("div", { class: "row" }, el("button", { onclick: () => navigator.clipboard?.writeText(results.report).then(() => say("Copied the findings as text.")) }, "Copy as text"))
-      : null,
+        { class: "card", role: "button", tabindex: "0", title: `Select ${r.code}`, onclick: rowClick(() => select(r.index, { reveal: true })), onkeydown: (e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), select(r.index, { reveal: true })) },
+        el("div", { class: "head" }, el("span", { class: `chip ${r.level}` }, r.level), el("strong", {}, r.code), el("span", {}, r.title)),
+        el("p", {}, r.message),
+        typeof instruction === "string" ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), instruction) : null,
+        el("div", { class: "row" }, copyButton(r))
+      );
+    }),
   ];
 }
 
@@ -385,13 +378,36 @@ function clearArea() {
   render();
 }
 
-// ---- the rules as a tree: categories, subcategories and rules --------------------
-// Node ids: "all" (the root), "cat:OBC", "uncategorized", "rule:5" (by position).
+// ---- the rules as a tree, from the paths of their codes -------------------------
+// Node ids: "all" (the root), "cat:DOMAIN/OBC" (a category, by path), "rule:5"
+// (a rule, by position).
 const ALL = "all";
-const UNCATEGORIZED = "uncategorized";
-const TOP = "^"; // "Move to…" a top-level category
 // the branches each viewer has opened, for this page; at first only All rules
 const openedStore = browserStore("opened", () => location.pathname);
+const byName = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+
+// Whether a category path is a category or sits in it, at any depth.
+function within(path, category) {
+  return path === category || path.startsWith(`${category}/`);
+}
+
+function parentOf(path) {
+  return path.slice(0, Math.max(path.lastIndexOf("/"), 0));
+}
+
+function lastPart(path) {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+// Every category: those of the rules' codes and those made empty here, with
+// the categories they sit in, sorted by name.
+function categories() {
+  const paths = new Set();
+  for (const path of [...(page.state?.rules || []).map((r) => r.category), ...page.empty]) {
+    for (let p = path; p; p = parentOf(p)) paths.add(p);
+  }
+  return [...paths].sort(byName);
+}
 
 function textMatches(rule) {
   const words = page.filter.text.trim().toLowerCase();
@@ -402,25 +418,12 @@ function textMatches(rule) {
 // the text typed.
 function matches(rule) {
   const { category } = page.filter;
-  if (category === UNCATEGORIZED && rule.path.length) return false;
-  if (category && category !== UNCATEGORIZED && !rule.path.includes(category)) return false;
-  return textMatches(rule);
+  return (!category || within(rule.category, category)) && textMatches(rule);
 }
 
-// The rules the globe shows, sorted by code: those the filter leaves, and the
-// selected one.
+// The rules the globe shows: those the filter leaves, and the selected one.
 function shown() {
-  const state = page.state;
-  if (!state) return [];
-  return state.order.map((i) => state.rules[i]).filter((r) => r.index === page.selected || matches(r));
-}
-
-function isEdge(code) {
-  return Boolean(page.state?.rules.find((r) => r.code === code)?.edge);
-}
-
-function edgeTag() {
-  return el("span", { class: "tag", title: "Applies where a domain's edge crosses its area" }, "edge");
+  return (page.state?.rules || []).filter((r) => r.index === page.selected || matches(r));
 }
 
 function setFilter(change) {
@@ -429,11 +432,11 @@ function setFilter(change) {
 }
 
 // Pick a category: the globe shows everything under it, and turns to it.
-function pickCategory(prefix) {
-  setFilter({ category: prefix });
-  if (prefix) setExpanded(prefix === UNCATEGORIZED ? UNCATEGORIZED : `cat:${prefix}`, true, { quiet: true });
+function pickCategory(path) {
+  setFilter({ category: path });
+  if (path) setExpanded(`cat:${path}`, true, { quiet: true });
   render();
-  focusNode(prefix ? (prefix === UNCATEGORIZED ? UNCATEGORIZED : `cat:${prefix}`) : ALL, { scroll: false });
+  focusNode(path ? `cat:${path}` : ALL, { scroll: false });
   fitRules(); // turn to the rules in it
 }
 
@@ -453,12 +456,6 @@ function countText() {
   return `${showing}. Click a category to show its rules on the globe, or a rule to ${page.mode === "edit" ? "edit" : "read"} it.`;
 }
 
-// A rule's categories by title, outermost first: "Regions › Coral Triangle …".
-function pathText(rule) {
-  const titles = Object.fromEntries((page.state?.categories || []).map((c) => [c.prefix, c.title]));
-  return rule.path.map((prefix) => titles[prefix] || prefix).join(" › ");
-}
-
 function opened() {
   const kept = openedStore.get();
   return new Set(Array.isArray(kept) ? kept : [ALL]);
@@ -468,9 +465,10 @@ function isExpanded(id) {
   return page.filter.text.trim() ? true : opened().has(id); // a text filter opens every branch it leaves
 }
 
-// Open the branches a rule is in, so its row shows.
-function openTo(rule) {
-  for (const id of [ALL, ...(rule.path.length ? rule.path.map((p) => `cat:${p}`) : [UNCATEGORIZED])]) setExpanded(id, true, { quiet: true });
+// Open the branches a category sits in, and it, so what is in it shows.
+function openTo(category) {
+  setExpanded(ALL, true, { quiet: true });
+  for (let p = category; p; p = parentOf(p)) setExpanded(`cat:${p}`, true, { quiet: true });
 }
 
 function setExpanded(id, open, { quiet = false } = {}) {
@@ -485,22 +483,12 @@ function setExpanded(id, open, { quiet = false } = {}) {
 }
 
 function rulesSection() {
-  const state = page.state;
-  const ungrouped = page.mode === "edit" && state && !state.categories.length && state.prefixes.length ? state.prefixes : null;
   return el(
     "section",
     { id: "rules" },
     el("h2", {}, "Rules"),
     el("div", { class: "filter" }, el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter by code or title", value: page.filter.text, oninput: filterText })),
     el("p", { id: "rule-count", class: "hint" }, countText()),
-    ungrouped
-      ? el(
-          "div",
-          { class: "notice" },
-          el("p", {}, `These rules have no categories. Once there are categories, every rule's prefix must be one, so they start with one for each prefix in use: ${ungrouped.join(", ")}.`),
-          el("div", { class: "row" }, el("button", { onclick: () => setCategories(ungrouped.map((prefix) => ({ prefix, title: prefix, parent: "" })), "Made a category for each prefix: give them titles, and arrange them.") }, "Make a category for each prefix"))
-        )
-      : null,
     el("ul", { id: "rule-tree", class: "tree", role: "tree", "aria-label": "Rules by category", onkeydown: treeKeydown }, treeItems())
   );
 }
@@ -515,49 +503,38 @@ function renderTree() {
   if (focused) focusNode(focused, { scroll: false });
 }
 
-// The tree from Python's state: categories in tree order with their rules,
-// rules sorted by code; with a text typed, only the rules it matches and the
-// categories they are in.
+// The tree: All rules, the categories in it and the rules in each, sorted by
+// name; with a text typed, only the rules it matches and the categories they
+// are in.
 function treeItems() {
   const state = page.state;
   if (!state) return [];
-  const byPrefix = Object.fromEntries(state.categories.map((c) => [c.prefix, c]));
-  const kept = (r) => r.index === page.selected || textMatches(r);
-  const own = {};
-  const loose = [];
-  for (const i of state.order) {
-    const r = state.rules[i];
-    if (!kept(r)) continue;
-    if (r.path.length) (own[r.category] ||= []).push(r);
-    else loose.push(r);
-  }
-  const under = (prefix) => (own[prefix] || []).length + byPrefix[prefix].children.reduce((n, child) => n + under(child), 0);
+  const kept = state.rules.filter((r) => r.index === page.selected || textMatches(r)).sort((a, b) => byName(a.code, b.code));
+  const paths = categories();
   const filtering = Boolean(page.filter.text.trim());
-  const categoryNode = (prefix, level) => {
-    const c = byPrefix[prefix];
-    const count = under(prefix);
+  const inside = (parent, level) =>
+    [
+      ...paths.filter((p) => parentOf(p) === parent).map((p) => categoryNode(p, level)),
+      ...kept.filter((r) => r.category === parent).map((r) => ruleNode(r, level)),
+    ].filter(Boolean);
+  const categoryNode = (path, level) => {
+    const count = kept.filter((r) => within(r.category, path)).length;
     if (filtering && !count) return null;
-    const children = [...c.children.map((child) => categoryNode(child, level + 1)), ...(own[prefix] || []).map((r) => ruleNode(r, level + 1))].filter(Boolean);
-    return treeNode({ id: `cat:${prefix}`, level, label: `${c.title} (${prefix}), ${count} rule${count === 1 ? "" : "s"}`, row: categoryRow(c, count, filtering ? `${count}` : `${c.total}`), children, panel: page.panel === prefix ? categoryPanel(c) : null });
+    return treeNode({ id: `cat:${path}`, level, label: `${path}, ${count} rule${count === 1 ? "" : "s"}`, row: categoryRow(path, count), children: inside(path, level + 1), panel: page.panel === path ? categoryPanel(path) : null });
   };
-  const top = state.tree.filter((prefix) => !byPrefix[prefix].parent).map((prefix) => categoryNode(prefix, 2));
-  if (loose.length) {
-    top.push(treeNode({ id: UNCATEGORIZED, level: 2, label: `Uncategorized, ${loose.length} rules`, row: otherRow("Uncategorized", loose.length, UNCATEGORIZED, "Rules whose prefix is not a category"), children: loose.map((r) => ruleNode(r, 3)) }));
-  }
-  const total = state.rules.filter(kept).length;
-  return [treeNode({ id: ALL, level: 1, label: `All rules, ${total}`, row: otherRow("All rules", total, "", "Show every rule on the globe"), children: top.filter(Boolean), panel: page.panel === ALL ? addCategoryForm("") : null })];
+  return [treeNode({ id: ALL, level: 1, label: `All rules, ${kept.length}`, row: allRow(kept.length), children: inside("", 2), panel: page.panel === ALL ? addCategoryForm("") : null })];
 }
 
 function treeNode({ id, level, label, row, children = null, panel = null }) {
   const open = children ? isExpanded(id) : undefined;
-  const isRule = id.startsWith("rule:");
-  const picked = isRule ? Number(id.slice(5)) === page.selected : (page.filter.category || "") === (id === ALL ? "" : id === UNCATEGORIZED ? UNCATEGORIZED : id.slice(4));
+  const rule = id.startsWith("rule:") ? page.state.rules[Number(id.slice(5))] : null;
+  const picked = rule ? rule.index === page.selected : page.filter.category === (id === ALL ? "" : id.slice(4));
   return el(
     "li",
     { role: "treeitem", "data-node": id, "aria-level": level, "aria-label": label, "aria-expanded": open, "aria-selected": picked, tabindex: id === (page.treeFocus || ALL) ? "0" : "-1" },
     row,
     panel,
-    isRule && picked ? (page.mode === "edit" ? ruleForm(page.state.rules[Number(id.slice(5))]) : ruleCard(page.state.rules[Number(id.slice(5))])) : null,
+    rule && picked ? (page.mode === "edit" ? ruleForm(rule) : ruleCard(rule)) : null,
     children && open && children.length ? el("ul", { role: "group" }, children) : null
   );
 }
@@ -570,45 +547,41 @@ function rowClick(action) {
   };
 }
 
-function twisty(id, children) {
-  if (!children) return el("span", { class: "twisty" });
+function twisty(id) {
   const open = isExpanded(id);
   return el("span", { class: "twisty", "aria-hidden": "true", title: open ? "Close" : "Open", onclick: (e) => (e.stopPropagation(), setExpanded(id, !open)) }, open ? "▾" : "▸");
 }
 
-function otherRow(name, count, category, title) {
-  const id = category === UNCATEGORIZED ? UNCATEGORIZED : ALL;
-  const edit = page.mode === "edit" && id === ALL;
+function allRow(count) {
+  const edit = page.mode === "edit";
   return el(
     "div",
-    { class: `tree-row other-row${(page.filter.category || "") === category ? " picked" : ""}`, title, "data-drop": id === ALL ? TOP : null, onclick: rowClick(() => pickCategory(category)) },
-    twisty(id, true),
-    el("span", { class: "name" }, name),
+    { class: `tree-row all-row${page.filter.category ? "" : " picked"}`, title: "Show every rule on the globe", "data-drop": "", onclick: rowClick(() => pickCategory("")) },
+    twisty(ALL),
+    el("span", { class: "name" }, "All rules"),
     el("span", { class: "count" }, String(count)),
     edit
       ? [
-          el("button", { type: "button", class: "small", title: "A new rule, in the first category", onclick: () => newRule(null) }, "+ Rule"),
+          el("button", { type: "button", class: "small", title: "A new rule, in no category", onclick: () => newRule("") }, "+ Rule"),
           el("button", { type: "button", class: "small", "aria-expanded": page.panel === ALL, onclick: () => togglePanel(ALL) }, "+ Category"),
         ]
       : null
   );
 }
 
-function categoryRow(c, count, shownCount) {
+function categoryRow(path, count) {
   const edit = page.mode === "edit";
-  const picked = page.filter.category === c.prefix;
   return el(
     "div",
-    { class: `tree-row category-row${picked ? " picked" : ""}`, "data-drop": c.prefix, onclick: rowClick(() => pickCategory(c.prefix)) },
-    twisty(`cat:${c.prefix}`, true),
-    edit ? dragHandle({ kind: "category", prefix: c.prefix, label: `${c.title} (${c.prefix})` }) : null,
-    el("span", { class: "name", title: c.title }, c.title),
-    el("span", { class: "prefix" }, c.prefix),
-    el("span", { class: "count", title: "rules in it, at any depth" }, shownCount),
+    { class: `tree-row category-row${page.filter.category === path ? " picked" : ""}`, title: path, "data-drop": path, onclick: rowClick(() => pickCategory(path)) },
+    twisty(`cat:${path}`),
+    edit ? dragHandle({ kind: "category", path, label: path }) : null,
+    el("span", { class: "name" }, lastPart(path)),
+    el("span", { class: "count", title: "rules in it, at any depth" }, String(count)),
     edit
       ? [
-          el("button", { type: "button", class: "small", title: `A new rule in ${c.prefix}`, "aria-label": `New rule in ${c.prefix}`, onclick: () => newRule(c.prefix) }, "+ Rule"),
-          el("button", { type: "button", class: "small", "aria-expanded": page.panel === c.prefix, "aria-label": `More for ${c.prefix}`, title: "Move, rename, add a subcategory, or remove", onclick: () => togglePanel(c.prefix) }, "⋯"),
+          el("button", { type: "button", class: "small", title: `A new rule in ${path}`, "aria-label": `New rule in ${path}`, onclick: () => newRule(path) }, "+ Rule"),
+          el("button", { type: "button", class: "small", "aria-expanded": page.panel === path, "aria-label": `More for ${path}`, title: "Move, rename, add a subcategory, or remove", onclick: () => togglePanel(path) }, "⋯"),
         ]
       : null
   );
@@ -622,56 +595,56 @@ function ruleNode(r, level) {
     { class: "tree-row rule-row", onclick: rowClick(() => select(selected ? null : r.index)) },
     edit ? dragHandle({ kind: "rule", index: r.index, label: `${r.code} ${r.title}` }) : el("span", { class: "twisty" }),
     el("span", { class: `chip ${r.level}` }, r.level),
-    el("span", { class: "code" }, r.code),
-    el("span", { class: "title", title: r.title }, r.title),
-    r.edge ? edgeTag() : null,
-    r.problem ? el("span", { class: "problem", title: r.problem }, "⚠") : null
+    el("span", { class: "code", title: r.code }, lastPart(r.code)),
+    el("span", { class: "title", title: r.title }, r.title)
   );
-  return treeNode({ id: `rule:${r.index}`, level, label: `${r.code} ${r.title}, ${r.level}${r.edge ? ", edge" : ""}`, row });
+  return treeNode({ id: `rule:${r.index}`, level, label: `${r.code} ${r.title}, ${r.level}`, row });
 }
 
 // ---- moving rules and categories, from a select or by dragging --------------------
-function categoryOptions(except = () => false) {
-  const byPrefix = Object.fromEntries((page.state?.categories || []).map((c) => [c.prefix, c]));
-  return (page.state?.tree || []).filter((prefix) => !except(prefix)).map((prefix) => el("option", { value: prefix }, `${"› ".repeat(byPrefix[prefix].depth)}${byPrefix[prefix].title} (${prefix})`));
+// A select that moves something to a category, "" for the top level.
+function moveSelect(id, label, top, except, move) {
+  return el(
+    "select",
+    { id, class: "move", onchange: (e) => move(e.target.value) },
+    el("option", { value: "-", selected: true, disabled: true }, label),
+    top ? el("option", { value: "" }, top) : null,
+    categories()
+      .filter((path) => !except(path))
+      .map((path) => el("option", { value: path }, path))
+  );
 }
 
-function moveSelect(id, options, move) {
-  return el("select", { id, class: "move", onchange: (e) => e.target.value && move(e.target.value) }, el("option", { value: "", selected: true }, "Move to…"), options);
-}
-
-// The rule form's Category: changing it moves the rule, as dragging it does.
-function categoryField(rule) {
-  const categories = page.state.categories;
-  if (!categories.length) return null;
-  const options = categoryOptions();
-  for (const option of options) option.selected = option.value === rule.category;
-  const outside = rule.path.length ? null : el("option", { value: "", selected: true, disabled: true }, `${rule.category || "no prefix"}: not a category`);
-  return field("f-category", "Category", el("select", { id: "f-category", onchange: (e) => e.target.value && moveRule(rule.index, e.target.value) }, outside, options));
-}
-
-async function moveRule(index, prefix) {
+async function moveRule(index, category) {
   try {
-    const out = await call("move", { index, prefix });
-    page.state = out.state;
-    saveDraft();
-    openTo(page.state.rules[index]); // where it went
-    say(`${out.was} is now ${out.code}; ${out.was} kept as an alias.`);
+    const out = await call("move", { index, category });
+    edited(out.state);
+    openTo(category); // where it went
+    say(`${out.was} is now ${out.code}.`);
   } catch (err) {
     say(`Not moved: ${err.message}`, true);
   }
   render();
 }
 
-async function moveCategory(prefix, target) {
-  const parent = target === TOP ? "" : target;
-  const listed = listedCategories().map((c) => (c.prefix === prefix ? { ...c, parent } : c));
-  if (parent) setExpanded(`cat:${parent}`, true, { quiet: true }); // where it goes
-  await setCategories(listed, parent ? `Moved ${prefix} into ${parent}.` : `Moved ${prefix} to the top level.`);
+// Rename or move a category: the codes of the rules in it take its new path.
+async function renameCategory(path, to) {
+  if (!to.split("/").every((part) => part.trim())) return say(`Not kept: a category's name cannot be empty.`, true);
+  try {
+    if (page.state.rules.some((r) => within(r.category, path))) edited(await call("rename", { category: path, to }));
+    page.empty = page.empty.map((p) => (within(p, path) ? to + p.slice(path.length) : p));
+    if (within(page.filter.category, path)) setFilter({ category: to + page.filter.category.slice(path.length) });
+    page.panel = null;
+    openTo(to);
+    say(`${path} is now ${to}.`);
+  } catch (err) {
+    say(`Not kept: ${err.message}`, true);
+  }
+  render();
 }
 
 // Drag a rule or a category by its handle onto a category, with a mouse, a pen
-// or a finger; the "Move to…" select does the same from the keyboard.
+// or a finger; the "Move to…" selects do the same from the keyboard.
 function dragHandle(what) {
   return el("span", { class: "drag", title: "Drag to move", "aria-hidden": "true", onpointerdown: (e) => startDrag(e, what) }, "⠿");
 }
@@ -684,7 +657,7 @@ function startDrag(event, what) {
   const start = [event.clientX, event.clientY];
   let ghost = null;
   let target = null;
-  const allowed = (drop) => (what.kind === "rule" ? drop !== TOP && drop !== page.state.rules[what.index].category : drop !== what.prefix);
+  const allowed = (drop) => (what.kind === "rule" ? drop !== page.state.rules[what.index].category : !within(drop, what.path) && drop !== parentOf(what.path));
   // near the top or bottom of the list's scrolling box, scroll it, to reach a far category
   let scroller = handle.parentElement;
   while (scroller && !(scroller.scrollHeight > scroller.clientHeight && /auto|scroll/.test(getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement;
@@ -712,8 +685,9 @@ function startDrag(event, what) {
     ghost?.remove();
     target?.classList.remove("drop-target");
     if (drop && target) {
-      if (what.kind === "rule") moveRule(what.index, target.dataset.drop);
-      else moveCategory(what.prefix, target.dataset.drop);
+      const onto = target.dataset.drop;
+      if (what.kind === "rule") moveRule(what.index, onto);
+      else renameCategory(what.path, onto ? `${onto}/${lastPart(what.path)}` : lastPart(what.path));
     }
   };
   const up = finish(true);
@@ -723,68 +697,59 @@ function startDrag(event, what) {
   handle.addEventListener("pointercancel", cancel);
 }
 
-// ---- managing categories: add, rename, remove ------------------------------------
-// The categories as the page sends them to Python: in the order declared.
-function listedCategories() {
-  return (page.state?.categories || []).map(({ prefix, title, parent }) => ({ prefix, title, parent }));
-}
-
+// ---- managing categories: add, rename, move, remove ------------------------------
+// A category with no rule is kept only in this page until a rule is put in it.
 function togglePanel(id) {
   page.panel = page.panel === id ? null : id;
   render();
   focusNode(id === ALL ? ALL : `cat:${id}`, { scroll: false });
 }
 
-function categoryPanel(c) {
-  const targets = [c.parent ? el("option", { value: TOP }, "Top level") : null, categoryOptions((prefix) => prefix === c.prefix || prefix === c.parent)];
+function categoryPanel(path) {
+  const parent = parentOf(path);
+  const name = lastPart(path);
+  const move = moveSelect(`c-move-${path}`, "Move to…", parent ? "Top level" : null, (p) => within(p, path) || p === parent, (to) => renameCategory(path, to ? `${to}/${name}` : name));
+  const rename = el("input", { id: `c-name-${path}`, value: name, onchange: (e) => renameCategory(path, parent ? `${parent}/${e.target.value.trim()}` : e.target.value.trim()) });
   return el(
     "div",
     { class: "tree-panel" },
-    field(`c-move-${c.prefix}`, `Move ${c.prefix} to`, moveSelect(`c-move-${c.prefix}`, targets, (target) => moveCategory(c.prefix, target))),
-    field(`c-title-${c.prefix}`, `Title of ${c.prefix}`, el("input", { id: `c-title-${c.prefix}`, value: c.title, onchange: (e) => setCategories(listedCategories().map((d) => (d.prefix === c.prefix ? { ...d, title: e.target.value } : d)), `Renamed ${c.prefix}.`) })),
-    addCategoryForm(c.prefix),
-    el("div", { class: "row" }, el("button", { type: "button", class: "danger", onclick: () => setCategories(listedCategories().filter((d) => d.prefix !== c.prefix), `Removed ${c.prefix}.`) }, `Remove ${c.prefix}`))
+    field(`c-move-${path}`, `Move ${name} to`, move),
+    field(`c-name-${path}`, `Name of ${path}`, rename),
+    addCategoryForm(path),
+    el("div", { class: "row" }, el("button", { type: "button", class: "danger", onclick: () => removeCategory(path) }, `Remove ${name}`))
   );
 }
 
 function addCategoryForm(parent) {
-  const id = parent || "top";
+  const label = parent ? `Name of a subcategory of ${parent}` : "Name of a new category";
   return el(
     "form",
     { class: "row add-category", onsubmit: (e) => addCategory(e, parent) },
-    el("input", { id: `new-prefix-${id}`, class: "new-prefix", "aria-label": parent ? `Prefix of a subcategory of ${parent}` : "Prefix of a new category", placeholder: "prefix, such as OBC", required: true, autocapitalize: "characters" }),
-    el("input", { id: `new-title-${id}`, class: "new-title", "aria-label": parent ? `Title of a subcategory of ${parent}` : "Title of a new category", placeholder: "title, such as Open boundaries", required: true }),
+    el("input", { id: `new-category-${parent || "top"}`, class: "new-name", "aria-label": label, placeholder: "name, such as OBC", required: true }),
     el("button", { type: "submit" }, parent ? "Add subcategory" : "Add category")
   );
 }
 
-async function addCategory(event, parent) {
+function addCategory(event, parent) {
   event.preventDefault();
-  const form = event.target;
-  const prefix = form.querySelector(".new-prefix").value.trim().toUpperCase();
-  const title = form.querySelector(".new-title").value.trim();
-  if (parent) setExpanded(`cat:${parent}`, true, { quiet: true }); // where it goes
-  if (await setCategories([...listedCategories(), { prefix, title, parent }], `Added ${prefix}${parent ? ` in ${parent}` : ""}.`)) {
-    page.panel = null;
-    render();
-  }
+  const name = event.target.querySelector(".new-name").value.trim();
+  const path = parent ? `${parent}/${name}` : name;
+  if (!path.split("/").every((part) => part.trim())) return say("Not added: a category's name cannot be empty.", true);
+  if (categories().includes(path)) return say(`Not added: ${path} is a category already.`, true);
+  page.empty = [...page.empty, path];
+  page.panel = null;
+  openTo(path);
+  say(`Added ${path}. A category is kept in the file once a rule is in it.`);
+  render();
 }
 
-async function setCategories(categories, done = "Kept the categories.") {
-  try {
-    page.state = await call("categories", { categories });
-    saveDraft();
-    say(done);
-    render();
-    return true;
-  } catch (err) {
-    say(`Not kept: ${err.message}`, true);
-    // show the categories as they are, but keep what was typed in the forms
-    const typed = [...document.querySelectorAll(".add-category input")].map((input) => [input.id, input.value]);
-    render();
-    for (const [id, value] of typed) if (document.getElementById(id)) document.getElementById(id).value = value;
-    return false;
-  }
+function removeCategory(path) {
+  if (page.state.rules.some((r) => within(r.category, path))) return say(`${path} still has rules: move them to another category or delete them first.`, true);
+  page.empty = page.empty.filter((p) => !within(p, path));
+  if (within(page.filter.category, path)) setFilter({ category: "" });
+  page.panel = null;
+  say(`Removed ${path}.`);
+  render();
 }
 
 // ---- moving through the tree with the keyboard --------------------------------------
@@ -832,7 +797,7 @@ function treeKeydown(event) {
         const index = Number(id.slice(5));
         select(index === page.selected ? null : index);
         focusNode(id, { scroll: false });
-      } else pickCategory(id === ALL ? "" : id === UNCATEGORIZED ? UNCATEGORIZED : id.slice(4));
+      } else pickCategory(id === ALL ? "" : id.slice(4));
       break;
     default:
       return;
@@ -843,27 +808,31 @@ function treeKeydown(event) {
 // ---- a rule as people read it, in Check mode --------------------------------------
 function ruleCard(rule) {
   const dims = Object.entries(rule.dimensions).filter(([, text]) => text);
-  const facts = [rule.confidence && `Confidence: ${rule.confidence}`, rule.status && `Status: ${rule.status}`].filter(Boolean);
+  const { instruction, references, evidence } = rule.properties;
+  // every other property, as the file holds it
+  const others = Object.entries(rule.properties).filter(([key, value]) => !(key === "instruction" && typeof value === "string") && !(["references", "evidence"].includes(key) && Array.isArray(value)));
   return el(
     "div",
     { class: "rule-card" },
-    rule.path.length ? el("p", { class: "hint category-path" }, `Category: ${pathText(rule)}`) : null,
+    el("p", { class: "hint category-path" }, rule.code.split("/").join(" › ")),
     el("p", {}, rule.message),
-    rule.instruction ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), rule.instruction) : null,
-    rule.changes.length
-      ? [el("h3", {}, "Changes"), el("ul", { class: "plain" }, rule.changes.map((c) => el("li", { class: "change" }, `${c.target} ${c.key} = ${c.value}`, c.rationale ? el("span", { class: "hint" }, ` (${c.rationale})`) : null)))]
-      : null,
+    typeof instruction === "string" ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), instruction) : null,
     el("h3", {}, "Where"),
-    el("p", {}, rule.fill ? (rule.edge ? "Where a domain's edge crosses the area shown on the globe." : "In the area shown on the globe.") : "Anywhere."),
+    el("p", {}, rule.fill ? "In the area shown on the globe." : "Anywhere."),
     el("h3", {}, "When"),
     el("p", {}, timeText(rule.time)),
     dims.length ? [el("h3", {}, "What it applies to"), el("ul", { class: "plain" }, dims.map(([name, text]) => el("li", {}, el("strong", {}, `${name}: `), text)))] : null,
-    rule.references.length ? [el("h3", {}, "References"), el("ul", { class: "plain" }, rule.references.map((ref) => el("li", {}, linked(ref.title || ref.citation || ref.url || ref.doi || JSON.stringify(ref), ref.url || (ref.doi ? `https://doi.org/${ref.doi}` : "")))))] : null,
-    rule.evidence.length ? [el("h3", {}, "Evidence"), rule.evidence.map((ev) => el("blockquote", {}, ev.quote || ev.text || JSON.stringify(ev), ev.url ? [" ", linked("source", ev.url)] : null))] : null,
-    facts.length ? el("p", { class: "hint" }, facts.join(" · ")) : null,
-    rule.problem ? el("p", { class: "problem" }, rule.problem) : null,
-    el("div", { class: "row" }, el("button", { type: "button", onclick: (e) => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { after: e.target.closest(".row") }) }, "Copy GeoJSON"))
+    Array.isArray(references) && references.length
+      ? [el("h3", {}, "References"), el("ul", { class: "plain" }, references.map((ref) => el("li", {}, typeof ref === "string" ? linked(ref, ref) : linked(ref?.title || ref?.citation || ref?.url || ref?.doi || JSON.stringify(ref), ref?.url || (ref?.doi ? `https://doi.org/${ref.doi}` : "")))))]
+      : null,
+    Array.isArray(evidence) && evidence.length ? [el("h3", {}, "Evidence"), evidence.map((ev) => el("blockquote", {}, ev?.quote || ev?.text || JSON.stringify(ev), ev?.url ? [" ", linked("source", ev.url)] : null))] : null,
+    others.length ? [el("h3", {}, "Also"), el("ul", { class: "plain" }, others.map(([key, value]) => el("li", {}, el("strong", {}, `${key}: `), typeof value === "string" ? value : JSON.stringify(value))))] : null,
+    el("div", { class: "row" }, copyButton(rule))
   );
+}
+
+function copyButton(rule) {
+  return el("button", { type: "button", onclick: (e) => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { after: e.target.closest(".row") }) }, "Copy GeoJSON");
 }
 
 // ---- a rule's record, as the rules file holds it, to read and copy ----------------
@@ -880,9 +849,9 @@ function geojsonBlock(rule) {
   );
 }
 
-// JSON as queryearth writes rule files and packs: Python's indented text, with
-// each list of numbers, such as a corner or a box, put on one line. Only lists
-// spread over lines match, and JSON strings never hold a raw newline.
+// JSON as queryearth writes rule files: Python's indented text, with each list
+// of numbers, such as a corner, put on one line. Only lists spread over lines
+// match, and JSON strings never hold a raw newline.
 function packed(text) {
   const number = String.raw`-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?`;
   const spread = new RegExp(String.raw`\[\n\s*(${number}(?:,\n\s*${number})*)\n\s*\]`, "g");
@@ -915,11 +884,8 @@ async function copyText(text, what, { shown = null, after = null } = {}) {
   say(`This browser would not copy ${what}, so it is selected: press Ctrl+C (⌘C on a Mac) to copy it.`, true);
 }
 
-function timeText(time) {
-  const range = time.start && time.end ? `From ${time.start} to ${time.end}` : time.start ? `From ${time.start}` : time.end ? `Until ${time.end}` : "";
-  const months = time.months.length ? `${range ? "in" : "In"} ${time.months.map((m) => MONTHS[m - 1]).join(", ")}` : "";
-  const text = [range, months].filter(Boolean).join(", ");
-  return [text ? `${text}.` : time.kept ? "" : "Any time.", time.kept ? `Also: ${time.kept}.` : ""].filter(Boolean).join(" ");
+function timeText({ start, end }) {
+  return start && end ? `From ${start} to ${end}.` : start ? `From ${start}.` : end ? `Until ${end}.` : "Any time.";
 }
 
 // A link only for a web address, never for script or data URLs from a file.
@@ -933,23 +899,14 @@ function linked(text, url) {
 }
 
 function ruleForm(rule) {
-  const months = new Set(rule.time.months);
   const dims = page.state.dimensions;
-  const declared = new Set(dims.map((d) => d.name));
+  const paths = categories();
+  const dates = /^\d{4}-\d{2}-\d{2}$/;
   const shapeText = rule.fill
     ? rule.editable
       ? "This rule has a shape. Move its corners, or draw a new one."
       : "This rule's shape crosses the date line, reaches a pole or has holes: draw a new one to change it."
     : "No shape: the rule applies anywhere.";
-  const dimInput = (name, kind, problem) =>
-    field(
-      `f-dim-${name}`,
-      [name, kind ? unit(dims.find((d) => d.name === name)) : null],
-      [
-        el("input", { id: `f-dim-${name}`, "data-rule-dim": name, value: rule.dimensions[name] || "", placeholder: HINTS[kind] || "", title: HINTS[kind] || "", "aria-invalid": Boolean(problem), onchange: edit((e) => ({ dimensions: { [name]: e.target.value } })) }),
-        problem ? el("p", { class: "problem" }, problem) : null,
-      ]
-    );
   return el(
     "div",
     { class: "rule-form" },
@@ -957,16 +914,18 @@ function ruleForm(rule) {
       "div",
       { class: "two" },
       field("f-code", "Code", el("input", { id: "f-code", value: rule.code, onchange: edit((e) => ({ code: e.target.value })) })),
-      field(
-        "f-level",
-        "Level",
-        el("select", { id: "f-level", onchange: edit((e) => ({ level: e.target.value })) }, LEVELS.map(([value, text]) => el("option", { value, selected: value === rule.declared_level }, value ? text : `default (${rule.changes.length ? "info" : "warning"})`)))
-      )
+      field("f-level", "Level", el("select", { id: "f-level", onchange: edit((e) => ({ level: e.target.value })) }, LEVELS.map((level) => el("option", { value: level, selected: level === rule.level }, level))))
     ),
-    categoryField(rule),
+    paths.length
+      ? field(
+          "f-category",
+          "Category",
+          // picking another moves the rule, as dragging it does
+          el("select", { id: "f-category", onchange: (e) => moveRule(rule.index, e.target.value) }, el("option", { value: "", selected: !rule.category }, "none"), paths.map((path) => el("option", { value: path, selected: path === rule.category }, path)))
+        )
+      : null,
     field("f-title", "Title", el("input", { id: "f-title", value: rule.title, onchange: edit((e) => ({ title: e.target.value })) })),
     field("f-message", "Message", el("textarea", { id: "f-message", onchange: edit((e) => ({ message: e.target.value })) }, rule.message)),
-    rule.problem ? el("p", { class: "problem" }, rule.problem) : null,
 
     el("h3", {}, "Where"),
     el("p", { class: "hint" }, shapeText),
@@ -999,12 +958,6 @@ function ruleForm(rule) {
       el("input", { id: "cap-south", class: "inline-number", type: "number", value: -60, step: 0.5, min: -89, max: 0, "aria-label": "Antarctic cap latitude" }),
       el("span", {}, "°")
     ),
-    el(
-      "div",
-      { class: "row" },
-      el("input", { id: "f-edge", type: "checkbox", style: "width:auto", checked: rule.edge, onchange: edit((e) => ({ edge: e.target.checked })) }),
-      el("label", { for: "f-edge" }, "Applies where a domain's edge crosses this area")
-    ),
 
     el("h3", {}, "When"),
     el(
@@ -1013,24 +966,16 @@ function ruleForm(rule) {
       field("f-start", "From", el("input", { id: "f-start", type: "date", value: rule.time.start, onchange: edit(timeFields) })),
       field("f-end", "To", el("input", { id: "f-end", type: "date", value: rule.time.end, onchange: edit(timeFields) }))
     ),
-    rule.time.kept ? el("p", { class: "hint" }, `Also in the file: ${rule.time.kept}. Changing the dates replaces it.`) : null,
-    el(
-      "fieldset",
-      { class: "months" },
-      el("legend", {}, "Months of every year (none ticked: all)"),
-      MONTHS.map((name, i) => el("label", {}, el("input", { type: "checkbox", value: i + 1, checked: months.has(i + 1), onchange: edit(monthFields) }), name))
+    [rule.time.start, rule.time.end].some((t) => t && !dates.test(t)) ? el("p", { class: "hint" }, `${timeText(rule.time)} Dates picked here replace it.`) : null,
+
+    dims.length ? el("h3", {}, "What it applies to") : null,
+    dims.map((d) =>
+      field(
+        `f-dim-${d.name}`,
+        [d.name, unit(d)],
+        el("input", { id: `f-dim-${d.name}`, "data-rule-dim": d.name, value: rule.dimensions[d.name], placeholder: HINTS[d.kind], title: HINTS[d.kind], onchange: edit((e) => ({ dimensions: { [d.name]: e.target.value } })) })
+      )
     ),
-
-    dims.length || Object.keys(rule.dimensions).length ? el("h3", {}, "What it applies to") : null,
-    dims.map((d) => dimInput(d.name, d.kind, null)),
-    Object.keys(rule.dimensions)
-      .filter((name) => !declared.has(name))
-      .map((name) => dimInput(name, null, `${name} is not declared: add it under Dimensions, or empty this field.`)),
-
-    el("h3", {}, "Changes"),
-    el("p", { class: "hint" }, 'What to change when this rule applies. The value is JSON, such as 900, true or "CICE"; plain text is taken as text.'),
-    el("div", { id: "f-changes" }, rule.changes.map(changeRow)),
-    el("div", { class: "row" }, el("button", { onclick: addChange }, "Add change")),
 
     geojsonBlock(rule),
 
@@ -1040,42 +985,6 @@ function ruleForm(rule) {
 
 function timeFields() {
   return { time: [document.getElementById("f-start").value, document.getElementById("f-end").value] };
-}
-
-function monthFields() {
-  return { months: [...document.querySelectorAll(".months input:checked")].map((input) => Number(input.value)) };
-}
-
-function changeFields() {
-  const part = (row, name) => row.querySelector(`[data-part=${name}]`).value;
-  return {
-    changes: [...document.querySelectorAll("#f-changes .change-row")].map((row) => ({
-      target: part(row, "target"),
-      key: part(row, "key"),
-      value: part(row, "value"),
-      rationale: part(row, "rationale"),
-    })),
-  };
-}
-
-function changeRow(change = { target: "", key: "", value: "", rationale: "" }) {
-  const input = (name, label) => el("input", { "data-part": name, "aria-label": label, placeholder: label, value: change[name], onchange: edit(changeFields) });
-  const row = el(
-    "div",
-    { class: "change-row" },
-    input("target", "target"),
-    input("key", "key"),
-    input("value", "value"),
-    el("button", { type: "button", class: "remove", "aria-label": "Remove this change", title: "Remove this change", onclick: () => (row.remove(), edit(changeFields)({ target: row })) }, "×"),
-    input("rationale", "why (optional)")
-  );
-  return row;
-}
-
-function addChange() {
-  const row = changeRow();
-  document.getElementById("f-changes").append(row);
-  row.querySelector("input").focus();
 }
 
 function deleteButton(rule) {
@@ -1099,13 +1008,11 @@ function edit(fields) {
   return async (event) => {
     const index = page.selected;
     try {
-      page.state = await call("update", { index, fields: fields(event) });
-      saveDraft();
+      edited(await call("update", { index, fields: fields(event) }));
       say(`Kept ${page.state.rules[index].code}.`);
       render();
     } catch (err) {
-      if (event.target.type === "checkbox") event.target.checked = !event.target.checked;
-      else event.target.setAttribute?.("aria-invalid", "true");
+      event.target.setAttribute?.("aria-invalid", "true");
       say(`Not kept: ${err.message}`, true);
     }
   };
@@ -1116,7 +1023,7 @@ function select(index, { reveal = false } = {}) {
   page.selected = index;
   const rule = page.state?.rules[index];
   if (rule) {
-    openTo(rule); // selected on the globe or in the results, it shows in the tree too
+    openTo(rule.category); // selected on the globe or in the results, it shows in the tree too
     page.treeFocus = `rule:${index}`;
   }
   render();
@@ -1124,11 +1031,10 @@ function select(index, { reveal = false } = {}) {
   if (reveal) document.querySelector(`[data-node="rule:${index}"]`)?.scrollIntoView({ block: "nearest" });
 }
 
-async function newRule(prefix) {
+async function newRule(category) {
   try {
-    const out = await call("new", { prefix });
-    page.state = out.state;
-    saveDraft();
+    const out = await call("new", { category });
+    edited(out.state);
     select(out.index, { reveal: true });
     say(`Added ${page.state.rules[out.index].code}: fill in its fields and draw its shape.`);
   } catch (err) {
@@ -1138,20 +1044,18 @@ async function newRule(prefix) {
 
 async function deleteRule(rule) {
   try {
-    page.state = await call("delete", { index: rule.index });
+    edited(await call("delete", { index: rule.index }));
   } catch (err) {
     return say(err.message, true);
   }
   page.selected = null;
-  saveDraft();
   say(`Deleted ${rule.code}.`);
   render();
 }
 
 async function shapeCall(name, args) {
   try {
-    page.state = await call(name, { index: page.selected, ...args });
-    saveDraft();
+    edited(await call(name, { index: page.selected, ...args }));
     say(`Kept the shape of ${page.state.rules[page.selected].code}.`);
   } catch (err) {
     say(err.message, true);
@@ -1162,11 +1066,12 @@ async function shapeCall(name, args) {
 // ---- dimensions: what rules can depend on besides place and time ----------------
 function dimensionsSection() {
   const dims = page.state?.dimensions || [];
+  const change = (i, unit) => setDimensions(dims.map((d, j) => (j === i ? { ...d, unit } : d)));
   return el(
     "section",
     { id: "dimensions" },
     el("h2", {}, "Dimensions"),
-    el("p", { class: "hint" }, "What rules can depend on besides place and time: labels are names, such as a product; an axis is numbers with a unit, such as a resolution in km; versions are such as 4.07. The rules file keeps this list."),
+    el("p", { class: "hint" }, "What rules can depend on besides place and time: labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km. They come from the rules' values; add one here to check against it, or set an axis's unit."),
     el(
       "ul",
       { class: "dims" },
@@ -1175,7 +1080,8 @@ function dimensionsSection() {
           "li",
           {},
           el("strong", {}, d.name),
-          el("span", {}, ` ${d.kind}${d.kind === "axis" ? `, in ${d.unit}` : ""}`),
+          el("span", {}, d.kind === "axis" ? "axis, in" : d.kind),
+          d.kind === "axis" ? el("input", { class: "unit", "aria-label": `Unit of ${d.name}`, value: d.unit, onchange: (e) => change(i, e.target.value.trim()) }) : null,
           el("button", { type: "button", class: "remove", "aria-label": `Remove ${d.name}`, title: `Remove ${d.name}`, onclick: () => setDimensions(dims.filter((_, j) => j !== i)) }, "×")
         )
       )
@@ -1201,13 +1107,12 @@ async function addDimension(event) {
 
 async function setDimensions(dimensions) {
   try {
-    page.state = await call("dimensions", { dimensions });
-    saveDraft();
-    say(page.state.problems.length ? "Kept the dimensions. Some rules now have problems: see File." : "Kept the dimensions.");
-    render();
+    edited(await call("dimensions", { dimensions }));
+    say("Kept the dimensions.");
   } catch (err) {
     say(`Not kept: ${err.message}`, true);
   }
+  render();
 }
 
 // ---- file: download the rules, or a web page that shows them ---------------------
@@ -1218,7 +1123,6 @@ function fileSection() {
     { id: "file" },
     el("h2", {}, "File"),
     el("p", { class: "hint" }, `${state?.name || "rules.geojson"}: download it to keep your changes, and open it again later.`),
-    (state?.problems || []).map((p) => el("p", { class: "problem" }, p)),
     el("div", { class: "row" }, el("button", { class: "primary", onclick: downloadRules }, "Download rules file"), el("button", { onclick: copyRules }, "Copy rules file")),
     field("page-title", "Title of the web page", el("input", { id: "page-title", value: page.pageTitle, oninput: (e) => (page.pageTitle = e.target.value) })),
     el("div", { class: "row" }, el("button", { onclick: downloadPage }, "Download as web page")),
@@ -1234,7 +1138,7 @@ async function downloadRules() {
     return say(`Not downloaded: ${err.message}`, true);
   }
   const name = page.state?.name || "rules.geojson";
-  const warning = download(name, packed(text), "application/geo+json");
+  const warning = download(name, text, "application/geo+json");
   if (warning === false) return;
   if (!EMBEDDED) store.clear(); // kept where downloads may be blocked
   say(`Downloaded ${name}.${warning}`);
@@ -1248,7 +1152,7 @@ async function copyRules(event) {
   } catch (err) {
     return say(`Not copied: ${err.message}`, true);
   }
-  await copyText(packed(text), page.state?.name || "the rules file", { after: row }); // as Download saves it
+  await copyText(text, page.state?.name || "the rules file", { after: row }); // as Download saves it
 }
 
 async function downloadPage() {
@@ -1260,7 +1164,8 @@ async function downloadPage() {
   }
   const title = page.pageTitle.trim() || "My rules";
   const view = map ? { center: map.getCenter().toArray().map((v) => Math.round(v * 100) / 100), zoom: Math.round(map.getZoom() * 10) / 10 } : page.settings.view || DEFAULT_VIEW;
-  const site = { title, description: page.settings.description, view, rules: JSON.parse(text) };
+  // the dimensions too, as the rules file does not say them
+  const site = { title, description: page.settings.description, view, dimensions: page.state.dimensions, rules: JSON.parse(text) };
   const json = JSON.stringify(site, null, 1).replaceAll("</", "<\\/");
   const escaped = title.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const html = [
@@ -1287,9 +1192,10 @@ async function downloadPage() {
 }
 
 function saveDraft() {
+  const { name, dimensions } = page.state;
   call("text")
-    .then((text) => store.set({ name: page.state.name, text, saved: new Date().toISOString() }))
-    .catch(() => {}); // a file with problems is kept as it was last valid
+    .then((text) => store.set({ name, text, dimensions, saved: new Date().toISOString() }))
+    .catch(() => {});
 }
 
 function draftNotice() {
@@ -1301,7 +1207,7 @@ function draftNotice() {
     el(
       "div",
       { class: "row" },
-      el("button", { class: "primary", onclick: async () => ((page.draft = null), await open(draft.text, draft.name, { fit: true })) }, "Restore them"),
+      el("button", { class: "primary", onclick: async () => ((page.draft = null), await open(draft.text, draft.name, { dimensions: draft.dimensions })) }, "Restore them"),
       el("button", { onclick: () => (store.clear(), (page.draft = null), render()) }, "Discard")
     )
   );
@@ -1318,15 +1224,15 @@ function draftPointer() {
 }
 
 // ---- opening files --------------------------------------------------------------
-async function open(text, name, { fit = true } = {}) {
-  page.state = await call("open", { text, name, dimensions: page.settings.dimensions });
+async function open(text, name, { fit = true, dimensions = page.settings.dimensions } = {}) {
+  page.state = await call("open", { text, name, dimensions });
   page.selected = null;
   page.results = null;
-  const { category } = page.filter;
-  if (category && category !== UNCATEGORIZED && !page.state.categories.some((c) => c.prefix === category)) setFilter({ category: "" });
+  page.empty = [];
   page.panel = null;
+  if (!categories().includes(page.filter.category)) setFilter({ category: "" });
   const n = page.state.rules.length;
-  say(`Opened ${name}: ${n} rule${n === 1 ? "" : "s"}${page.state.problems.length ? ", with problems (see File)" : ""}.`);
+  say(`Opened ${name}: ${n} rule${n === 1 ? "" : "s"}.`);
   render();
   if (fit) fitExtent(page.state.extent, { animate: false });
 }
@@ -1362,13 +1268,14 @@ async function submitLink(event) {
 
 async function openUrl(url, options) {
   say(`Opening ${url}…`);
+  const name = decodeURIComponent(new URL(url, location.href).pathname.split("/").pop() || "rules.geojson");
   try {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`the server said ${response.status}`);
-    await open(await response.text(), decodeURIComponent(new URL(url, location.href).pathname.split("/").pop() || "rules.geojson"), options);
+    await open(await response.text(), name, options);
     return true;
   } catch (err) {
-    say(`Could not open ${url}: ${err.message}`, true);
+    say(`Could not open ${name}: ${err.message}`, true);
     return false;
   }
 }
@@ -1383,7 +1290,6 @@ async function startMap() {
   const color = ["match", ["get", "level"], "error", LEVEL_COLOR.error, "warning", LEVEL_COLOR.warning, LEVEL_COLOR.info];
   const selected = ["boolean", ["feature-state", "selected"], false];
   const hit = ["boolean", ["feature-state", "hit"], false];
-  const edge = ["==", ["get", "edge"], true];
   map = new maplibregl.Map({
     container: "map",
     center: view.center,
@@ -1408,13 +1314,11 @@ async function startMap() {
           source: "rules",
           paint: {
             "fill-color": color,
-            // an edge rule is lighter: it applies along a domain's edge, not all over
-            "fill-opacity": ["*", ["case", edge, 0.45, 1], ["case", selected, 0.45, hit, 0.4, ["boolean", ["feature-state", "dim"], false], 0.05, 0.2]],
+            "fill-opacity": ["case", selected, 0.45, hit, 0.4, ["boolean", ["feature-state", "dim"], false], 0.05, 0.2],
             "fill-antialias": false, // no faint edge where the globe cuts shapes near the poles
           },
         },
-        { id: "rules-line", type: "line", source: "outlines", filter: ["!", edge], paint: { "line-color": color, "line-width": ["case", selected, 3.5, hit, 2.5, 1.2] } },
-        { id: "rules-edge", type: "line", source: "outlines", filter: edge, paint: { "line-color": color, "line-width": ["case", selected, 3.5, hit, 2.5, 1.5], "line-dasharray": [2, 1.5] } },
+        { id: "rules-line", type: "line", source: "outlines", paint: { "line-color": color, "line-width": ["case", selected, 3.5, hit, 2.5, 1.2] } },
         { id: "area-fill", type: "fill", source: "area", filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": "#111", "fill-opacity": 0.12, "fill-antialias": false } },
         { id: "area-line", type: "line", source: "area", paint: { "line-color": "#111", "line-width": 2, "line-dasharray": [2, 1] } },
       ],
@@ -1487,13 +1391,13 @@ function landForGlobe(land) {
 function drawRules() {
   if (!map?.getSource("rules") || !page.state) return;
   const rules = shown().filter((r) => r.fill);
-  const properties = (r) => ({ index: r.index, level: r.level, edge: r.edge });
+  const properties = (r) => ({ index: r.index, level: r.level });
   map.getSource("rules").setData(collection(rules.map((r) => ({ type: "Feature", geometry: r.fill, properties: properties(r) }))));
   map.getSource("outlines").setData(collection(rules.filter((r) => r.outline).map((r) => ({ type: "Feature", geometry: r.outline, properties: properties(r) }))));
   const results = page.mode === "check" ? page.results : null; // the check belongs to Check mode
-  const hits = new Set(results?.findings.map((f) => f.code) || []);
+  const hits = new Set(results || []);
   for (const r of rules) {
-    const state = { selected: r.index === page.selected, hit: hits.has(r.code), dim: results !== null && !hits.has(r.code) };
+    const state = { selected: r.index === page.selected, hit: hits.has(r.index), dim: results !== null && !hits.has(r.index) };
     map.setFeatureState({ source: "rules", id: r.index }, state);
     map.setFeatureState({ source: "outlines", id: r.index }, state);
   }
@@ -1502,7 +1406,7 @@ function drawRules() {
     .filter((r) => r.label)
     .map((r) =>
       new maplibregl.Marker({
-        element: el("div", { class: `label ${r.level}${r.index === page.selected ? " selected" : ""}`, title: r.title, onclick: (e) => (e.stopPropagation(), labelClicked(r)) }, r.code),
+        element: el("div", { class: `label ${r.level}${r.index === page.selected ? " selected" : ""}`, title: r.title, onclick: (e) => (e.stopPropagation(), labelClicked(r)) }, lastPart(r.code)),
         opacityWhenCovered: 0, // labels on the far side of the globe are hidden
       })
         .setLngLat(r.label)
@@ -1529,11 +1433,6 @@ function ruleClicked(event) {
   const indexes = [...new Set(event.features.map((f) => f.properties.index))];
   // clicking again where rules overlap selects the next one
   select(indexes[(indexes.indexOf(page.selected) + 1) % indexes.length], { reveal: true });
-}
-
-function focusRule(code) {
-  const rule = page.state.rules.find((r) => r.code === code);
-  if (rule) select(rule.index, { reveal: true });
 }
 
 async function fitRules({ quiet = false } = {}) {
@@ -1637,8 +1536,7 @@ async function finishDrawing() {
 
 async function keepShape(features) {
   try {
-    page.state = await call("draw", { index: page.selected, features });
-    saveDraft();
+    edited(await call("draw", { index: page.selected, features }));
     say(`Kept the shape of ${page.state.rules[page.selected].code}.`);
   } catch (err) {
     say(err.message, true);
@@ -1703,7 +1601,7 @@ async function main() {
   if (!page.state) {
     // nothing to open, or it could not be opened: the status line says why
     page.state = await call("state");
-    if (!source) say("Ready. Open a rules file, or click New rule to start one.");
+    if (!source) say("Ready. Open a rules file, or switch to Edit and click + Rule to start one.");
     render();
   }
   const draft = store.get();

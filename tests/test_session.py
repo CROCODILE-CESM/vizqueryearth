@@ -1,556 +1,292 @@
-"""vizqueryearth.session: the JSON calls the web page makes on its rule file."""
+"""The page's calls on a small rule file, through Session.call as the page makes them."""
 
 import json
-import textwrap
-from pathlib import Path
 
 import pytest
 import queryearth as qe
 
-from vizqueryearth.session import Session
+from vizqueryearth import Session
 
-DEMO = Path(__file__).parent.parent / "web" / "sites" / "demo" / "rules.geojson"
-LABELS = [
-    {"name": "product", "kind": "labels"},
-    {"name": "variable", "kind": "labels"},
-    {"name": "model", "kind": "labels"},
-]
-RESOLUTION = {"name": "resolution", "kind": "axis", "unit": "km"}
-CODES = ["OCN001", "OCN002", "ICE001", "OCN003", "OBC001"]  # in file order
-BERING = [[172, 56], [172, 63], [-168, 63], [-168, 56], [172, 56]]  # across 180
+RULES = {
+    "type": "FeatureCollection",
+    "queryearth": "0.7",
+    "features": [
+        {
+            "type": "Feature",
+            "id": "REGION/GULF/GULF001",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [[-92, 27], [-87, 27], [-87, 30], [-92, 30], [-92, 27]]
+                ],
+            },
+            "time": {"interval": ["1993-01-01", ".."]},
+            "properties": {
+                "code": "REGION/GULF/GULF001",
+                "title": "glorys is too fresh off the Mississippi",
+                "message": "Near the delta, glorys surface salinity runs low.",
+                "level": "warning",
+                "dimensions": {"product": ["glorys"]},
+                "instruction": "Compare with observations.",
+            },
+        },
+        {
+            "type": "Feature",
+            "id": "GRID/GRID001",
+            "geometry": None,
+            "time": None,
+            "properties": {
+                "code": "GRID/GRID001",
+                "title": "Turn off GM at high resolution",
+                "message": "Below 8 km eddies are partly resolved.",
+                "level": "info",
+                "dimensions": {"resolution": {"lt": 8, "unit": "km"}},
+            },
+        },
+    ],
+}
+GULF = [{"geometry": {"type": "Polygon", "coordinates": [[[-95, 25], [-85, 25], [-85, 31], [-95, 25]]]}}]  # fmt: skip
 
 
-def call(session, what, **arguments):
-    """One call as the page makes it: JSON text in, JSON text out."""
-    return json.loads(session.call(what, json.dumps(arguments)))
-
-
-def ok(session, what, **arguments):
-    out = call(session, what, **arguments)
-    assert "error" not in out, out["error"]
+def call(session, name, **arguments):
+    """A call as the page makes it; its result, or the error as an exception."""
+    out = json.loads(session.call(name, json.dumps(arguments)))
+    if "error" in out:
+        raise ValueError(out["error"])
     return out["ok"]
 
 
-def opened(text=None, **arguments):
+def opened(rules=RULES, **arguments):
     session = Session()
-    ok(session, "open", text=text or DEMO.read_text(), **arguments)
+    call(session, "open", text=json.dumps(rules), **arguments)
     return session
 
 
-def undeclared():
-    """The demo rules without their "dimensions" member."""
-    collection = json.loads(DEMO.read_text())
-    del collection["dimensions"]
-    return json.dumps(collection)
+def saved(session):
+    return json.loads(call(session, "text"))
 
 
-def drawn(*rings):
-    return [
-        {
-            "type": "Feature",
-            "properties": {},
-            "geometry": {"type": "Polygon", "coordinates": [ring]},
-        }
-        for ring in rings
+def codes(session):
+    return [rule.code for rule in session.rules]
+
+
+def test_a_file_saved_untouched_is_as_queryearth_wrote_it(tmp_path):
+    path = tmp_path / "rules.geojson"
+    path.write_text(json.dumps(RULES))
+    dimensions = [qe.Labels("product"), qe.Axis("resolution", "km")]
+    qe.Registry.from_file(path, dimensions=dimensions).to_file(path)
+    session = Session()
+    call(session, "open", text=path.read_text())
+    assert call(session, "text") == path.read_text()
+
+
+def test_the_state_has_each_rule_as_the_page_shows_it():
+    state = call(opened(), "state")
+    gulf, grid = state["rules"]
+    assert gulf["category"] == "REGION/GULF" and grid["category"] == "GRID"
+    assert gulf["time"] == {"start": "1993-01-01", "end": ""}
+    assert gulf["dimensions"] == {"product": "glorys", "resolution": ""}
+    assert grid["dimensions"] == {"product": "", "resolution": "<8"}
+    assert gulf["properties"] == {"instruction": "Compare with observations."}
+    assert json.loads(gulf["record"]) == RULES["features"][0]
+    assert gulf["extent"] == [-92, 27, -87, 30] and grid["fill"] is None
+    assert state["values"] == {"product": ["glorys"]}
+
+
+def test_dimensions_are_inferred_from_the_rules_values():
+    state = call(opened(), "state")
+    assert state["dimensions"] == [
+        {"name": "product", "kind": "labels"},
+        {"name": "resolution", "kind": "axis", "unit": "km"},
     ]
 
 
-def rule(code, **properties):
-    return {
-        "type": "Feature",
-        "id": code,
-        "geometry": None,
-        "time": None,
-        "properties": {"code": code, "title": "T", "message": "M"} | properties,
-    }
+def test_an_axis_whose_rules_give_no_unit_has_one_to_set():
+    rules = json.loads(json.dumps(RULES))
+    del rules["features"][1]["properties"]["dimensions"]["resolution"]["unit"]
+    session = opened(rules)
+    assert call(session, "state")["dimensions"][1]["unit"] == "unknown"
+    state = call(
+        session,
+        "dimensions",
+        dimensions=[
+            {"name": "product", "kind": "labels"},
+            {"name": "resolution", "kind": "axis", "unit": "km"},
+        ],
+    )
+    assert state["dimensions"][1]["unit"] == "km"
 
 
-def collection(*features, dimensions=None):
-    out = {"type": "FeatureCollection", "features": list(features)}
-    if dimensions is not None:
-        out["dimensions"] = dimensions
-    return json.dumps(out)
+def test_the_page_can_declare_a_dimension_no_rule_uses_yet():
+    session = opened(dimensions=[{"name": "ice", "kind": "labels"}])
+    names = [d["name"] for d in call(session, "state")["dimensions"]]
+    assert names == ["ice", "product", "resolution"]
 
 
-# ---- opening --------------------------------------------------------------------
-def test_open_reads_the_files_own_dimensions():
-    state = ok(Session(), "open", text=DEMO.read_text(), name="demo.geojson")
-    assert state["name"] == "demo.geojson"
-    assert state["dimensions"] == LABELS
-    assert state["problems"] == []
-    assert [r["code"] for r in state["rules"]] == CODES
-    # the file's own declaration wins over the page's
-    state = ok(Session(), "open", text=DEMO.read_text(), dimensions=[RESOLUTION])
-    assert state["dimensions"] == LABELS
-
-
-def test_open_takes_the_pages_dimensions_or_guesses_them():
-    axis = {"name": "model", "kind": "axis", "unit": "km"}
-    state = ok(Session(), "open", text=undeclared(), dimensions=LABELS[:2] + [axis])
-    assert state["dimensions"] == LABELS[:2] + [axis]
-    assert any("ICE001" in p for p in state["problems"])  # model is not an axis
-    assert state["rules"][2]["problem"] and state["rules"][0]["problem"] is None
-    assert ok(Session(), "open", text=undeclared())["dimensions"] == LABELS
-
-
-def test_open_refuses_what_is_not_a_rule_file():
-    session = Session()
-    for text in ('{"type": "Feature"}', "[1, 2]", "not json"):
-        assert "error" in call(session, "open", text=text)
-    out = call(session, "open", text=collection(dimensions=[{"name": "x"}]))
-    assert "axis, labels or versions" in out["error"]
+def test_a_dimension_a_rule_uses_cannot_be_removed():
+    session = opened()
+    only_product = [{"name": "product", "kind": "labels"}]
+    with pytest.raises(ValueError, match="GRID/GRID001: resolution: undeclared"):
+        call(session, "dimensions", dimensions=only_product)
+    assert len(session.dimensions) == 2
 
 
 def test_a_file_for_a_later_queryearth_leaves_the_open_file():
-    session = opened(name="demo.geojson")
-    major, minor = map(int, qe.FORMAT.split("."))
-    later = json.loads(DEMO.read_text()) | {"queryearth": f"{major}.{minor + 1}"}
-    out = call(session, "open", text=json.dumps(later), name="later.geojson")
-    assert out["error"].startswith(f"this file needs queryearth {major}.{minor + 1}")
-    assert out["error"].endswith(f"which reads files up to {qe.FORMAT}")
-    state = ok(session, "state")
-    assert state["name"] == "demo.geojson" and len(state["rules"]) == 5
-
-
-# ---- the state ------------------------------------------------------------------
-def test_the_state_has_what_the_page_shows():
-    state = ok(opened(), "state")
-    assert state["values"] == {
-        "product": ["demo_ocean"],
-        "variable": ["so", "thetao"],
-        "model": ["demo_model"],
-    }
-    assert state["extent"] == [128, 18, 280, 90]  # the Arctic cap counts for latitude
-    assert [state["rules"][i]["code"] for i in state["order"]] == [
-        "OCN001",
-        "OCN002",
-        "OCN003",
-        "ICE001",
-        "OBC001",
-    ]
-    top = {"parent": "", "depth": 0}
-    assert state["categories"] == [  # in the order declared
-        {"prefix": "OCN", "title": "demo_ocean, the product", "rules": 3, "total": 3}
-        | top
-        | {"children": []},
-        {"prefix": "DOMAIN", "title": "Domain design", "rules": 0, "total": 2}
-        | top
-        | {"children": ["ICE", "OBC"]},
-        {"prefix": "ICE", "title": "Sea ice", "parent": "DOMAIN", "depth": 1}
-        | {"children": [], "rules": 1, "total": 1},
-        {"prefix": "OBC", "title": "Open boundaries", "parent": "DOMAIN", "depth": 1}
-        | {"children": [], "rules": 1, "total": 1},
-    ]
-    assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC"]
-    assert state["uncategorized"] == 0
-    gulf, bering, arctic, early, edge = state["rules"]
-    assert (gulf["category"], gulf["edge"]) == ("OCN", False)
-    assert (edge["category"], edge["edge"]) == ("OBC", True)
-    assert gulf["path"] == ["OCN"] and edge["path"] == ["DOMAIN", "OBC"]
-    # what a rule's card shows besides its fields
-    assert bering["instruction"].startswith("Compare demo_ocean with observations")
-    assert bering["references"] == [
-        {
-            "title": "queryearth: writing rules",
-            "url": "https://crocodile-cesm.github.io/queryearth/",
-        }
-    ]
-    assert bering["evidence"][0]["quote"].startswith("Made up for this demo")
-    assert (bering["status"], bering["confidence"]) == ("draft", "")
-    assert gulf["instruction"] == "" and gulf["references"] == []
-    assert gulf["index"] == 0 and gulf["level"] == "warning"
-    assert gulf["declared_level"] == ""
-    assert gulf["fill"]["type"] == "Polygon" and gulf["outline"]["type"] == "LineString"
-    assert len(gulf["editable"]) == 1 and gulf["label"] == [-89, 22]
-    assert gulf["extent"] == [-98, 18, -80, 31]
-    assert gulf["dimensions"] == {
-        "product": "demo_ocean",
-        "variable": "so",
-        "model": "",
-    }
-    assert gulf["time"] == {"start": "", "end": "", "months": [], "kept": ""}
-    assert gulf["changes"] == []
-    assert bering["fill"]["type"] == "MultiPolygon" and bering["editable"] is None
-    assert bering["extent"] == [165, 52, 200, 66]
-    assert arctic["editable"] is None and arctic["extent"] == [-180, 66.5, 180, 90]
-    assert early["fill"] is None and early["extent"] is None
-    assert (
-        early["time"]["start"] == "1993-01-01" and early["time"]["end"] == "2003-12-31"
-    )
-    assert all(r["problem"] is None for r in state["rules"])
-
-
-def test_other_forms_of_time_are_shown_as_kept():
-    text = collection(
-        rule("TIM001", time_start="2000-01-01", time_end="2001-01-01"),
-        rule("TIM002") | {"time": {"date": "2000-01-01"}},
-        rule(
-            "TIM003", periods=[["2000-01-01", "2000-03-31"]], recurrence={"months": [1]}
-        )
-        | {"time": {"interval": ["2000-01-01", "2001-12-31"]}},
-    )
-    first, second, third = ok(opened(text), "state")["rules"]
-    assert first["time"]["kept"] == 'time_start "2000-01-01"; time_end "2001-01-01"'
-    assert second["time"]["kept"] == 'time {"date": "2000-01-01"}'
-    assert third["time"] == {
-        "start": "2000-01-01",
-        "end": "2001-12-31",
-        "months": [1],
-        "kept": 'periods [["2000-01-01", "2000-03-31"]]',
-    }
-
-
-# ---- editing --------------------------------------------------------------------
-def test_new_update_and_delete():
     session = opened()
-    out = ok(session, "new")
-    assert out["index"] == 5 and out["state"]["rules"][5]["code"] == "OCN004"
-    state = ok(session, "update", index=5, fields={"title": "Mine", "level": "error"})
-    assert (state["rules"][5]["title"], state["rules"][5]["level"]) == ("Mine", "error")
-    assert call(session, "update", index=5, fields={"code": "OCN001"}) == {
-        "error": "OCN001 is already in the file"
-    }
-    state = ok(session, "delete", index=0)
-    codes = [r["code"] for r in state["rules"]]
-    assert codes == CODES[1:] + ["OCN004"]
+    later = {"type": "FeatureCollection", "queryearth": "9.0", "features": []}
+    with pytest.raises(ValueError, match="needs queryearth 9.0"):
+        call(session, "open", text=json.dumps(later))
+    assert codes(session) == ["REGION/GULF/GULF001", "GRID/GRID001"]
 
 
-def test_a_new_rule_takes_the_next_code_in_its_category():
+def test_a_rule_is_edited_and_saved():
     session = opened()
-    out = ok(session, "new", prefix="OBC")
-    assert out["state"]["rules"][out["index"]]["code"] == "OBC002"
-    assert "undeclared category" in call(session, "new", prefix="XYZ")["error"]
-    bare = opened(collection(rule("ZED007"), rule("ABC001")))
-    out = ok(bare, "new")  # no categories: the prefix of the last code
-    assert out["state"]["rules"][out["index"]]["code"] == "ABC002"
-    state = ok(bare, "state")
-    assert state["categories"] == [] and state["uncategorized"] == 3
-    assert state["prefixes"] == ["ZED", "ABC"]
-    assert (state["rules"][0]["category"], state["rules"][0]["path"]) == ("ZED", [])
-
-
-def listed(state):
-    """The categories as the page sends them back."""
-    return [
-        {"prefix": c["prefix"], "title": c["title"], "parent": c["parent"]}
-        for c in state["categories"]
-    ]
-
-
-def test_categories_are_declared_as_a_list():
-    session = opened()
-    categories = listed(ok(session, "state"))
-    grid = {"prefix": "GRID", "title": "Grids", "parent": "DOMAIN"}
-    state = ok(session, "categories", categories=categories + [grid])
-    assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC", "GRID"]
-    written = json.loads(ok(session, "text"))["categories"]
-    assert written["GRID"] == {"title": "Grids", "parent": "DOMAIN"}
-    renamed = [c | {"title": "Ice"} if c["prefix"] == "ICE" else c for c in categories]
-    state = ok(session, "categories", categories=renamed)  # and GRID removed
-    assert state["categories"][2]["title"] == "Ice"
-    without = [c for c in categories if c["prefix"] != "OBC"]
-    assert (
-        "OBC still has rules"
-        in call(session, "categories", categories=without)["error"]
+    call(
+        session,
+        "update",
+        index=1,
+        fields={
+            "title": "GM off",
+            "level": "warning",
+            "time": ["2000-01-01", "2000-12-31"],
+            "dimensions": {"resolution": "2-8", "product": "glorys, era5*"},
+        },
     )
-    bad = categories + [{"prefix": "x", "title": "X"}]
-    assert "not a code prefix" in call(session, "categories", categories=bad)["error"]
-    twice = categories + [categories[0]]
-    assert "one category" in call(session, "categories", categories=twice)["error"]
-    bare = opened(collection(rule("OBC001"), rule("ITF001")))
-    first = [{"prefix": "OBC", "title": "Open boundaries"}]
-    assert "add ITF too" in call(bare, "categories", categories=first)["error"]
-
-
-def test_a_category_moves_to_another_parent():
-    session = opened()
-    categories = listed(ok(session, "state"))
-    moved = [c | {"parent": ""} if c["prefix"] == "OBC" else c for c in categories]
-    state = ok(session, "categories", categories=moved)  # OBC to the top level
-    assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC"]
-    assert next(r for r in state["rules"] if r["code"] == "OBC001")["path"] == ["OBC"]
-    under = [c | {"parent": "OBC"} if c["prefix"] == "DOMAIN" else c for c in moved]
-    state = ok(session, "categories", categories=under)  # into OBC, which moves up
-    assert [c["prefix"] for c in state["categories"]] == ["OCN", "OBC", "DOMAIN", "ICE"]
-    assert next(r for r in state["rules"] if r["code"] == "ICE001")["path"] == [
-        "OBC",
-        "DOMAIN",
-        "ICE",
-    ]
-    loop = [c | {"parent": "ICE"} if c["prefix"] == "OBC" else c for c in listed(state)]
-    out = call(session, "categories", categories=loop)
-    assert "cannot sit in each other" in out["error"]
-    without = [c for c in listed(state) if c["prefix"] != "DOMAIN"]
-    out = call(session, "categories", categories=without)
-    assert "DOMAIN has subcategories: ICE" in out["error"]
-
-
-def test_a_rule_moves_to_another_category():
-    session = opened()
-    out = ok(session, "move", index=0, prefix="OBC")  # OCN001
-    assert (out["code"], out["was"]) == ("OBC002", "OCN001")
-    rule = out["state"]["rules"][0]
-    assert (rule["code"], rule["aliases"], rule["path"]) == (
-        "OBC002",
-        ["OCN001"],
-        ["DOMAIN", "OBC"],
-    )
-    written = json.loads(ok(session, "text"))["features"][0]
-    assert written["properties"]["aliases"] == ["OCN001"] and written["id"] == "OBC002"
-    assert "already in OBC" in call(session, "move", index=0, prefix="OBC")["error"]
-    assert (
-        "undeclared category" in call(session, "move", index=0, prefix="NOPE")["error"]
-    )
-
-
-def test_the_edge_box_is_ticked_and_some_rules_have_an_extent():
-    session = opened()
-    state = ok(session, "update", index=0, fields={"edge": True})
-    assert state["rules"][0]["edge"] and session.file.features[0]["properties"]["edge"]
-    assert (
-        "needs a space"
-        in call(session, "update", index=3, fields={"edge": True})["error"]
-    )
-    assert ok(session, "extent", indexes=[1, 4]) == [128, 28, 200, 66]
-    assert ok(session, "extent", indexes=[3]) is None
-
-
-def test_time_and_months_are_edited():
-    session = opened()
-    state = ok(session, "update", index=0, fields={"time": ["2001-01-01", ""]})
-    assert session.file.features[0]["time"] == {"interval": ["2001-01-01", ".."]}
-    assert state["rules"][0]["time"]["start"] == "2001-01-01"
-    state = ok(session, "update", index=0, fields={"months": [12, 1, 2]})
-    assert session.file.features[0]["properties"]["recurrence"] == {
-        "months": [12, 1, 2]
-    }
-    assert state["rules"][0]["time"]["months"] == [12, 1, 2]
-    ok(session, "update", index=0, fields={"time": ["", ""], "months": []})
-    assert session.file.features[0]["time"] is None
-    assert "recurrence" not in session.file.features[0]["properties"]
-    out = call(
-        session, "update", index=0, fields={"time": ["2001-01-01", "2000-01-01"]}
-    )
-    assert "out of order" in out["error"]
-
-
-@pytest.mark.parametrize(
-    "typed, written, shown",
-    [
-        ("<8", {"lt": 8}, "<8"),
-        ("<= 8", {"le": 8}, "<=8"),
-        (">2, <=8.5", {"gt": 2, "le": 8.5}, ">2, <=8.5"),
-        (">=2 <8", {"ge": 2, "lt": 8}, "2-8"),
-        ("2-8", {"ge": 2, "lt": 8}, "2-8"),
-        ('[{"lt": 5}, {"gt": 50}]', [{"lt": 5}, {"gt": 50}], '[{"lt": 5}, {"gt": 50}]'),
-    ],
-)
-def test_an_axis_is_typed_as_bounds_or_json(typed, written, shown):
-    session = opened(collection(rule("RES001"), dimensions=[RESOLUTION]))
-    state = ok(session, "update", index=0, fields={"dimensions": {"resolution": typed}})
-    assert session.file.features[0]["properties"]["dimensions"] == {
-        "resolution": written
-    }
-    assert state["rules"][0]["dimensions"] == {"resolution": shown}
-
-
-def test_labels_and_versions_are_typed_as_names_or_json():
-    dims = LABELS[:1] + [{"name": "version", "kind": "versions"}]
-    session = opened(collection(rule("VER001"), dimensions=dims))
-    fields = {"dimensions": {"product": "glorys, era5*", "version": "4.07, ERA5T"}}
-    state = ok(session, "update", index=0, fields=fields)
-    assert session.file.features[0]["properties"]["dimensions"] == {
+    rule = saved(session)["features"][1]
+    assert rule["properties"]["title"] == "GM off"
+    assert rule["properties"]["level"] == "warning"
+    assert rule["time"] == {"interval": ["2000-01-01", "2000-12-31"]}
+    assert rule["properties"]["dimensions"] == {
+        "resolution": {"ge": 2, "lt": 8, "unit": "km"},
         "product": ["glorys", "era5*"],
-        "version": {"versions": ["4.07", "ERA5T"]},
     }
-    assert state["rules"][0]["dimensions"] == {
-        "product": "glorys, era5*",
-        "version": "4.07, ERA5T",
+    assert saved(session)["queryearth"] == "0.7"
+
+
+def test_empty_fields_remove_a_rules_time_and_values():
+    session = opened()
+    fields = {"time": ["", ""], "dimensions": {"product": ""}}
+    call(session, "update", index=0, fields=fields)
+    rule = saved(session)["features"][0]
+    assert rule["time"] is None and "dimensions" not in rule["properties"]
+
+
+def test_axis_bounds_are_typed_as_signs():
+    session = opened()
+    fields = {"dimensions": {"resolution": ">2, <=10"}}
+    call(session, "update", index=1, fields=fields)
+    assert session.rules[1].scope["resolution"] == {"gt": 2, "le": 10, "unit": "km"}
+    assert call(session, "state")["rules"][1]["dimensions"]["resolution"] == ">2, <=10"
+
+
+def test_a_refused_edit_leaves_the_rule_as_it_was():
+    session = opened()
+    with pytest.raises(ValueError, match="level is one of"):
+        call(session, "update", index=0, fields={"level": "loud"})
+    with pytest.raises(ValueError, match="already a rule here"):
+        call(session, "update", index=0, fields={"code": "GRID/GRID001"})
+    assert session.rules[0].code == "REGION/GULF/GULF001"
+    assert session.rules[0].level == "warning"
+
+
+def test_other_properties_are_kept():
+    session = opened()
+    call(session, "update", index=0, fields={"title": "Fresh"})
+    props = saved(session)["features"][0]["properties"]
+    assert props["instruction"] == "Compare with observations."
+
+
+def test_a_new_rule_takes_the_next_number_in_its_category():
+    session = opened()
+    out = call(session, "new", category="REGION/GULF")
+    assert out["index"] == 2 and codes(session)[2] == "REGION/GULF/GULF002"
+    call(session, "new", category="REGION/ITF")
+    call(session, "new")
+    assert codes(session)[3:] == ["REGION/ITF/ITF001", "RULE001"]
+
+
+def test_moving_a_rule_renames_its_codes_path():
+    session = opened()
+    out = call(session, "move", index=1, category="REGION/GULF")
+    assert (out["was"], out["code"]) == ("GRID/GRID001", "REGION/GULF/GRID001")
+    call(session, "move", index=1, category="")
+    assert codes(session)[1] == "GRID001"
+
+
+def test_renaming_a_category_rewrites_the_codes_under_it():
+    session = opened()
+    call(session, "rename", category="REGION", to="AREAS/REGION")
+    assert codes(session) == ["AREAS/REGION/GULF/GULF001", "GRID/GRID001"]
+    call(session, "rename", category="AREAS/REGION/GULF", to="GULF")
+    assert codes(session)[0] == "GULF/GULF001"
+
+
+def test_a_category_cannot_move_into_itself():
+    session = opened()
+    with pytest.raises(ValueError, match="REGION cannot sit in itself"):
+        call(session, "rename", category="REGION", to="REGION/GULF/REGION")
+    assert codes(session)[0] == "REGION/GULF/GULF001"
+
+
+def test_a_drawn_shape_or_a_polar_cap_becomes_the_rules_geometry():
+    session = opened()
+    call(session, "draw", index=1, features=GULF)
+    assert saved(session)["features"][1]["geometry"]["type"] == "Polygon"
+    call(session, "cap", index=1, pole="north", latitude=66.5)
+    assert call(session, "state")["rules"][1]["extent"] == [-180, 66.5, 180, 90]
+    call(session, "clear", index=1)
+    assert saved(session)["features"][1]["geometry"] is None
+
+
+def test_a_query_gives_the_rules_that_apply():
+    session = opened()
+    gulf = {"area": GULF, "start": "2020-01-01", "end": "2020-12-31"}
+    assert call(session, "query", **gulf) == []  # no product given
+    assert call(session, "query", **gulf, values={"product": "glorys"}) == [0]
+    assert call(session, "query", values={"resolution": "5-9"}) == [1]
+    assert call(session, "query", values={"resolution": "9"}) == []
+
+
+def test_a_queryearth_0_6_file_opens_with_path_codes():
+    old = {
+        "type": "FeatureCollection",
+        "queryearth": "0.6",
+        "categories": {"DOMAIN": "Domain design", "OBC": {"title": "Open boundaries", "parent": "DOMAIN"}},  # fmt: skip
+        "dimensions": [{"name": "model", "kind": "labels"}],
+        "features": [
+            {
+                "type": "Feature",
+                "id": "OBC001",
+                "geometry": None,
+                "properties": {
+                    "code": "OBC001",
+                    "title": "A strong current",
+                    "message": "Give the boundary a sponge.",
+                    "box": {"west": 170, "width": 20, "south": 50, "north": 60},
+                    "changes": [
+                        {"target": "MOM_input", "key": "SPONGE", "value": True}
+                    ],
+                },
+            }
+        ],
     }
-    fields = {"dimensions": {"version": '{"introduced": "4.00", "fixed": "4.09"}'}}
-    state = ok(session, "update", index=0, fields=fields)
-    shown = state["rules"][0]["dimensions"]["version"]
-    assert json.loads(shown) == {"introduced": "4.00", "fixed": "4.09"}
-    ok(session, "update", index=0, fields={"dimensions": {"product": " "}})
-    assert "product" not in session.file.features[0]["properties"]["dimensions"]
+    session = opened(old)
+    rule = saved(session)["features"][0]
+    assert rule["properties"]["code"] == "DOMAIN/OBC/OBC001"
+    assert rule["properties"]["level"] == "info"  # a rule with changes was info
+    assert rule["geometry"]["type"] == "MultiPolygon"  # the box, across the date line
+    assert call(session, "state")["dimensions"] == [{"name": "model", "kind": "labels"}]
 
 
-def test_a_value_that_is_not_understood_is_an_error():
-    session = opened(collection(rule("RES001"), dimensions=[RESOLUTION]))
-    for typed in ("fine", "8", "{oops"):
-        fields = {"dimensions": {"resolution": typed}}
-        assert "error" in call(session, "update", index=0, fields=fields)
-    fields = {"dimensions": {"resolution": "<8 km"}}
-    assert "<=8" in call(session, "update", index=0, fields=fields)["error"]  # the hint
-    assert "dimensions" not in session.file.features[0]["properties"]
+def test_a_queryearth_0_5_file_names_its_categories_groups():
+    old = json.loads(json.dumps(RULES))
+    old["queryearth"], old["groups"] = "0.5", {"GULF": "Gulf of Mexico"}
+    old["features"][0]["properties"]["code"] = "GULF001"
+    assert codes(opened(old))[0] == "GULF/GULF001"
 
 
-def test_changes_are_edited_as_rows():
-    session = opened()
-    rows = [
-        {"target": "MOM_input", "key": "DT", "value": "900", "rationale": "stable"},
-        {"target": "ice", "key": "on", "value": "true", "rationale": ""},
-        {"target": "case", "key": "model", "value": "CICE", "rationale": ""},
-        {"target": "", "key": "", "value": "", "rationale": ""},  # a blank row
-    ]
-    state = ok(session, "update", index=0, fields={"changes": rows})
-    assert session.file.features[0]["properties"]["changes"] == [
-        {"target": "MOM_input", "key": "DT", "value": 900, "rationale": "stable"},
-        {"target": "ice", "key": "on", "value": True},
-        {"target": "case", "key": "model", "value": "CICE"},
-    ]
-    rule = state["rules"][0]
-    assert rule["level"] == "info"  # the default with changes
-    assert [c["value"] for c in rule["changes"]] == ["900", "true", '"CICE"']
-    missing = [{"target": "MOM_input", "key": "DT", "value": "", "rationale": ""}]
-    assert (
-        "needs a value"
-        in call(session, "update", index=0, fields={"changes": missing})["error"]
-    )
-    no_key = [{"target": "MOM_input", "key": "", "value": "1", "rationale": ""}]
-    assert (
-        "key" in call(session, "update", index=0, fields={"changes": no_key})["error"]
-    )
-    state = ok(session, "update", index=0, fields={"changes": []})
-    assert "changes" not in session.file.features[0]["properties"]
-    assert state["rules"][0]["level"] == "warning"
-
-
-def test_dimensions_are_declared_and_written_in_the_file():
-    session = opened()
-    state = ok(session, "dimensions", dimensions=LABELS + [RESOLUTION])
-    assert state["dimensions"] == LABELS + [RESOLUTION]
-    assert json.loads(ok(session, "text"))["dimensions"] == LABELS + [RESOLUTION]
-    state = ok(session, "dimensions", dimensions=LABELS[:2])  # model is still used
-    assert any("model" in p for p in state["problems"])
-    assert "error" in call(session, "text")
-    out = call(session, "dimensions", dimensions=[LABELS[0], LABELS[0]])
-    assert "already declared" in out["error"]
-    assert ok(session, "state")["dimensions"] == LABELS[:2]
-
-
-# ---- shapes ---------------------------------------------------------------------
-def test_drawing_a_rectangle_across_the_date_line_gives_a_box():
-    session = opened()
-    ring = [[170, 50], [170, 60], [-170, 60], [-170, 50], [170, 50]]
-    state = ok(session, "draw", index=0, features=drawn(ring))
-    feature = session.file.features[0]
-    assert feature["properties"]["box"] == {
-        "west": 170,
-        "width": 20,
-        "south": 50,
-        "north": 60,
-    }
-    assert feature["geometry"] is None
-    assert state["rules"][0]["fill"]["type"] == "MultiPolygon"
-    assert state["rules"][0]["extent"] == [170, 50, 190, 60]
-
-
-def test_drawing_a_polygon_across_the_date_line_gives_a_split_geometry():
-    session = opened()
-    ring = [[170, 50], [-160, 55], [-170, 65], [170, 50]]
-    state = ok(session, "draw", index=1, features=drawn(ring))
-    feature = session.file.features[1]
-    assert "box" not in feature["properties"]
-    assert feature["geometry"]["type"] == "MultiPolygon"
-    assert state["rules"][1]["fill"]["type"] == "MultiPolygon"
-    assert state["rules"][1]["editable"] is None
-
-
-def test_polar_caps_and_clearing_a_shape():
-    session = opened()
-    ok(session, "cap", index=0, pole="north", latitude=70)
-    assert session.file.features[0]["properties"]["box"] == {
-        "west": -180,
-        "width": 360,
-        "south": 70,
-        "north": 90,
-    }
-    ok(session, "cap", index=0, pole="south", latitude=-60)
-    box = session.file.features[0]["properties"]["box"]
-    assert (box["south"], box["north"]) == (-90, -60)
-    state = ok(session, "clear", index=0)
-    assert state["rules"][0]["fill"] is None
-    assert "box" not in session.file.features[0]["properties"]
-
-
-def test_text_is_the_file_checked_by_queryearth():
-    session = opened()
-    assert ok(session, "text") == DEMO.read_text()
-    bad = opened(undeclared(), dimensions=LABELS[:2])
-    assert "model" in call(bad, "text")["error"]
-
-
-# ---- checking an area -----------------------------------------------------------
-def test_a_drawn_area_is_shown_as_queryearth_reads_it():
-    session = Session()
-    area = ok(session, "area", features=drawn(BERING))
-    assert area["fill"]["type"] == "MultiPolygon"
-    assert area["outline"]["type"] == "MultiLineString"
-    assert 500_000 < area["km2"] < 1_000_000
-    assert ok(session, "area", features=[]) is None
-
-
-def test_a_query_with_an_area_dates_and_labels():
-    session = opened()
-    winter = {"area": drawn(BERING), "start": "2001-01-01", "end": "2001-03-31"}
-    values = {"product": "demo_ocean", "variable": "thetao"}
-    out = ok(session, "query", **winter, values=values)
-    (finding,) = out["findings"]
-    assert finding["code"] == "OCN002" and finding["level"] == "warning"
-    assert finding["area_fraction"] == 1.0 and finding["conditional_on"] == []
-    assert "OCN002" in out["report"]
-    values = {"product": "demo_ocean", "variable": ""}
-    out = ok(session, "query", **winter, values=values, include_conditional=True)
-    found = {f["code"]: f["conditional_on"] for f in out["findings"]}
-    assert found["OCN003"] == ["variable"]
-    later = {"start": "2001-01-01", "end": "2001-12-31"}  # no area: anywhere
-    values = {"product": "other, demo_ocean", "variable": "so"}
-    out = ok(session, "query", **later, values=values)
-    assert [f["code"] for f in out["findings"]] == ["OCN003"]
-
-
-def test_axis_query_values_are_a_number_or_a_range():
-    text = collection(
-        rule("RES001", dimensions={"resolution": {"lt": 10, "unit": "km"}}),
-        dimensions=[RESOLUTION],
-    )
-    session = opened(text)
-
-    def codes(value):
-        out = ok(session, "query", values={"resolution": value})
-        return [f["code"] for f in out["findings"]]
-
-    assert codes("8") == ["RES001"]
-    assert codes("5-10") == ["RES001"]
-    assert codes("12 - 20") == []
-    assert codes("20") == []
-    out = call(session, "query", values={"resolution": "fine"})
-    assert "not a number" in out["error"]
-
-
-def test_an_unknown_call_is_an_error():
-    assert call(Session(), "nope") == {"error": "no call named 'nope'"}
-
-
-def test_each_rules_record_is_what_the_file_holds():
-    session = opened()
-    index = ok(session, "new", prefix="OBC")["index"]  # a new rule
-    ok(session, "update", index=index, fields={"title": "Mine", "months": [1, 2]})
-    ring = [[150, 30], [150, 35], [155, 35], [155, 30], [150, 30]]
-    ok(session, "draw", index=index, features=drawn(ring))
-    state = ok(session, "update", index=1, fields={"message": "Edited."})  # an old one
-    text = ok(session, "text")
-    written = json.loads(text)["features"]
-    for rule in state["rules"]:
-        assert json.loads(rule["record"]) == written[rule["index"]]
-        assert textwrap.indent(rule["record"], "    ") in text  # the same lines
-    record = json.loads(state["rules"][index]["record"])
-    assert record["properties"]["title"] == "Mine"
-    assert record["properties"]["box"] == {
-        "west": 150,
-        "width": 5,
-        "south": 30,
-        "north": 35,
-    }
-    assert json.loads(state["rules"][1]["record"])["properties"]["message"] == "Edited."
+def test_an_old_edge_rule_is_refused_naming_it():
+    old = json.loads(json.dumps(RULES))
+    old["features"][0]["properties"]["edge"] = True
+    with pytest.raises(ValueError, match=r"feature 0: REGION/GULF/GULF001: \['edge'\]"):
+        opened(old)

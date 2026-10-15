@@ -137,7 +137,6 @@ main {
 .field .unit { color: var(--muted); font-weight: 400; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .inline-number { width: 72px; }
-.problem { color: var(--error); }
 .notice { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: var(--bg); }
 
 .chip {
@@ -165,10 +164,9 @@ main {
 .tree-row.picked { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent); }
 .tree-row .name { font-weight: 600; }
 /* a long category name wraps in place; its prefix and count stay on its line */
-.category-row, .other-row { flex-wrap: nowrap; }
+.category-row, .all-row { flex-wrap: nowrap; }
 .category-row .name { min-width: 0; }
-.other-row .name { color: var(--muted); }
-.tree-row .prefix { color: var(--muted); font-size: 12px; }
+.all-row .name { color: var(--muted); }
 .tree-row .count { margin-left: auto; color: var(--muted); font-size: 12px; min-width: 1.5em; text-align: right; }
 .tree-row .code { font-weight: 700; white-space: nowrap; }
 .tree-row .title { flex: 1; min-width: 8em; }
@@ -186,12 +184,6 @@ button.small { padding: 2px 6px; font-size: 12px; }
 .tree-panel { margin: 2px 0 8px 20px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
 .add-category input { flex: 1; min-width: 7em; width: auto; }
 .rule-form { padding: 0 10px 10px; }
-.months { border: 0; padding: 0; margin: 8px 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px 6px; }
-.months legend { font-weight: 600; padding: 0; margin-bottom: 3px; }
-.months label { display: flex; gap: 3px; align-items: center; white-space: nowrap; }
-.months input, .add-dim input[type="checkbox"] { width: auto; }
-.change-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 4px; margin: 6px 0; }
-.change-row [data-part="rationale"] { grid-column: 1 / 4; }
 .danger-row { margin-top: 16px; }
 .dims { list-style: none; margin: 0 0 6px; padding: 0; }
 .dims li { display: flex; gap: 6px; align-items: center; padding: 3px 0; }
@@ -202,8 +194,6 @@ button.small { padding: 2px 6px; font-size: 12px; }
 .card:hover, .card:focus-visible { border-color: var(--accent); }
 .card .head { display: flex; gap: 8px; align-items: baseline; }
 .card p { margin: 4px 0; }
-.card .change { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
-.card .needs { color: var(--muted); }
 
 .label {
   font: 700 11px/1 system-ui, sans-serif;
@@ -232,10 +222,8 @@ button.small { padding: 2px 6px; font-size: 12px; }
 #status.error { color: var(--error); }
 .maplibregl-popup-content { background: var(--panel); color: var(--text); }
 
-/* edge rules */
 .filter input[type="search"] { margin: 2px 0 4px; }
-.tag { font-size: 11px; border: 1px dashed currentColor; border-radius: 4px; padding: 0 4px; color: var(--muted); white-space: nowrap; }
-.dims li input { flex: 1; min-width: 0; }
+.dims li input.unit { flex: 1; min-width: 0; }
 
 /* the two modes: Check to read the rules, Edit to write them */
 .modes { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
@@ -248,7 +236,6 @@ body[data-mode="check"] .edit-only { display: none; }
 /* a rule as people read it */
 .rule-card { padding: 0 10px 10px; }
 .rule-card p { margin: 4px 0; }
-.rule-card .change { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
 .rule-card blockquote { margin: 6px 0; padding: 2px 10px; border-left: 3px solid var(--line); color: var(--muted); }
 ul.plain { list-style: none; margin: 4px 0; padding: 0; }
 ul.plain li { margin: 2px 0; }

@@ -1,6 +1,6 @@
 # vizqueryearth
 
-A web page for [queryearth](https://github.com/CROCODILE-CESM/queryearth) rule files. It shows the rules on a globe, tells you which of them apply to your area, your dates and what you use, and lets you edit them: their shapes, time, dimensions and changes.
+A web page for [queryearth](https://github.com/CROCODILE-CESM/queryearth) rule files. It shows the rules on a globe, tells you which of them apply to your area, your dates and what you use, and lets you edit them: their shapes, time, dimensions and categories.
 
 It runs entirely in your browser. There is no server and no sign-in, and nothing is stored online: you open a rules file from your computer or from a link, and you save by downloading.
 
@@ -17,37 +17,39 @@ The globe is on the left and the panel on the right. The page has two modes, swi
 
 ### Check
 
-**Check your area.** Draw a rectangle or a polygon where you work, or leave it empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. "No rule applies" means only that no rule matched, not that all is well. Tick **Also list rules that need more information** to see the rules that would apply if they knew more, such as a variable you left empty. Click a result to open that rule below.
+**Check your area.** Draw a rectangle or a polygon where you work, or leave it empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. A rule about a dimension you leave empty does not apply, and "No rule applies" means only that no rule matched, not that all is well. Click a result to open that rule below, or copy its GeoJSON.
 
-**Rules.** The rules are a tree: **All rules** at the root, then the categories, their subcategories at any depth, and the rules in each, sorted by code. A rule's category is the prefix of its code: `OBC` for `OBC001`. Rules whose prefix is not a category are under **Uncategorized**, at the end. Each category shows its title, its prefix and how many rules are in it, at any depth. The categories start closed. Open or close a branch with its arrow; the page remembers which you opened, in this browser.
+**Rules.** The rules are a tree, made from their codes: a code may be a path, such as `REGION/ITF/ITF001`, whose part before the last slash is its category, `REGION/ITF`, inside `REGION`. **All rules** is at the root, then the categories, their subcategories at any depth, and the rules in each, sorted by code; rules whose code has no slash sit at the root. Each category shows how many rules are in it, at any depth. The categories start closed. Open or close a branch with its arrow; the page remembers which you opened, in this browser.
 
 Click a category to show its rules on the globe, and those of every category in it; the globe turns to them. Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`, `gulf`), with the categories they are in, opened; the globe shows them too and turns to them. Clear the filter and the branches are as you left them. The page remembers your filter. The tree works from the keyboard: the arrow keys move up and down and open and close branches, Home and End go to the first and last item, and Enter or Space picks a category or opens a rule.
 
-Click a rule in the tree, its label or its shape on the globe to open its card, with its categories opened in the tree: the globe turns to it, and the card shows what the rule says and what it covers: its level, code, title, category and message, what to do, any changes, where and when it applies, what it applies to, and its references and evidence. **Copy GeoJSON** on the card copies the rule's record, as the rules file holds it. Edge rules (see below) have a dashed outline and a lighter fill on the globe, and an "edge" tag.
+Click a rule in the tree, its label or its shape on the globe to open its card, with its categories opened in the tree: the globe turns to it, and the card shows what the rule says and what it covers: its code, message and instruction, where and when it applies, what it applies to, its references and evidence, and any other property it carries. **Copy GeoJSON** copies the rule as the rules file holds it.
 
 ### Edit
 
-**Rules.** The same tree, one line to a row, where you also manage the rules and categories:
+**Rules.** The same tree, one line to a row, where you also manage the rules and categories. A category exists because a rule's code is in it, so moving and renaming change codes:
 
-- To move a rule, drag it by its handle (⠿) onto a category, or pick another **Category** in its form. To move a category, drag it onto another one (or onto **All rules**, for the top level), or use **Move to…** in its **⋯**. A rule that moves takes the next code in its new category, and keeps its old code in its `aliases`, so the old code still finds it and is never given to another rule: "ITF003 is now OBC006; ITF003 kept as an alias". A category that moves takes its rules and subcategories with it; the page refuses a move that would put a category inside itself, and says why;
-- **+ Rule** on a category adds a rule with the next code in it, such as `OBC010` after `OBC009`; on **All rules** it adds one to the first category (or, in a file without categories, continues the last rule's prefix);
-- **+ Category** on **All rules** adds a top-level category, with its prefix and title; **⋯** on a category moves it, renames it, adds a subcategory in it, or removes it. A category that still holds rules or subcategories is not removed, and the page says why. Once a file has categories, every rule's prefix must be one of them, so a file whose rules have none yet gets them all at once, with **Make a category for each prefix**; then give them titles and arrange them.
+- To move a rule, drag it by its handle (⠿) onto a category, or onto **All rules** for none, or pick another **Category** in its form. Its code takes the new path and keeps its last part: `REGION/ITF/ITF003` moved to `DOMAIN/OBC` becomes `DOMAIN/OBC/ITF003`;
+- To move a category, drag it onto another one (or onto **All rules**, for the top level), or use **Move to…** in its **⋯**. Renaming it there works the same way: every code in it takes the new path;
+- **+ Rule** on a category adds a rule numbered after the last part of its path, such as `DOMAIN/OBC/OBC006` after `DOMAIN/OBC/OBC005`; on **All rules** it adds `RULE001` at the root;
+- **+ Category** on **All rules**, and **Add subcategory** in a category's **⋯**, make a category. It holds no rule yet, so it is kept only while the page is open: put a rule in it to keep it in the file. **Remove** in the **⋯** removes a category with no rules; one that holds rules is not removed, and the page says why.
 
 Clicking a rule opens its form in the tree:
 
-- code, level, category (picking another moves the rule, as dragging does), title and message;
-- **Where:** draw a rectangle or a polygon, move the corners of the current shape, remove it (the rule then applies anywhere), or give it an Arctic or Antarctic cap from a latitude. Tick **Applies where a domain's edge crosses this area** for an edge rule: it applies where the edge of the area you check crosses its shape, not wherever they overlap, for advice about where to put a domain's open boundaries;
-- **When:** from and to dates, and the months of every year it applies;
+- code, level (info, warning or error), category (picking another moves the rule, as dragging does), title and message;
+- **Where:** draw a rectangle or a polygon, move the corners of the current shape, remove it (the rule then applies anywhere), or give it the Arctic or Antarctic from a latitude;
+- **When:** from and to dates;
 - **What it applies to:** one field per dimension (see the table below);
-- **Changes:** what to change when the rule applies, as rows of target, key, value and an optional reason. The value is JSON, such as `900`, `true` or `"CICE"`; plain text is taken as text. A rule with changes is info by default, one without is a warning;
-- **GeoJSON:** the rule's record as the rules file holds it, laid out as queryearth writes rule files and packs (indented, with each list of numbers, such as a corner, on one line), kept up to date as you edit, with **Copy** to copy it. Saved as a file, it is that rule's file in a pack. The page remembers whether you keep it open;
+- **GeoJSON:** the rule as the rules file holds it, kept up to date as you edit, with **Copy**. The page remembers whether you keep it open;
 - **Delete**, which asks you to click a second time.
+
+Other properties of a rule, such as its instruction, references and evidence, are kept as they are and shown in Check.
 
 Every edit is checked by queryearth before it is kept. If queryearth refuses one, the field keeps what you typed, marked in red, and the line at the bottom of the page says why.
 
-**Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers with a unit, such as a resolution in km; versions are such as `4.07` or `ERA5T`. Add or remove them here; the rules file keeps the list.
+**Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km. A rules file does not list them, so the page reads them from the rules' values: a range such as `{"lt": 8, "unit": "km"}` makes an axis in that unit, and a name or a list of names makes labels. Set an axis's unit here when its rules give none, add a dimension to check against, or remove one no rule uses.
 
-**File.** **Download rules file** saves the rules, laid out as queryearth writes rule files, and **Copy rules file** copies the same text, to paste into a file, a gist or a message. **Download as web page** saves a page that shows them; see [Sharing](#sharing). The same two buttons are at the top of the page in Edit mode.
+**File.** **Download rules file** saves the rules as queryearth writes rule files, and **Copy rules file** copies the same text, to paste into a file, a gist or a message. **Download as web page** saves a page that shows them; see [Sharing](#sharing). The same two buttons are at the top of the page in Edit mode.
 
 Edits you have not downloaded are kept in your browser. When you come back to the same page address, Edit mode offers them back; the page switches to Edit to show you, unless its address asked for Check.
 
@@ -61,36 +63,12 @@ What to type for a dimension:
 |---|---|---|
 | labels | names separated by commas: `glorys, era5*` (`*` and `?` match any letters) | `glorys` |
 | axis | `<8`, `<=8`, `>2`, `>=2`, several such as `>2, <=8`, or `2-8` (from 2 up to, not including, 8) | a number or a range: `8`, `5-10` |
-| versions | `4.07, ERA5T`, or JSON such as `{"introduced": "4.00", "fixed": "4.09"}` | `4.07` |
-
-Anything else queryearth reads, such as a list of ranges `[{"lt": 5}, {"gt": 50}]` or `{"any_of": [...], "none_of": [...]}`, can be typed as JSON.
 
 ## Rules files
 
-A rules file is a GeoJSON FeatureCollection of queryearth records; see [Writing rules](https://crocodile-cesm.github.io/queryearth/) in the queryearth docs. Open one with **Open file** or **Open link**, or give its address in the page's own: `?src=<link>`.
+A rules file is a GeoJSON FeatureCollection with one Feature per rule, as queryearth 0.7 reads and writes it (`Registry.from_file`, `Registry.to_file`); see [Rule files](https://crocodile-cesm.github.io/queryearth/) in the queryearth docs. Open one with **Open file** or **Open link**, or give its address in the page's own: `?src=<link>`. A file that needs a later queryearth than the page's is not opened, and the line at the bottom of the page says which release it needs.
 
-A rules file says, next to its `features`, which queryearth file format it uses, its categories and the dimensions its rules use:
-
-```json
-{
-  "type": "FeatureCollection",
-  "queryearth": "0.5",
-  "categories": {
-    "DOMAIN": "Domain design",
-    "OBC": {"title": "Open boundaries", "parent": "DOMAIN"},
-    "ITF": "Coral Triangle and the Indonesian Throughflow"
-  },
-  "dimensions": [
-    {"name": "product", "kind": "labels"},
-    {"name": "resolution", "kind": "axis", "unit": "km"}
-  ],
-  "features": [...]
-}
-```
-
-A category is its title, or its title and the category it sits in (its `parent`, which comes first in the list). This is how queryearth 0.6 writes and reads rule files (`Registry.to_file`, `Registry.from_file`), and the page always writes these members; `categories` only when there are some. All of them are optional when you open a file. Files written for queryearth 0.4 and 0.5 call the categories `groups`; they open as they are and are written for 0.6. Without `dimensions`, the page uses the dimensions its site declares, or else guesses them from the rules. A file that needs a later queryearth than the page's is not opened, and the line at the bottom of the page says which release it needs.
-
-Rules you do not edit are written back as they were read.
+**Older files.** Files written for queryearth 0.6 or before open where they map onto 0.7: each code takes the path of the category it was in (`OBC001`, in `OBC` in `DOMAIN`, becomes `DOMAIN/OBC/OBC001`; the categories were called `groups` before 0.6), the dimensions the file declared become the page's, and a record's `box` becomes its geometry. They are saved as 0.7 files. Category titles are not kept. A rule that 0.7 cannot read as its author meant, such as an edge rule or one that recurs every year, is refused, and the page names it.
 
 ## Sharing
 
@@ -102,7 +80,7 @@ https://crocodile-cesm.github.io/vizqueryearth/?src=https://raw.githubuserconten
 
 The file's host must allow cross-origin reads, as raw files on GitHub and gists do. Many other hosts do not; the page then says it could not open the link.
 
-**Your own page.** **Download as web page** gives an `index.html` that holds the rules file, with its categories and dimensions, the title you give it and the view of the globe you see. It loads the app itself from GitHub Pages, so it is one small file you can host anywhere:
+**Your own page.** **Download as web page** gives an `index.html` that holds the rules file, the dimensions, the title you give it and the view of the globe you see. It loads the app itself from GitHub Pages, so it is one small file you can host anywhere:
 
 - GitHub Pages: make a repository, add `index.html`, then in Settings → Pages choose "Deploy from a branch", `main` and `/ (root)`. The page appears at `https://<you>.github.io/<repository>/` after a minute.
 - Netlify Drop: drag a folder holding `index.html` onto https://app.netlify.com/drop.
@@ -125,7 +103,7 @@ Curated pages live in this repository under `web/sites/<name>/` and appear at `h
 | `title` | The page's title, at the top and in the browser tab. |
 | `description` | A sentence or two shown above Check your area. Optional. |
 | `rules` | The rules file: a path relative to the folder (`"rules.geojson"`), a URL, or the FeatureCollection itself. |
-| `dimensions` | Optional, for a rules file that does not declare them: `[{"name": "product", "kind": "labels"}, {"name": "resolution", "kind": "axis", "unit": "km"}]`, with `kind` one of `axis`, `labels` or `versions`, and `unit` for an axis only. |
+| `dimensions` | Optional: dimensions to declare before those read from the rules, such as one no rule uses yet or an axis's unit: `[{"name": "product", "kind": "labels"}, {"name": "resolution", "kind": "axis", "unit": "km"}]`. |
 | `view` | Optional: where the globe starts, `{"center": [lon, lat], "zoom": 1.6}`. Without it, the globe turns to the rules. |
 
 For example, `web/sites/demo/site.json`:
@@ -141,39 +119,17 @@ For example, `web/sites/demo/site.json`:
 
 ## Using it from Python
 
-The page's Python is a small package you can use in scripts. It is not on PyPI:
-
-```bash
-pip install git+https://github.com/CROCODILE-CESM/vizqueryearth
-```
-
-It needs Python 3.11 or later and `queryearth>=0.6,<0.7`.
+The page's Python is a small package, not on PyPI; to work with rule files in Python, use queryearth itself. It needs Python 3.11 or later and `queryearth>=0.7,<0.8`. `vizqueryearth.Session` holds the rules a page shows and answers its calls, `upgrade()` turns a file from queryearth 0.6 or before into the 0.7 form, and `infer()` reads a file's dimensions from its rules:
 
 ```python
+import json
+
 import queryearth as qe
-from vizqueryearth import RuleFile, arctic
+from vizqueryearth import infer, upgrade
 
-rules = RuleFile.read("rules.geojson")  # with the categories and dimensions it declares
-i = rules.new("ICE")  # the next code in the category, such as ICE002
-rules.update(
-    i,
-    title="Sea ice",
-    message="North of 66.5°N, check the sea ice.",
-    time=["2000-01-01", ""],
-    months=[12, 1, 2],
-    dimensions={"product": ["demo_ocean"]},
-)
-rules.set_shape(i, arctic(66.5))
-rules.write("rules.geojson")  # checked by queryearth, then written in one step
-findings = rules.query(
-    space=qe.space.point(0, 80),
-    time=qe.interval("2001-01-01", "2001-01-31"),
-    dimensions={"product": "demo_ocean"},
-)
-print(qe.report(findings))
+data, declared = upgrade(json.load(open("old_rules.geojson")))
+dimensions = infer(data["features"], declared)  # [{"name", "kind", "unit"}]
 ```
-
-`RuleFile` checks every edit with queryearth and refuses what queryearth would refuse; `problems()` lists what queryearth refuses in the file as it stands. `set_categories()` and `set_dimensions()` declare categories (in queryearth's form, parents first or moved there) and dimensions, `category_paths()` gives the categories each sits in, `move(i, "OBC")` moves a rule to another category (a new code, the old one kept as an alias), `order()` gives the rules sorted by code, and `update(i, edge=True)` makes an edge rule. `vizqueryearth.shapes` turns drawn GeoJSON into rule shapes (`from_drawn`).
 
 ## Local development
 
@@ -198,6 +154,7 @@ Everything runs in your browser. The page loads [MapLibre GL](https://maplibre.o
 ## Known limits
 
 - Shapes that cross the date line, reach a pole or have holes cannot be edited corner by corner: draw a new shape instead.
+- A category with no rules is kept only while the page is open.
 - Saving is by download. Unsaved edits are kept in your browser, as a safety net, and offered back when you return to the same page address; downloading the rules file clears them.
 - Some embedded browsers, such as an editor's preview pane, block downloads. The page says so; open it in a normal browser.
 - Where a browser does not let the page copy, the Copy buttons select the text instead, and the line at the bottom of the page says to press Ctrl+C (⌘C on a Mac).
