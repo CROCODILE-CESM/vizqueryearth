@@ -301,6 +301,7 @@ class Session:
             "editable": None if shape is None else shapes.editable(shape),
             "extent": None if shape is None else shapes.extent([shape]),
             "problem": self.file.problem(index),
+            "record": self.file.record(index),  # its GeoJSON, as in the file
         }
 
     def _values(self) -> dict[str, list[str]]:

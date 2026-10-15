@@ -21,7 +21,7 @@ The globe is on the left and the panel on the right. The page has two modes, swi
 
 **Rules.** The list is sorted by code: by group, in the order the file gives its groups, then by number, with a heading for each group that names the groups it sits in, such as "Regions › Coral Triangle and the Indonesian Throughflow". Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`, `gulf`), or pick a group with its button; the globe then shows only those rules and turns to them. Groups can sit in groups: the buttons show the top-level groups, and picking one shows the groups in it on a row below, indented. Picking a group shows its own rules and the rules of every group in it, at any depth. The page remembers your filter in this browser.
 
-Click a rule in the list, its label or its shape on the globe to open its card: the globe turns to it, and the card shows what the rule says and what it covers: its level, code, title, groups and message, what to do, any changes, where and when it applies, what it applies to, and its references and evidence. Edge rules (see below) have a dashed outline and a lighter fill on the globe, and an "edge" tag.
+Click a rule in the list, its label or its shape on the globe to open its card: the globe turns to it, and the card shows what the rule says and what it covers: its level, code, title, groups and message, what to do, any changes, where and when it applies, what it applies to, and its references and evidence. **Copy GeoJSON** on the card copies the rule's record, as the rules file holds it. Edge rules (see below) have a dashed outline and a lighter fill on the globe, and an "edge" tag.
 
 ### Edit
 
@@ -32,6 +32,7 @@ Click a rule in the list, its label or its shape on the globe to open its card: 
 - **When:** from and to dates, and the months of every year it applies;
 - **What it applies to:** one field per dimension (see the table below);
 - **Changes:** what to change when the rule applies, as rows of target, key, value and an optional reason. The value is JSON, such as `900`, `true` or `"CICE"`; plain text is taken as text. A rule with changes is info by default, one without is a warning;
+- **GeoJSON:** the rule's record exactly as the rules file holds it, kept up to date as you edit, with **Copy** to copy it. The page remembers whether you keep it open;
 - **Delete**, which asks you to click a second time.
 
 **New rule** adds a rule with the next code in the group picked beside it, such as `OBC010` after `OBC009`; numbers are never given twice. In a file without groups it continues the last rule's prefix.
@@ -42,7 +43,7 @@ Every edit is checked by queryearth before it is kept. If queryearth refuses one
 
 **Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers with a unit, such as a resolution in km; versions are such as `4.07` or `ERA5T`. Add or remove them here; the rules file keeps the list.
 
-**File.** **Download rules file** saves the rules. **Download as web page** saves a page that shows them; see [Sharing](#sharing). The same two buttons are at the top of the page in Edit mode.
+**File.** **Download rules file** saves the rules, and **Copy rules file** copies the same text, to paste into a file, a gist or a message. **Download as web page** saves a page that shows them; see [Sharing](#sharing). The same two buttons are at the top of the page in Edit mode.
 
 Edits you have not downloaded are kept in your browser. When you come back to the same page address, Edit mode offers them back; the page switches to Edit to show you, unless its address asked for Check.
 
@@ -195,6 +196,7 @@ Everything runs in your browser. The page loads [MapLibre GL](https://maplibre.o
 - Shapes that cross the date line, reach a pole or have holes cannot be edited corner by corner: draw a new shape instead.
 - Saving is by download. Unsaved edits are kept in your browser, as a safety net, and offered back when you return to the same page address; downloading the rules file clears them.
 - Some embedded browsers, such as an editor's preview pane, block downloads. The page says so; open it in a normal browser.
+- Where a browser does not let the page copy, the Copy buttons select the text instead, and the line at the bottom of the page says to press Ctrl+C (⌘C on a Mac).
 - The globe draws map data only to about 85° north and south and fills the poles from there. South of 84°S the land is drawn as one band, which also covers the last degree of the Ross Ice Shelf. A point drawn within half a degree of a pole is taken to be on it.
 - A downloaded web page loads the app from GitHub Pages, so it changes when the app does.
 - Opening a link needs a host that allows cross-origin reads.

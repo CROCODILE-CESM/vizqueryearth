@@ -1,6 +1,7 @@
 """vizqueryearth.session: the JSON calls the web page makes on its rule file."""
 
 import json
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -509,3 +510,26 @@ def test_axis_query_values_are_a_number_or_a_range():
 
 def test_an_unknown_call_is_an_error():
     assert call(Session(), "nope") == {"error": "no call named 'nope'"}
+
+
+def test_each_rules_record_is_what_the_file_holds():
+    session = opened()
+    index = ok(session, "new", prefix="OBC")["index"]  # a new rule
+    ok(session, "update", index=index, fields={"title": "Mine", "months": [1, 2]})
+    ring = [[150, 30], [150, 35], [155, 35], [155, 30], [150, 30]]
+    ok(session, "draw", index=index, features=drawn(ring))
+    state = ok(session, "update", index=1, fields={"message": "Edited."})  # an old one
+    text = ok(session, "text")
+    written = json.loads(text)["features"]
+    for rule in state["rules"]:
+        assert json.loads(rule["record"]) == written[rule["index"]]
+        assert textwrap.indent(rule["record"], "    ") in text  # the same lines
+    record = json.loads(state["rules"][index]["record"])
+    assert record["properties"]["title"] == "Mine"
+    assert record["properties"]["box"] == {
+        "west": 150,
+        "width": 5,
+        "south": 30,
+        "north": 35,
+    }
+    assert json.loads(state["rules"][1]["record"])["properties"]["message"] == "Edited."

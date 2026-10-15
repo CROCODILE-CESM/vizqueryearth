@@ -258,3 +258,10 @@ ul.plain li { margin: 2px 0; }
 .group-list li .parent select { flex: 1; min-width: 0; }
 .group-list li .count { grid-column: 3; justify-self: end; }
 .rule-card .group-path { margin-bottom: 6px; }
+
+/* a rule's GeoJSON, to read and copy */
+#f-geojson { margin-top: 16px; }
+#f-geojson summary { font-weight: 600; cursor: pointer; }
+pre.geojson, textarea.copy-fallback { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 6px 0; }
+pre.geojson { max-height: 320px; overflow: auto; white-space: pre; tab-size: 2; }
+textarea.copy-fallback { width: 100%; }

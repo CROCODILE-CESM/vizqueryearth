@@ -82,7 +82,9 @@ def context():
     with sync_api.sync_playwright() as playwright:
         browser = playwright.chromium.launch(args=WEBGL)
         yield browser.new_context(
-            viewport={"width": 1280, "height": 800}, accept_downloads=True
+            viewport={"width": 1280, "height": 800},
+            accept_downloads=True,
+            permissions=["clipboard-read", "clipboard-write"],
         )
         browser.close()
 
@@ -621,4 +623,88 @@ def test_groups_in_groups(app, context, serve, tmp_path):
         page.locator("#file").get_by_role("button", name="Download rules file").click()
     saved = json.loads(Path(info.value.path()).read_text())
     assert saved["queryearth"] == "0.5" and saved["groups"] == old["groups"]
+    assert not errors
+
+
+def clipboard(page):
+    return page.evaluate("navigator.clipboard.readText()")
+
+
+NO_CLIPBOARD = """Object.defineProperty(navigator, "clipboard",
+    {value: undefined, configurable: true})"""
+
+
+def test_copy_a_rules_geojson(app, context):
+    page, errors = visit(context, f"{app}/sites/demo/#edit", 5)
+    page.get_by_role("button", name="New rule", exact=True).click()
+    page.wait_for_function(f"{APP}.page.state.rules.length === 6")
+    block = page.locator("#f-geojson")
+    assert block.get_attribute("open") is None  # closed at first
+    block.locator("summary").click()
+
+    def shown():
+        return json.loads(page.locator("#f-geojson-text").inner_text())
+
+    assert shown()["properties"]["code"] == "OCN004"
+    page.fill("#f-title", "Copied rule")
+    page.locator("#f-title").blur()
+    page.wait_for_function(f"{APP}.page.state.rules[5].title === 'Copied rule'")
+    assert shown()["properties"]["title"] == "Copied rule"  # still open, updated
+
+    page.evaluate(f"{APP}.map().jumpTo({{center: [-90, 25], zoom: 3}})")
+    settle(page)
+    page.locator(".rule-form").get_by_role("button", name="Draw rectangle").click()
+    click_at(page, -95, 20)
+    click_at(page, -85, 28)
+    page.wait_for_function(f"{APP}.page.state.rules[5].fill !== null")
+    assert "box" in shown()["properties"]
+
+    page.locator("#f-geojson").get_by_role("button", name="Copy", exact=True).click()
+    page.wait_for_timeout(300)
+    record = state(page)["rules"][5]["record"]
+    assert clipboard(page) == record
+    assert "Copied OCN004 as GeoJSON" in page.inner_text("#status")
+
+    # the whole file, as Download rules file saves it
+    page.locator("#file").get_by_role("button", name="Copy rules file").click()
+    page.wait_for_timeout(300)
+    with page.expect_download() as info:
+        page.locator("#file").get_by_role("button", name="Download rules file").click()
+    saved = Path(info.value.path()).read_text()
+    assert clipboard(page) == saved
+    assert json.loads(saved)["features"][5] == json.loads(record)
+
+    # where the browser will not copy, the text is selected for Ctrl+C
+    page.evaluate(NO_CLIPBOARD)
+    page.locator("#f-geojson").get_by_role("button", name="Copy", exact=True).click()
+    page.wait_for_timeout(300)
+    assert "press Ctrl+C" in page.inner_text("#status")
+    assert page.evaluate("getSelection().toString()") == record
+
+    # the block stays open for this viewer
+    again, more = visit(context, f"{app}/sites/demo/#edit", 5, fresh=False)
+    again.locator(".rule-row", has_text="OCN001").click()
+    assert again.locator("#f-geojson").get_attribute("open") is not None
+    again.close()
+    assert not errors and not more
+
+
+def test_copy_from_a_rules_card(app, context):
+    page, errors = visit(context, f"{app}/sites/demo/", 5)
+    page.locator(".rule-row", has_text="OCN002").click()
+    card = page.locator(".rule-card")
+    card.get_by_role("button", name="Copy GeoJSON").click()
+    page.wait_for_timeout(300)
+    copied = clipboard(page)
+    demo = json.loads((WEB / "sites" / "demo" / "rules.geojson").read_text())
+    assert json.loads(copied) == demo["features"][1]
+    assert copied == state(page)["rules"][1]["record"]
+    assert page.locator(".rule-form").count() == 0  # still read only
+
+    page.evaluate(NO_CLIPBOARD)
+    card.get_by_role("button", name="Copy GeoJSON").click()
+    box = card.locator("textarea.copy-fallback")
+    assert box.input_value() == copied
+    assert page.evaluate("document.activeElement.className") == "copy-fallback"
+    assert "press Ctrl+C" in page.inner_text("#status")
     assert not errors

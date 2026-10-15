@@ -136,6 +136,8 @@ const store = browserStore("draft", () => location.pathname + location.search);
 const filterStore = browserStore("filter", () => location.pathname);
 // the mode each viewer used last, Check or Edit
 const modeStore = browserStore("mode", () => "last");
+// whether each viewer keeps the rule form's GeoJSON open
+const geojsonStore = browserStore("geojson", () => "open");
 const MODES = ["check", "edit"];
 
 // ---- settings: inline, from a site's site.json, then ?src= ----------------------
@@ -565,8 +567,48 @@ function ruleCard(rule) {
     rule.references.length ? [el("h3", {}, "References"), el("ul", { class: "plain" }, rule.references.map((ref) => el("li", {}, linked(ref.title || ref.citation || ref.url || ref.doi || JSON.stringify(ref), ref.url || (ref.doi ? `https://doi.org/${ref.doi}` : "")))))] : null,
     rule.evidence.length ? [el("h3", {}, "Evidence"), rule.evidence.map((ev) => el("blockquote", {}, ev.quote || ev.text || JSON.stringify(ev), ev.url ? [" ", linked("source", ev.url)] : null))] : null,
     facts.length ? el("p", { class: "hint" }, facts.join(" · ")) : null,
-    rule.problem ? el("p", { class: "problem" }, rule.problem) : null
+    rule.problem ? el("p", { class: "problem" }, rule.problem) : null,
+    el("div", { class: "row" }, el("button", { type: "button", onclick: (e) => copyText(rule.record, `${rule.code} as GeoJSON`, { after: e.target.closest(".row") }) }, "Copy GeoJSON"))
   );
+}
+
+// ---- a rule's record, as the rules file holds it, to read and copy ----------------
+function geojsonBlock(rule) {
+  const text = el("pre", { class: "geojson", id: "f-geojson-text", tabindex: "0", "aria-label": `${rule.code} as GeoJSON` }, rule.record);
+  return el(
+    "details",
+    { id: "f-geojson", open: geojsonStore.get() === true, ontoggle: (e) => geojsonStore.set(e.target.open) },
+    el("summary", {}, "GeoJSON"),
+    el("p", { class: "hint" }, "This rule as the rules file holds it."),
+    el("div", { class: "row" }, el("button", { type: "button", onclick: () => copyText(rule.record, `${rule.code} as GeoJSON`, { shown: text }) }, "Copy")),
+    text
+  );
+}
+
+// Copy text to the clipboard. Where the browser does not allow that, select the
+// text instead, shown where it is or in a box after `after`, for Ctrl+C or ⌘C.
+async function copyText(text, what, { shown = null, after = null } = {}) {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("no clipboard here");
+    await navigator.clipboard.writeText(text);
+    say(`Copied ${what}.`);
+    return;
+  } catch {}
+  let target = shown;
+  if (!target) {
+    target = el("textarea", { class: "copy-fallback", readonly: true, rows: 8, "aria-label": what });
+    target.value = text;
+    after.nextElementSibling?.classList.contains("copy-fallback") ? after.nextElementSibling.replaceWith(target) : after.after(target);
+  }
+  target.focus();
+  if (target instanceof HTMLTextAreaElement) target.select();
+  else {
+    const range = document.createRange();
+    range.selectNodeContents(target);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+  }
+  say(`This browser would not copy ${what}, so it is selected: press Ctrl+C (⌘C on a Mac) to copy it.`, true);
 }
 
 function timeText(time) {
@@ -684,6 +726,8 @@ function ruleForm(rule) {
     el("p", { class: "hint" }, 'What to change when this rule applies. The value is JSON, such as 900, true or "CICE"; plain text is taken as text.'),
     el("div", { id: "f-changes" }, rule.changes.map(changeRow)),
     el("div", { class: "row" }, el("button", { onclick: addChange }, "Add change")),
+
+    geojsonBlock(rule),
 
     el("div", { class: "row danger-row" }, deleteButton(rule))
   );
@@ -957,7 +1001,7 @@ function fileSection() {
     el("h2", {}, "File"),
     el("p", { class: "hint" }, `${state?.name || "rules.geojson"}: download it to keep your changes, and open it again later.`),
     (state?.problems || []).map((p) => el("p", { class: "problem" }, p)),
-    el("div", { class: "row" }, el("button", { class: "primary", onclick: downloadRules }, "Download rules file")),
+    el("div", { class: "row" }, el("button", { class: "primary", onclick: downloadRules }, "Download rules file"), el("button", { onclick: copyRules }, "Copy rules file")),
     field("page-title", "Title of the web page", el("input", { id: "page-title", value: page.pageTitle, oninput: (e) => (page.pageTitle = e.target.value) })),
     el("div", { class: "row" }, el("button", { onclick: downloadPage }, "Download as web page")),
     el("p", { class: "hint" }, "The web page shows these rules on the globe, as you see them now, wherever you put it: GitHub Pages, any web host, or a folder on your computer.")
@@ -976,6 +1020,17 @@ async function downloadRules() {
   if (warning === false) return;
   if (!EMBEDDED) store.clear(); // kept where downloads may be blocked
   say(`Downloaded ${name}.${warning}`);
+}
+
+async function copyRules(event) {
+  const row = event.target.closest(".row");
+  let text;
+  try {
+    text = await call("text"); // the same text Download rules file saves
+  } catch (err) {
+    return say(`Not copied: ${err.message}`, true);
+  }
+  await copyText(text, page.state?.name || "the rules file", { after: row });
 }
 
 async function downloadPage() {

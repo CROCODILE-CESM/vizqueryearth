@@ -209,6 +209,11 @@ class RuleFile:
         self.registry()
         return json.dumps(self.collection, indent=2, ensure_ascii=False) + "\n"
 
+    def record(self, index: int) -> str:
+        """One rule's record as JSON text, as text() writes it in the file (there
+        indented four more spaces, inside "features")."""
+        return json.dumps(self.features[index], indent=2, ensure_ascii=False)
+
     def shape(self, index: int) -> Shape | None:
         """A rule's shape, or None when it has none or queryearth refuses it."""
         try:
