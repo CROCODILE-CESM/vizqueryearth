@@ -155,22 +155,36 @@ main {
 .chip.warning { background: var(--warning); }
 .chip.info { background: var(--info); }
 
-.rules { list-style: none; margin: 0; padding: 0; }
-.rules li { border-radius: 6px; }
-.rules li[aria-current="true"] { background: var(--bg); outline: 2px solid var(--accent); margin: 6px 0; }
-.rule-row {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: none;
-  padding: 6px 8px;
-}
-.rule-row:hover { background: var(--bg); }
-.rules .code { font-weight: 700; white-space: nowrap; }
-.rules .title { flex: 1; }
+/* the rules as a tree: categories, subcategories and rules */
+.tree, .tree ul { list-style: none; margin: 0; padding: 0; }
+.tree ul { padding-left: 14px; }
+.tree [role="treeitem"] { outline: none; border-radius: 6px; }
+.tree [role="treeitem"]:focus-visible > .tree-row { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tree-row { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+.tree-row:hover { background: var(--bg); }
+.tree-row.picked { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent); }
+.tree-row .name { font-weight: 600; }
+/* a long category name wraps in place; its prefix and count stay on its line */
+.category-row, .other-row { flex-wrap: nowrap; }
+.category-row .name { min-width: 0; }
+.other-row .name { color: var(--muted); }
+.tree-row .prefix { color: var(--muted); font-size: 12px; }
+.tree-row .count { margin-left: auto; color: var(--muted); font-size: 12px; min-width: 1.5em; text-align: right; }
+.tree-row .code { font-weight: 700; white-space: nowrap; }
+.tree-row .title { flex: 1; min-width: 8em; }
+.twisty { display: inline-block; width: 1em; color: var(--muted); user-select: none; }
+.tree [data-node^="rule:"][aria-selected="true"] { background: var(--bg); outline: 2px solid var(--accent); margin: 6px 0; }
+/* in Edit, each row is one line: long titles end in "…", whole in a tooltip */
+body[data-mode="edit"] .tree-row { flex-wrap: nowrap; align-items: center; }
+body[data-mode="edit"] .tree-row > * { flex: none; }
+body[data-mode="edit"] .tree-row .name, body[data-mode="edit"] .tree-row .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body[data-mode="edit"] .tree-row .count { margin-left: 0; }
+button.small { padding: 2px 6px; font-size: 12px; }
+.drag { cursor: grab; touch-action: none; user-select: none; color: var(--muted); }
+.drag-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
+.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--bg); }
+.tree-panel { margin: 2px 0 8px 20px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
+.add-category input { flex: 1; min-width: 7em; width: auto; }
 .rule-form { padding: 0 10px 10px; }
 .months { border: 0; padding: 0; margin: 8px 0; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px 6px; }
 .months legend { font-weight: 600; padding: 0; margin-bottom: 3px; }
@@ -218,15 +232,10 @@ main {
 #status.error { color: var(--error); }
 .maplibregl-popup-content { background: var(--panel); color: var(--text); }
 
-/* filtering the rules, groups and edge rules */
+/* edge rules */
 .filter input[type="search"] { margin: 2px 0 4px; }
-.group-buttons { gap: 4px; }
-.group-buttons button { padding: 3px 8px; font-size: 13px; }
-.group-buttons button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .tag { font-size: 11px; border: 1px dashed currentColor; border-radius: 4px; padding: 0 4px; color: var(--muted); white-space: nowrap; }
 .dims li input { flex: 1; min-width: 0; }
-.dims li .count { flex: none; font-size: 12px; white-space: nowrap; }
-#new-group { width: auto; max-width: 60%; }
 
 /* the two modes: Check to read the rules, Edit to write them */
 .modes { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
@@ -245,19 +254,7 @@ ul.plain { list-style: none; margin: 4px 0; padding: 0; }
 ul.plain li { margin: 2px 0; }
 .rule-card a { color: var(--accent); }
 
-/* groups in groups */
-.rules li.group-heading { font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 8px 2px; }
-.group-buttons button.on-path { border-color: var(--accent); color: var(--accent); }
-.group-buttons.nested { margin-top: 0; }
-.nest-mark, .has-groups { color: var(--muted); }
-.group-buttons button[aria-pressed="true"] .has-groups { color: inherit; }
-.group-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; padding-top: 6px; padding-bottom: 6px; }
-.group-list li .remove { grid-column: 3; grid-row: 1; justify-self: end; }
-.group-list li .parent { grid-column: 2; display: flex; gap: 6px; align-items: center; color: var(--muted); }
-.group-list li .parent span { flex: none; }
-.group-list li .parent select { flex: 1; min-width: 0; }
-.group-list li .count { grid-column: 3; justify-self: end; }
-.rule-card .group-path { margin-bottom: 6px; }
+.rule-card .category-path { margin-bottom: 6px; }
 
 /* a rule's GeoJSON, to read and copy */
 #f-geojson { margin-top: 16px; }

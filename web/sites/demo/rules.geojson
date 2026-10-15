@@ -3,8 +3,8 @@
   "conformsTo": [
     "http://www.opengis.net/spec/json-fg-1/1.0/conf/core"
   ],
-  "queryearth": "0.5",
-  "groups": {
+  "queryearth": "0.6",
+  "categories": {
     "OCN": "demo_ocean, the product",
     "DOMAIN": "Domain design",
     "ICE": {

@@ -129,23 +129,23 @@ def test_the_state_has_what_the_page_shows():
         "OBC001",
     ]
     top = {"parent": "", "depth": 0}
-    assert state["groups"] == [  # in the order declared
-        {"prefix": "OCN", "title": "demo_ocean, the product", "rules": 3}
+    assert state["categories"] == [  # in the order declared
+        {"prefix": "OCN", "title": "demo_ocean, the product", "rules": 3, "total": 3}
         | top
         | {"children": []},
-        {"prefix": "DOMAIN", "title": "Domain design", "rules": 0}
+        {"prefix": "DOMAIN", "title": "Domain design", "rules": 0, "total": 2}
         | top
         | {"children": ["ICE", "OBC"]},
         {"prefix": "ICE", "title": "Sea ice", "parent": "DOMAIN", "depth": 1}
-        | {"children": [], "rules": 1},
+        | {"children": [], "rules": 1, "total": 1},
         {"prefix": "OBC", "title": "Open boundaries", "parent": "DOMAIN", "depth": 1}
-        | {"children": [], "rules": 1},
+        | {"children": [], "rules": 1, "total": 1},
     ]
     assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC"]
-    assert [f["prefix"] for f in state["filters"]] == state["tree"]
+    assert state["uncategorized"] == 0
     gulf, bering, arctic, early, edge = state["rules"]
-    assert (gulf["group"], gulf["edge"]) == ("OCN", False)
-    assert (edge["group"], edge["edge"]) == ("OBC", True)
+    assert (gulf["category"], gulf["edge"]) == ("OCN", False)
+    assert (edge["category"], edge["edge"]) == ("OBC", True)
     assert gulf["path"] == ["OCN"] and edge["path"] == ["DOMAIN", "OBC"]
     # what a rule's card shows besides its fields
     assert bering["instruction"].startswith("Compare demo_ocean with observations")
@@ -215,71 +215,92 @@ def test_new_update_and_delete():
     assert codes == CODES[1:] + ["OCN004"]
 
 
-def test_a_new_rule_takes_the_next_code_in_its_group():
+def test_a_new_rule_takes_the_next_code_in_its_category():
     session = opened()
     out = ok(session, "new", prefix="OBC")
     assert out["state"]["rules"][out["index"]]["code"] == "OBC002"
-    assert "undeclared group" in call(session, "new", prefix="XYZ")["error"]
+    assert "undeclared category" in call(session, "new", prefix="XYZ")["error"]
     bare = opened(collection(rule("ZED007"), rule("ABC001")))
-    out = ok(bare, "new")  # no groups: the prefix of the last code
+    out = ok(bare, "new")  # no categories: the prefix of the last code
     assert out["state"]["rules"][out["index"]]["code"] == "ABC002"
-    none = {"title": "", "parent": "", "depth": 0, "children": []}
     state = ok(bare, "state")
-    assert state["filters"] == [{"prefix": "ABC"} | none, {"prefix": "ZED"} | none]
-    assert state["rules"][0]["path"] == ["ZED"]
+    assert state["categories"] == [] and state["uncategorized"] == 3
+    assert state["prefixes"] == ["ZED", "ABC"]
+    assert (state["rules"][0]["category"], state["rules"][0]["path"]) == ("ZED", [])
 
 
 def listed(state):
-    """The groups as the page sends them back."""
+    """The categories as the page sends them back."""
     return [
-        {"prefix": g["prefix"], "title": g["title"], "parent": g["parent"]}
-        for g in state["groups"]
+        {"prefix": c["prefix"], "title": c["title"], "parent": c["parent"]}
+        for c in state["categories"]
     ]
 
 
-def test_groups_are_declared_as_a_list():
+def test_categories_are_declared_as_a_list():
     session = opened()
-    groups = listed(ok(session, "state"))
+    categories = listed(ok(session, "state"))
     grid = {"prefix": "GRID", "title": "Grids", "parent": "DOMAIN"}
-    state = ok(session, "groups", groups=groups + [grid])
+    state = ok(session, "categories", categories=categories + [grid])
     assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC", "GRID"]
-    written = json.loads(ok(session, "text"))["groups"]
+    written = json.loads(ok(session, "text"))["categories"]
     assert written["GRID"] == {"title": "Grids", "parent": "DOMAIN"}
-    renamed = [g | {"title": "Ice"} if g["prefix"] == "ICE" else g for g in groups]
-    state = ok(session, "groups", groups=renamed)  # and GRID removed
-    assert state["groups"][2]["title"] == "Ice"
-    out = call(session, "groups", groups=[g for g in groups if g["prefix"] != "OBC"])
-    assert "rules still use OBC" in out["error"]
-    out = call(session, "groups", groups=groups + [{"prefix": "x", "title": "X"}])
-    assert "not a code prefix" in out["error"]
-    out = call(session, "groups", groups=groups + [groups[0]])
-    assert "one group" in out["error"]
+    renamed = [c | {"title": "Ice"} if c["prefix"] == "ICE" else c for c in categories]
+    state = ok(session, "categories", categories=renamed)  # and GRID removed
+    assert state["categories"][2]["title"] == "Ice"
+    without = [c for c in categories if c["prefix"] != "OBC"]
+    assert (
+        "OBC still has rules"
+        in call(session, "categories", categories=without)["error"]
+    )
+    bad = categories + [{"prefix": "x", "title": "X"}]
+    assert "not a code prefix" in call(session, "categories", categories=bad)["error"]
+    twice = categories + [categories[0]]
+    assert "one category" in call(session, "categories", categories=twice)["error"]
     bare = opened(collection(rule("OBC001"), rule("ITF001")))
-    out = call(bare, "groups", groups=[{"prefix": "OBC", "title": "Open boundaries"}])
-    assert "add ITF too" in out["error"]
+    first = [{"prefix": "OBC", "title": "Open boundaries"}]
+    assert "add ITF too" in call(bare, "categories", categories=first)["error"]
 
 
-def test_a_group_moves_to_another_parent():
+def test_a_category_moves_to_another_parent():
     session = opened()
-    groups = listed(ok(session, "state"))
-    moved = [g | {"parent": ""} if g["prefix"] == "OBC" else g for g in groups]
-    state = ok(session, "groups", groups=moved)  # OBC to the top level
+    categories = listed(ok(session, "state"))
+    moved = [c | {"parent": ""} if c["prefix"] == "OBC" else c for c in categories]
+    state = ok(session, "categories", categories=moved)  # OBC to the top level
     assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC"]
     assert next(r for r in state["rules"] if r["code"] == "OBC001")["path"] == ["OBC"]
-    under = [g | {"parent": "OBC"} if g["prefix"] == "DOMAIN" else g for g in moved]
-    state = ok(session, "groups", groups=under)  # DOMAIN into OBC, which moves up
-    assert [g["prefix"] for g in state["groups"]] == ["OCN", "OBC", "DOMAIN", "ICE"]
+    under = [c | {"parent": "OBC"} if c["prefix"] == "DOMAIN" else c for c in moved]
+    state = ok(session, "categories", categories=under)  # into OBC, which moves up
+    assert [c["prefix"] for c in state["categories"]] == ["OCN", "OBC", "DOMAIN", "ICE"]
     assert next(r for r in state["rules"] if r["code"] == "ICE001")["path"] == [
         "OBC",
         "DOMAIN",
         "ICE",
     ]
-    loop = [g | {"parent": "ICE"} if g["prefix"] == "OBC" else g for g in listed(state)]
-    assert "cannot sit in each other" in call(session, "groups", groups=loop)["error"]
-    out = call(
-        session, "groups", groups=[g for g in listed(state) if g["prefix"] != "DOMAIN"]
+    loop = [c | {"parent": "ICE"} if c["prefix"] == "OBC" else c for c in listed(state)]
+    out = call(session, "categories", categories=loop)
+    assert "cannot sit in each other" in out["error"]
+    without = [c for c in listed(state) if c["prefix"] != "DOMAIN"]
+    out = call(session, "categories", categories=without)
+    assert "DOMAIN has subcategories: ICE" in out["error"]
+
+
+def test_a_rule_moves_to_another_category():
+    session = opened()
+    out = ok(session, "move", index=0, prefix="OBC")  # OCN001
+    assert (out["code"], out["was"]) == ("OBC002", "OCN001")
+    rule = out["state"]["rules"][0]
+    assert (rule["code"], rule["aliases"], rule["path"]) == (
+        "OBC002",
+        ["OCN001"],
+        ["DOMAIN", "OBC"],
     )
-    assert "DOMAIN has groups in it: ICE" in out["error"]
+    written = json.loads(ok(session, "text"))["features"][0]
+    assert written["properties"]["aliases"] == ["OCN001"] and written["id"] == "OBC002"
+    assert "already in OBC" in call(session, "move", index=0, prefix="OBC")["error"]
+    assert (
+        "undeclared category" in call(session, "move", index=0, prefix="NOPE")["error"]
+    )
 
 
 def test_the_edge_box_is_ticked_and_some_rules_have_an_extent():

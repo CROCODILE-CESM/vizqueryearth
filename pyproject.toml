@@ -11,7 +11,7 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Manish Venumuddula" }]
 requires-python = ">=3.11"
-dependencies = ["queryearth>=0.5,<0.6"]
+dependencies = ["queryearth>=0.6,<0.7"]
 
 [project.optional-dependencies]
 test = ["pytest"]

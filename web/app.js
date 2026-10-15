@@ -20,7 +20,7 @@ const LIBS = {
   land: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@v5.1.2/geojson/ne_50m_land.geojson",
   pyodide: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js",
 };
-const QUERYEARTH = "queryearth==0.5.0"; // a requirement or a wheel URL, for micropip
+const QUERYEARTH = "queryearth==0.6.0"; // a requirement or a wheel URL, for micropip
 const PY_FILES = ["__init__.py", "shapes.py", "rulefile.py", "session.py"];
 const LEVEL_COLOR = { error: "#c62828", warning: "#e08a00", info: "#1e6fd9" };
 const LEVELS = [
@@ -206,7 +206,9 @@ const page = {
   markers: [],
   draft: null, // edits kept in this browser from an earlier visit
   pageTitle: "",
-  filter: { text: "", group: "" }, // which rules the list and the globe show
+  filter: { text: "", category: "" }, // which rules the tree and the globe show
+  panel: null, // the category whose actions are open in Edit ("all": the root's)
+  treeFocus: null, // the tree item that takes the keyboard
 };
 let map, draw, maplibregl, pythonReady;
 
@@ -224,7 +226,7 @@ function build() {
         "div",
         { class: "modes", role: "group", "aria-label": "Mode" },
         el("button", { type: "button", "data-mode": "check", title: "Read the rules, and check which apply to your area", onclick: () => setMode("check") }, "Check"),
-        el("button", { type: "button", "data-mode": "edit", title: "Write the rules: their fields, shapes, groups and dimensions", onclick: () => setMode("edit") }, "Edit")
+        el("button", { type: "button", "data-mode": "edit", title: "Write the rules: their fields, shapes, categories and dimensions", onclick: () => setMode("edit") }, "Edit")
       ),
       el("span", { class: "grow" }),
       el("button", { onclick: () => fileInput.click() }, "Open file"),
@@ -250,7 +252,7 @@ function build() {
 function render() {
   const parts =
     page.mode === "edit"
-      ? [page.draft ? draftNotice() : null, rulesSection(), groupsSection(), dimensionsSection(), fileSection()]
+      ? [page.draft ? draftNotice() : null, rulesSection(), dimensionsSection(), fileSection()]
       : [page.draft ? draftPointer() : null, checkSection(), rulesSection()];
   document.getElementById("panel").replaceChildren(...parts.filter(Boolean));
   drawRules();
@@ -383,16 +385,30 @@ function clearArea() {
   render();
 }
 
-// ---- rules: filter them, pick one to see and edit it ----------------------------
-function matches(rule) {
-  const { text, group } = page.filter;
-  const words = text.trim().toLowerCase();
-  if (group && !rule.path.includes(group)) return false; // the group, or a group in it
+// ---- the rules as a tree: categories, subcategories and rules --------------------
+// Node ids: "all" (the root), "cat:OBC", "uncategorized", "rule:5" (by position).
+const ALL = "all";
+const UNCATEGORIZED = "uncategorized";
+const TOP = "^"; // "Move to…" a top-level category
+// the branches each viewer has opened, for this page; at first only All rules
+const openedStore = browserStore("opened", () => location.pathname);
+
+function textMatches(rule) {
+  const words = page.filter.text.trim().toLowerCase();
   return !words || rule.code.toLowerCase().includes(words) || rule.title.toLowerCase().includes(words);
 }
 
-// The rules the list and the globe show, sorted by code: those the filter
-// leaves, and the selected one.
+// A rule the globe shows: in the category picked (at any depth), and matching
+// the text typed.
+function matches(rule) {
+  const { category } = page.filter;
+  if (category === UNCATEGORIZED && rule.path.length) return false;
+  if (category && category !== UNCATEGORIZED && !rule.path.includes(category)) return false;
+  return textMatches(rule);
+}
+
+// The rules the globe shows, sorted by code: those the filter leaves, and the
+// selected one.
 function shown() {
   const state = page.state;
   if (!state) return [];
@@ -412,138 +428,416 @@ function setFilter(change) {
   filterStore.set(page.filter);
 }
 
-function filterGroup(prefix) {
-  setFilter({ group: prefix });
+// Pick a category: the globe shows everything under it, and turns to it.
+function pickCategory(prefix) {
+  setFilter({ category: prefix });
+  if (prefix) setExpanded(prefix === UNCATEGORIZED ? UNCATEGORIZED : `cat:${prefix}`, true, { quiet: true });
   render();
-  fitRules(); // turn to the rules the group has
+  focusNode(prefix ? (prefix === UNCATEGORIZED ? UNCATEGORIZED : `cat:${prefix}`) : ALL, { scroll: false });
+  fitRules(); // turn to the rules in it
 }
 
 let fitSoon = null;
 function filterText(event) {
   setFilter({ text: event.target.value });
-  document.getElementById("rule-list").replaceChildren(...ruleItems());
-  document.getElementById("rule-count").textContent = countText();
-  drawRules();
+  renderTree();
   clearTimeout(fitSoon); // once typing stops, turn to the rules it leaves
   fitSoon = setTimeout(() => fitRules({ quiet: true }), 500);
 }
 
 function countText() {
   const total = page.state?.rules.length || 0;
-  const n = page.state ? page.state.rules.filter(matches).length : 0;
-  if (!total) return page.mode === "edit" ? "No rules yet: click New rule, or open a rules file." : "No rules yet.";
-  const showing = n === total ? `${total} rule${total === 1 ? "" : "s"}` : `${n} of ${total} rules`;
-  return `${showing}. Click a rule, here or on the globe, to ${page.mode === "edit" ? "edit" : "read"} it.`;
+  const n = page.state ? page.state.rules.filter(textMatches).length : 0;
+  if (!total) return page.mode === "edit" ? "No rules yet: add one with + Rule, or open a rules file." : "No rules yet.";
+  const showing = n === total ? `${total} rule${total === 1 ? "" : "s"}` : `${n} of ${total} rules match`;
+  return `${showing}. Click a category to show its rules on the globe, or a rule to ${page.mode === "edit" ? "edit" : "read"} it.`;
+}
+
+// A rule's categories by title, outermost first: "Regions › Coral Triangle …".
+function pathText(rule) {
+  const titles = Object.fromEntries((page.state?.categories || []).map((c) => [c.prefix, c.title]));
+  return rule.path.map((prefix) => titles[prefix] || prefix).join(" › ");
+}
+
+function opened() {
+  const kept = openedStore.get();
+  return new Set(Array.isArray(kept) ? kept : [ALL]);
+}
+
+function isExpanded(id) {
+  return page.filter.text.trim() ? true : opened().has(id); // a text filter opens every branch it leaves
+}
+
+// Open the branches a rule is in, so its row shows.
+function openTo(rule) {
+  for (const id of [ALL, ...(rule.path.length ? rule.path.map((p) => `cat:${p}`) : [UNCATEGORIZED])]) setExpanded(id, true, { quiet: true });
+}
+
+function setExpanded(id, open, { quiet = false } = {}) {
+  const shown = opened();
+  if (open) shown.add(id);
+  else shown.delete(id);
+  openedStore.set([...shown]);
+  if (!quiet) {
+    renderTree();
+    focusNode(id);
+  }
 }
 
 function rulesSection() {
   const state = page.state;
-  const filters = state?.filters || [];
-  const groups = state?.groups || [];
-  const preferred = groups.some((g) => g.prefix === page.filter.group) ? page.filter.group : groups[0]?.prefix;
+  const ungrouped = page.mode === "edit" && state && !state.categories.length && state.prefixes.length ? state.prefixes : null;
   return el(
     "section",
     { id: "rules" },
     el("h2", {}, "Rules"),
-    el(
-      "div",
-      { class: "filter" },
-      el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter by code or title", value: page.filter.text, oninput: filterText }),
-      filters.length ? groupRows(filters) : null
-    ),
+    el("div", { class: "filter" }, el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter by code or title", value: page.filter.text, oninput: filterText })),
     el("p", { id: "rule-count", class: "hint" }, countText()),
-    el("ul", { id: "rule-list", class: "rules" }, ruleItems()),
-    page.mode === "edit"
+    ungrouped
       ? el(
           "div",
-          { class: "row" },
-          groups.length
-            ? el("select", { id: "new-group", "aria-label": "Group of the new rule" }, treeOrder(groups).map((g) => el("option", { value: g.prefix, selected: g.prefix === preferred }, `${"› ".repeat(g.depth)}${g.prefix}: ${g.title}`)))
-            : null,
-          el("button", { onclick: newRule }, "New rule")
+          { class: "notice" },
+          el("p", {}, `These rules have no categories. Once there are categories, every rule's prefix must be one, so they start with one for each prefix in use: ${ungrouped.join(", ")}.`),
+          el("div", { class: "row" }, el("button", { onclick: () => setCategories(ungrouped.map((prefix) => ({ prefix, title: prefix, parent: "" })), "Made a category for each prefix: give them titles, and arrange them.") }, "Make a category for each prefix"))
         )
+      : null,
+    el("ul", { id: "rule-tree", class: "tree", role: "tree", "aria-label": "Rules by category", onkeydown: treeKeydown }, treeItems())
+  );
+}
+
+function renderTree() {
+  const tree = document.getElementById("rule-tree");
+  if (!tree) return;
+  const focused = document.activeElement?.closest?.("#rule-tree [role=treeitem]")?.dataset.node;
+  tree.replaceChildren(...treeItems());
+  document.getElementById("rule-count").textContent = countText();
+  drawRules();
+  if (focused) focusNode(focused, { scroll: false });
+}
+
+// The tree from Python's state: categories in tree order with their rules,
+// rules sorted by code; with a text typed, only the rules it matches and the
+// categories they are in.
+function treeItems() {
+  const state = page.state;
+  if (!state) return [];
+  const byPrefix = Object.fromEntries(state.categories.map((c) => [c.prefix, c]));
+  const kept = (r) => r.index === page.selected || textMatches(r);
+  const own = {};
+  const loose = [];
+  for (const i of state.order) {
+    const r = state.rules[i];
+    if (!kept(r)) continue;
+    if (r.path.length) (own[r.category] ||= []).push(r);
+    else loose.push(r);
+  }
+  const under = (prefix) => (own[prefix] || []).length + byPrefix[prefix].children.reduce((n, child) => n + under(child), 0);
+  const filtering = Boolean(page.filter.text.trim());
+  const categoryNode = (prefix, level) => {
+    const c = byPrefix[prefix];
+    const count = under(prefix);
+    if (filtering && !count) return null;
+    const children = [...c.children.map((child) => categoryNode(child, level + 1)), ...(own[prefix] || []).map((r) => ruleNode(r, level + 1))].filter(Boolean);
+    return treeNode({ id: `cat:${prefix}`, level, label: `${c.title} (${prefix}), ${count} rule${count === 1 ? "" : "s"}`, row: categoryRow(c, count, filtering ? `${count}` : `${c.total}`), children, panel: page.panel === prefix ? categoryPanel(c) : null });
+  };
+  const top = state.tree.filter((prefix) => !byPrefix[prefix].parent).map((prefix) => categoryNode(prefix, 2));
+  if (loose.length) {
+    top.push(treeNode({ id: UNCATEGORIZED, level: 2, label: `Uncategorized, ${loose.length} rules`, row: otherRow("Uncategorized", loose.length, UNCATEGORIZED, "Rules whose prefix is not a category"), children: loose.map((r) => ruleNode(r, 3)) }));
+  }
+  const total = state.rules.filter(kept).length;
+  return [treeNode({ id: ALL, level: 1, label: `All rules, ${total}`, row: otherRow("All rules", total, "", "Show every rule on the globe"), children: top.filter(Boolean), panel: page.panel === ALL ? addCategoryForm("") : null })];
+}
+
+function treeNode({ id, level, label, row, children = null, panel = null }) {
+  const open = children ? isExpanded(id) : undefined;
+  const isRule = id.startsWith("rule:");
+  const picked = isRule ? Number(id.slice(5)) === page.selected : (page.filter.category || "") === (id === ALL ? "" : id === UNCATEGORIZED ? UNCATEGORIZED : id.slice(4));
+  return el(
+    "li",
+    { role: "treeitem", "data-node": id, "aria-level": level, "aria-label": label, "aria-expanded": open, "aria-selected": picked, tabindex: id === (page.treeFocus || ALL) ? "0" : "-1" },
+    row,
+    panel,
+    isRule && picked ? (page.mode === "edit" ? ruleForm(page.state.rules[Number(id.slice(5))]) : ruleCard(page.state.rules[Number(id.slice(5))])) : null,
+    children && open && children.length ? el("ul", { role: "group" }, children) : null
+  );
+}
+
+// A row's own buttons and fields act; a click anywhere else on it does the row's thing.
+function rowClick(action) {
+  return (event) => {
+    if (event.target.closest("button, select, input, textarea, a, .drag")) return;
+    action();
+  };
+}
+
+function twisty(id, children) {
+  if (!children) return el("span", { class: "twisty" });
+  const open = isExpanded(id);
+  return el("span", { class: "twisty", "aria-hidden": "true", title: open ? "Close" : "Open", onclick: (e) => (e.stopPropagation(), setExpanded(id, !open)) }, open ? "▾" : "▸");
+}
+
+function otherRow(name, count, category, title) {
+  const id = category === UNCATEGORIZED ? UNCATEGORIZED : ALL;
+  const edit = page.mode === "edit" && id === ALL;
+  return el(
+    "div",
+    { class: `tree-row other-row${(page.filter.category || "") === category ? " picked" : ""}`, title, "data-drop": id === ALL ? TOP : null, onclick: rowClick(() => pickCategory(category)) },
+    twisty(id, true),
+    el("span", { class: "name" }, name),
+    el("span", { class: "count" }, String(count)),
+    edit
+      ? [
+          el("button", { type: "button", class: "small", title: "A new rule, in the first category", onclick: () => newRule(null) }, "+ Rule"),
+          el("button", { type: "button", class: "small", "aria-expanded": page.panel === ALL, onclick: () => togglePanel(ALL) }, "+ Category"),
+        ]
       : null
   );
 }
 
-// The group buttons as a tree: the top-level groups, then, under the group
-// picked and each group it sits in, a row of the groups inside it.
-function groupRows(filters) {
-  const byPrefix = Object.fromEntries(filters.map((f) => [f.prefix, f]));
-  const picked = byPrefix[page.filter.group] ? page.filter.group : "";
-  const path = picked ? groupPath(picked) : [];
-  const button = (f) =>
-    el(
-      "button",
-      { type: "button", "aria-pressed": f.prefix === picked, class: path.includes(f.prefix) && f.prefix !== picked ? "on-path" : null, title: f.children.length ? `${f.title || f.prefix}, and the groups in it` : f.title || f.prefix, onclick: () => filterGroup(f.prefix) },
-      groupLabel(f),
-      f.children.length ? el("span", { class: "has-groups", "aria-hidden": "true" }, " ▸") : null
-    );
-  const rows = [
-    el(
-      "div",
-      { class: "row group-buttons", role: "group", "aria-label": "Show one group" },
-      el("button", { type: "button", "aria-pressed": !picked, onclick: () => filterGroup("") }, "All"),
-      filters.filter((f) => f.depth === 0).map(button)
-    ),
-  ];
-  for (const prefix of path) {
-    const parent = byPrefix[prefix];
-    if (!parent.children.length) continue;
-    rows.push(
-      el(
-        "div",
-        { class: "row group-buttons nested", role: "group", "aria-label": `Groups in ${parent.title || prefix}`, style: `margin-left:${(parent.depth + 1) * 14}px` },
-        el("span", { class: "nest-mark", "aria-hidden": "true" }, "›"),
-        parent.children.map((child) => button(byPrefix[child]))
-      )
-    );
+function categoryRow(c, count, shownCount) {
+  const edit = page.mode === "edit";
+  const picked = page.filter.category === c.prefix;
+  return el(
+    "div",
+    { class: `tree-row category-row${picked ? " picked" : ""}`, "data-drop": c.prefix, onclick: rowClick(() => pickCategory(c.prefix)) },
+    twisty(`cat:${c.prefix}`, true),
+    edit ? dragHandle({ kind: "category", prefix: c.prefix, label: `${c.title} (${c.prefix})` }) : null,
+    el("span", { class: "name", title: c.title }, c.title),
+    el("span", { class: "prefix" }, c.prefix),
+    el("span", { class: "count", title: "rules in it, at any depth" }, shownCount),
+    edit
+      ? [
+          el("button", { type: "button", class: "small", title: `A new rule in ${c.prefix}`, "aria-label": `New rule in ${c.prefix}`, onclick: () => newRule(c.prefix) }, "+ Rule"),
+          el("button", { type: "button", class: "small", "aria-expanded": page.panel === c.prefix, "aria-label": `More for ${c.prefix}`, title: "Move, rename, add a subcategory, or remove", onclick: () => togglePanel(c.prefix) }, "⋯"),
+        ]
+      : null
+  );
+}
+
+function ruleNode(r, level) {
+  const edit = page.mode === "edit";
+  const selected = r.index === page.selected;
+  const row = el(
+    "div",
+    { class: "tree-row rule-row", onclick: rowClick(() => select(selected ? null : r.index)) },
+    edit ? dragHandle({ kind: "rule", index: r.index, label: `${r.code} ${r.title}` }) : el("span", { class: "twisty" }),
+    el("span", { class: `chip ${r.level}` }, r.level),
+    el("span", { class: "code" }, r.code),
+    el("span", { class: "title", title: r.title }, r.title),
+    r.edge ? edgeTag() : null,
+    r.problem ? el("span", { class: "problem", title: r.problem }, "⚠") : null
+  );
+  return treeNode({ id: `rule:${r.index}`, level, label: `${r.code} ${r.title}, ${r.level}${r.edge ? ", edge" : ""}`, row });
+}
+
+// ---- moving rules and categories, from a select or by dragging --------------------
+function categoryOptions(except = () => false) {
+  const byPrefix = Object.fromEntries((page.state?.categories || []).map((c) => [c.prefix, c]));
+  return (page.state?.tree || []).filter((prefix) => !except(prefix)).map((prefix) => el("option", { value: prefix }, `${"› ".repeat(byPrefix[prefix].depth)}${byPrefix[prefix].title} (${prefix})`));
+}
+
+function moveSelect(id, options, move) {
+  return el("select", { id, class: "move", onchange: (e) => e.target.value && move(e.target.value) }, el("option", { value: "", selected: true }, "Move to…"), options);
+}
+
+// The rule form's Category: changing it moves the rule, as dragging it does.
+function categoryField(rule) {
+  const categories = page.state.categories;
+  if (!categories.length) return null;
+  const options = categoryOptions();
+  for (const option of options) option.selected = option.value === rule.category;
+  const outside = rule.path.length ? null : el("option", { value: "", selected: true, disabled: true }, `${rule.category || "no prefix"}: not a category`);
+  return field("f-category", "Category", el("select", { id: "f-category", onchange: (e) => e.target.value && moveRule(rule.index, e.target.value) }, outside, options));
+}
+
+async function moveRule(index, prefix) {
+  try {
+    const out = await call("move", { index, prefix });
+    page.state = out.state;
+    saveDraft();
+    openTo(page.state.rules[index]); // where it went
+    say(`${out.was} is now ${out.code}; ${out.was} kept as an alias.`);
+  } catch (err) {
+    say(`Not moved: ${err.message}`, true);
   }
-  return rows;
+  render();
 }
 
-function groupLabel(group) {
-  return group.title ? `${group.title} (${group.prefix})` : group.prefix;
+async function moveCategory(prefix, target) {
+  const parent = target === TOP ? "" : target;
+  const listed = listedCategories().map((c) => (c.prefix === prefix ? { ...c, parent } : c));
+  if (parent) setExpanded(`cat:${parent}`, true, { quiet: true }); // where it goes
+  await setCategories(listed, parent ? `Moved ${prefix} into ${parent}.` : `Moved ${prefix} to the top level.`);
 }
 
-// A group and the groups it sits in, outermost first, as Python gives them.
-function groupPath(prefix) {
-  const byPrefix = Object.fromEntries((page.state?.filters || []).map((f) => [f.prefix, f]));
-  const path = [prefix];
-  while (byPrefix[path[0]]?.parent) path.unshift(byPrefix[path[0]].parent);
-  return path;
+// Drag a rule or a category by its handle onto a category, with a mouse, a pen
+// or a finger; the "Move to…" select does the same from the keyboard.
+function dragHandle(what) {
+  return el("span", { class: "drag", title: "Drag to move", "aria-hidden": "true", onpointerdown: (e) => startDrag(e, what) }, "⠿");
 }
 
-// A rule's groups by title, outermost first: "Regions › Coral Triangle …".
-function pathText(rule) {
-  const titles = Object.fromEntries((page.state?.filters || []).map((f) => [f.prefix, f.title || f.prefix]));
-  return rule.path.map((prefix) => titles[prefix] || prefix).join(" › ");
+function startDrag(event, what) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  const handle = event.currentTarget;
+  handle.setPointerCapture(event.pointerId);
+  const start = [event.clientX, event.clientY];
+  let ghost = null;
+  let target = null;
+  const allowed = (drop) => (what.kind === "rule" ? drop !== TOP && drop !== page.state.rules[what.index].category : drop !== what.prefix);
+  // near the top or bottom of the list's scrolling box, scroll it, to reach a far category
+  let scroller = handle.parentElement;
+  while (scroller && !(scroller.scrollHeight > scroller.clientHeight && /auto|scroll/.test(getComputedStyle(scroller).overflowY))) scroller = scroller.parentElement;
+  scroller ||= document.scrollingElement;
+  let lastY = event.clientY;
+  const move = (e) => {
+    if (!ghost && Math.hypot(e.clientX - start[0], e.clientY - start[1]) < 5) return;
+    const box = scroller === document.scrollingElement ? { top: 0, bottom: innerHeight } : scroller.getBoundingClientRect();
+    if (e.clientY < lastY && e.clientY < Math.max(box.top, 0) + 40) scroller.scrollBy(0, -16); // moving up, near the top
+    else if (e.clientY > lastY && e.clientY > Math.min(box.bottom, innerHeight) - 40) scroller.scrollBy(0, 16);
+    lastY = e.clientY;
+    if (!ghost) document.body.append((ghost = el("div", { class: "drag-ghost" }, what.label)));
+    ghost.style.transform = `translate(${e.clientX + 12}px, ${e.clientY + 8}px)`;
+    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-drop]");
+    const next = over && allowed(over.dataset.drop) ? over : null;
+    if (next !== target) {
+      target?.classList.remove("drop-target");
+      (target = next)?.classList.add("drop-target");
+    }
+  };
+  const finish = (drop) => () => {
+    handle.removeEventListener("pointermove", move);
+    handle.removeEventListener("pointerup", up);
+    handle.removeEventListener("pointercancel", cancel);
+    ghost?.remove();
+    target?.classList.remove("drop-target");
+    if (drop && target) {
+      if (what.kind === "rule") moveRule(what.index, target.dataset.drop);
+      else moveCategory(what.prefix, target.dataset.drop);
+    }
+  };
+  const up = finish(true);
+  const cancel = finish(false);
+  handle.addEventListener("pointermove", move);
+  handle.addEventListener("pointerup", up);
+  handle.addEventListener("pointercancel", cancel);
 }
 
-function ruleItems() {
-  const headed = Boolean(page.state?.groups.length);
-  let last = null;
-  return shown().flatMap((r) => {
-    const selected = r.index === page.selected;
-    // a heading where a group starts, with the groups it sits in
-    const heading = headed && r.group !== last ? el("li", { class: "group-heading", role: "presentation" }, pathText(r)) : null;
-    last = r.group;
-    const item = el(
-      "li",
-      { "aria-current": selected },
-      el(
-        "button",
-        { type: "button", class: "rule-row", "aria-expanded": selected, onclick: () => select(selected ? null : r.index) },
-        el("span", { class: `chip ${r.level}` }, r.level),
-        el("span", { class: "code" }, r.code),
-        el("span", { class: "title" }, r.title),
-        r.edge ? edgeTag() : null,
-        r.problem ? el("span", { class: "problem", title: r.problem }, "⚠") : null
-      ),
-      selected ? (page.mode === "edit" ? ruleForm(r) : ruleCard(r)) : null
-    );
-    return heading ? [heading, item] : [item];
-  });
+// ---- managing categories: add, rename, remove ------------------------------------
+// The categories as the page sends them to Python: in the order declared.
+function listedCategories() {
+  return (page.state?.categories || []).map(({ prefix, title, parent }) => ({ prefix, title, parent }));
+}
+
+function togglePanel(id) {
+  page.panel = page.panel === id ? null : id;
+  render();
+  focusNode(id === ALL ? ALL : `cat:${id}`, { scroll: false });
+}
+
+function categoryPanel(c) {
+  const targets = [c.parent ? el("option", { value: TOP }, "Top level") : null, categoryOptions((prefix) => prefix === c.prefix || prefix === c.parent)];
+  return el(
+    "div",
+    { class: "tree-panel" },
+    field(`c-move-${c.prefix}`, `Move ${c.prefix} to`, moveSelect(`c-move-${c.prefix}`, targets, (target) => moveCategory(c.prefix, target))),
+    field(`c-title-${c.prefix}`, `Title of ${c.prefix}`, el("input", { id: `c-title-${c.prefix}`, value: c.title, onchange: (e) => setCategories(listedCategories().map((d) => (d.prefix === c.prefix ? { ...d, title: e.target.value } : d)), `Renamed ${c.prefix}.`) })),
+    addCategoryForm(c.prefix),
+    el("div", { class: "row" }, el("button", { type: "button", class: "danger", onclick: () => setCategories(listedCategories().filter((d) => d.prefix !== c.prefix), `Removed ${c.prefix}.`) }, `Remove ${c.prefix}`))
+  );
+}
+
+function addCategoryForm(parent) {
+  const id = parent || "top";
+  return el(
+    "form",
+    { class: "row add-category", onsubmit: (e) => addCategory(e, parent) },
+    el("input", { id: `new-prefix-${id}`, class: "new-prefix", "aria-label": parent ? `Prefix of a subcategory of ${parent}` : "Prefix of a new category", placeholder: "prefix, such as OBC", required: true, autocapitalize: "characters" }),
+    el("input", { id: `new-title-${id}`, class: "new-title", "aria-label": parent ? `Title of a subcategory of ${parent}` : "Title of a new category", placeholder: "title, such as Open boundaries", required: true }),
+    el("button", { type: "submit" }, parent ? "Add subcategory" : "Add category")
+  );
+}
+
+async function addCategory(event, parent) {
+  event.preventDefault();
+  const form = event.target;
+  const prefix = form.querySelector(".new-prefix").value.trim().toUpperCase();
+  const title = form.querySelector(".new-title").value.trim();
+  if (parent) setExpanded(`cat:${parent}`, true, { quiet: true }); // where it goes
+  if (await setCategories([...listedCategories(), { prefix, title, parent }], `Added ${prefix}${parent ? ` in ${parent}` : ""}.`)) {
+    page.panel = null;
+    render();
+  }
+}
+
+async function setCategories(categories, done = "Kept the categories.") {
+  try {
+    page.state = await call("categories", { categories });
+    saveDraft();
+    say(done);
+    render();
+    return true;
+  } catch (err) {
+    say(`Not kept: ${err.message}`, true);
+    // show the categories as they are, but keep what was typed in the forms
+    const typed = [...document.querySelectorAll(".add-category input")].map((input) => [input.id, input.value]);
+    render();
+    for (const [id, value] of typed) if (document.getElementById(id)) document.getElementById(id).value = value;
+    return false;
+  }
+}
+
+// ---- moving through the tree with the keyboard --------------------------------------
+function focusNode(id, { scroll = true } = {}) {
+  const items = [...document.querySelectorAll("#rule-tree [role=treeitem]")];
+  const item = items.find((i) => i.dataset.node === id);
+  if (!item) return;
+  for (const other of items) other.tabIndex = other === item ? 0 : -1;
+  page.treeFocus = id;
+  item.focus({ preventScroll: !scroll });
+}
+
+function treeKeydown(event) {
+  const item = event.target;
+  if (item.getAttribute?.("role") !== "treeitem") return; // keys typed in a field are the field's
+  const items = [...document.querySelectorAll("#rule-tree [role=treeitem]")];
+  const at = items.indexOf(item);
+  const go = (other) => other && focusNode(other.dataset.node);
+  const id = item.dataset.node;
+  const open = item.getAttribute("aria-expanded");
+  switch (event.key) {
+    case "ArrowDown":
+      go(items[at + 1]);
+      break;
+    case "ArrowUp":
+      go(items[at - 1]);
+      break;
+    case "Home":
+      go(items[0]);
+      break;
+    case "End":
+      go(items[items.length - 1]);
+      break;
+    case "ArrowRight":
+      if (open === "false") setExpanded(id, true);
+      else if (open === "true") go(item.querySelector("[role=treeitem]"));
+      break;
+    case "ArrowLeft":
+      if (open === "true") setExpanded(id, false);
+      else go(item.parentElement.closest("[role=treeitem]"));
+      break;
+    case "Enter":
+    case " ":
+      if (id.startsWith("rule:")) {
+        const index = Number(id.slice(5));
+        select(index === page.selected ? null : index);
+        focusNode(id, { scroll: false });
+      } else pickCategory(id === ALL ? "" : id === UNCATEGORIZED ? UNCATEGORIZED : id.slice(4));
+      break;
+    default:
+      return;
+  }
+  event.preventDefault();
 }
 
 // ---- a rule as people read it, in Check mode --------------------------------------
@@ -553,7 +847,7 @@ function ruleCard(rule) {
   return el(
     "div",
     { class: "rule-card" },
-    rule.path.length ? el("p", { class: "hint group-path" }, `Group: ${pathText(rule)}`) : null,
+    rule.path.length ? el("p", { class: "hint category-path" }, `Category: ${pathText(rule)}`) : null,
     el("p", {}, rule.message),
     rule.instruction ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), rule.instruction) : null,
     rule.changes.length
@@ -568,21 +862,31 @@ function ruleCard(rule) {
     rule.evidence.length ? [el("h3", {}, "Evidence"), rule.evidence.map((ev) => el("blockquote", {}, ev.quote || ev.text || JSON.stringify(ev), ev.url ? [" ", linked("source", ev.url)] : null))] : null,
     facts.length ? el("p", { class: "hint" }, facts.join(" · ")) : null,
     rule.problem ? el("p", { class: "problem" }, rule.problem) : null,
-    el("div", { class: "row" }, el("button", { type: "button", onclick: (e) => copyText(rule.record, `${rule.code} as GeoJSON`, { after: e.target.closest(".row") }) }, "Copy GeoJSON"))
+    el("div", { class: "row" }, el("button", { type: "button", onclick: (e) => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { after: e.target.closest(".row") }) }, "Copy GeoJSON"))
   );
 }
 
 // ---- a rule's record, as the rules file holds it, to read and copy ----------------
 function geojsonBlock(rule) {
-  const text = el("pre", { class: "geojson", id: "f-geojson-text", tabindex: "0", "aria-label": `${rule.code} as GeoJSON` }, rule.record);
+  const text = el("pre", { class: "geojson", id: "f-geojson-text", tabindex: "0", "aria-label": `${rule.code} as GeoJSON` }, packed(rule.record));
   return el(
     "details",
     { id: "f-geojson", open: geojsonStore.get() === true, ontoggle: (e) => geojsonStore.set(e.target.open) },
-    el("summary", {}, "GeoJSON"),
+    // kept at once: the toggle event comes later, after any re-render
+    el("summary", { onclick: (e) => geojsonStore.set(!e.currentTarget.parentElement.open) }, "GeoJSON"),
     el("p", { class: "hint" }, "This rule as the rules file holds it."),
-    el("div", { class: "row" }, el("button", { type: "button", onclick: () => copyText(rule.record, `${rule.code} as GeoJSON`, { shown: text }) }, "Copy")),
+    el("div", { class: "row" }, el("button", { type: "button", onclick: () => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { shown: text }) }, "Copy")),
     text
   );
+}
+
+// JSON as queryearth writes rule files and packs: Python's indented text, with
+// each list of numbers, such as a corner or a box, put on one line. Only lists
+// spread over lines match, and JSON strings never hold a raw newline.
+function packed(text) {
+  const number = String.raw`-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?`;
+  const spread = new RegExp(String.raw`\[\n\s*(${number}(?:,\n\s*${number})*)\n\s*\]`, "g");
+  return text.replace(spread, (_, items) => `[${items.split(/,\n\s*/).join(", ")}]`);
 }
 
 // Copy text to the clipboard. Where the browser does not allow that, select the
@@ -659,6 +963,7 @@ function ruleForm(rule) {
         el("select", { id: "f-level", onchange: edit((e) => ({ level: e.target.value })) }, LEVELS.map(([value, text]) => el("option", { value, selected: value === rule.declared_level }, value ? text : `default (${rule.changes.length ? "info" : "warning"})`)))
       )
     ),
+    categoryField(rule),
     field("f-title", "Title", el("input", { id: "f-title", value: rule.title, onchange: edit((e) => ({ title: e.target.value })) })),
     field("f-message", "Message", el("textarea", { id: "f-message", onchange: edit((e) => ({ message: e.target.value })) }, rule.message)),
     rule.problem ? el("p", { class: "problem" }, rule.problem) : null,
@@ -809,15 +1114,19 @@ function edit(fields) {
 function select(index, { reveal = false } = {}) {
   stopDrawing();
   page.selected = index;
-  render();
   const rule = page.state?.rules[index];
+  if (rule) {
+    openTo(rule); // selected on the globe or in the results, it shows in the tree too
+    page.treeFocus = `rule:${index}`;
+  }
+  render();
   if (rule?.extent) fitExtent(rule.extent);
-  if (reveal) document.querySelector(".rules li[aria-current='true']")?.scrollIntoView({ block: "nearest" });
+  if (reveal) document.querySelector(`[data-node="rule:${index}"]`)?.scrollIntoView({ block: "nearest" });
 }
 
-async function newRule() {
+async function newRule(prefix) {
   try {
-    const out = await call("new", { prefix: document.getElementById("new-group")?.value || null });
+    const out = await call("new", { prefix });
     page.state = out.state;
     saveDraft();
     select(out.index, { reveal: true });
@@ -848,97 +1157,6 @@ async function shapeCall(name, args) {
     say(err.message, true);
   }
   render();
-}
-
-// ---- groups: the prefixes of the codes, with titles ------------------------------
-function treeOrder(groups) {
-  const byPrefix = Object.fromEntries(groups.map((g) => [g.prefix, g]));
-  return (page.state?.tree || []).map((prefix) => byPrefix[prefix]).filter(Boolean);
-}
-
-// The groups as the page sends them to Python: in the order declared.
-function listedGroups() {
-  return (page.state?.groups || []).map(({ prefix, title, parent }) => ({ prefix, title, parent }));
-}
-
-function parentOptions(except, chosen) {
-  return [
-    el("option", { value: "", selected: !chosen }, "Top level"),
-    treeOrder(page.state?.groups || [])
-      .filter((g) => g.prefix !== except)
-      .map((g) => el("option", { value: g.prefix, selected: g.prefix === chosen }, `${"› ".repeat(g.depth)}${g.prefix}: ${g.title}`)),
-  ];
-}
-
-function groupsSection() {
-  const state = page.state;
-  const groups = state?.groups || [];
-  const ungrouped = !groups.length && state?.prefixes.length ? state.prefixes : null;
-  const change = (prefix, fields) => setGroups(listedGroups().map((g) => (g.prefix === prefix ? { ...g, ...fields } : g)));
-  return el(
-    "section",
-    { id: "groups" },
-    el("h2", {}, "Groups"),
-    el("p", { class: "hint" }, "A rule's group is the prefix of its code: OBC for OBC001. A group can sit in another, such as Open boundaries in Domain design; picking a group shows the rules of every group in it too. Once a file has groups, every rule's code uses one, and a new rule takes the next number in its group."),
-    el(
-      "ul",
-      { class: "dims group-list" },
-      treeOrder(groups).map((g) =>
-        el(
-          "li",
-          { style: `padding-left:${g.depth * 16}px`, "data-group": g.prefix },
-          el("strong", {}, g.prefix),
-          el("input", { "aria-label": `Title of ${g.prefix}`, value: g.title, onchange: (e) => change(g.prefix, { title: e.target.value }) }),
-          el("button", { type: "button", class: "remove", "aria-label": `Remove ${g.prefix}`, title: `Remove ${g.prefix}`, onclick: () => setGroups(listedGroups().filter((h) => h.prefix !== g.prefix)) }, "×"),
-          el(
-            "label",
-            { class: "parent" },
-            el("span", {}, "in"),
-            el("select", { "aria-label": `Group that ${g.prefix} sits in`, onchange: (e) => change(g.prefix, { parent: e.target.value }) }, parentOptions(g.prefix, g.parent))
-          ),
-          el("span", { class: "count", title: "rules in this group itself, and groups in it" }, `${g.rules} rule${g.rules === 1 ? "" : "s"}${g.children.length ? `, ${g.children.length} group${g.children.length === 1 ? "" : "s"}` : ""}`)
-        )
-      )
-    ),
-    ungrouped
-      ? el(
-          "div",
-          { class: "notice" },
-          el("p", {}, `These rules have no groups. Once there are groups, every rule's prefix must be one, so groups start with one for each prefix in use: ${ungrouped.join(", ")}.`),
-          el("div", { class: "row" }, el("button", { onclick: () => setGroups(ungrouped.map((prefix) => ({ prefix, title: prefix, parent: "" }))) }, "Make a group for each prefix"))
-        )
-      : el(
-          "form",
-          { class: "row add-dim", onsubmit: addGroup },
-          el("input", { id: "g-prefix", "aria-label": "Prefix of the group", placeholder: "prefix, such as OBC", required: true, autocapitalize: "characters" }),
-          el("input", { id: "g-title", "aria-label": "Title of the group", placeholder: "title, such as Open boundaries", required: true }),
-          el("select", { id: "g-parent", "aria-label": "Group it sits in" }, parentOptions(null, "")),
-          el("button", { type: "submit" }, "Add")
-        )
-  );
-}
-
-async function addGroup(event) {
-  event.preventDefault();
-  const prefix = document.getElementById("g-prefix").value.trim().toUpperCase();
-  const title = document.getElementById("g-title").value.trim();
-  const parent = document.getElementById("g-parent").value;
-  await setGroups([...listedGroups(), { prefix, title, parent }]);
-}
-
-async function setGroups(groups) {
-  try {
-    page.state = await call("groups", { groups });
-    saveDraft();
-    say("Kept the groups.");
-    render();
-  } catch (err) {
-    say(`Not kept: ${err.message}`, true);
-    // show the groups as they are, but keep what was typed to add one
-    const typed = ["g-prefix", "g-title", "g-parent"].map((id) => document.getElementById(id)?.value);
-    render();
-    ["g-prefix", "g-title", "g-parent"].forEach((id, i) => document.getElementById(id) && (document.getElementById(id).value = typed[i] ?? ""));
-  }
 }
 
 // ---- dimensions: what rules can depend on besides place and time ----------------
@@ -1016,7 +1234,7 @@ async function downloadRules() {
     return say(`Not downloaded: ${err.message}`, true);
   }
   const name = page.state?.name || "rules.geojson";
-  const warning = download(name, text, "application/geo+json");
+  const warning = download(name, packed(text), "application/geo+json");
   if (warning === false) return;
   if (!EMBEDDED) store.clear(); // kept where downloads may be blocked
   say(`Downloaded ${name}.${warning}`);
@@ -1026,11 +1244,11 @@ async function copyRules(event) {
   const row = event.target.closest(".row");
   let text;
   try {
-    text = await call("text"); // the same text Download rules file saves
+    text = await call("text");
   } catch (err) {
     return say(`Not copied: ${err.message}`, true);
   }
-  await copyText(text, page.state?.name || "the rules file", { after: row });
+  await copyText(packed(text), page.state?.name || "the rules file", { after: row }); // as Download saves it
 }
 
 async function downloadPage() {
@@ -1104,7 +1322,9 @@ async function open(text, name, { fit = true } = {}) {
   page.state = await call("open", { text, name, dimensions: page.settings.dimensions });
   page.selected = null;
   page.results = null;
-  if (page.filter.group && !page.state.filters.some((f) => f.prefix === page.filter.group)) setFilter({ group: "" });
+  const { category } = page.filter;
+  if (category && category !== UNCATEGORIZED && !page.state.categories.some((c) => c.prefix === category)) setFilter({ category: "" });
+  page.panel = null;
   const n = page.state.rules.length;
   say(`Opened ${name}: ${n} rule${n === 1 ? "" : "s"}${page.state.problems.length ? ", with problems (see File)" : ""}.`);
   render();
@@ -1458,7 +1678,7 @@ document.addEventListener("keydown", (event) => {
 async function main() {
   page.settings = await readSettings();
   const kept = filterStore.get();
-  if (typeof kept?.text === "string" && typeof kept?.group === "string") page.filter = { text: kept.text, group: kept.group };
+  if (typeof kept?.text === "string" && typeof kept?.category === "string") page.filter = { text: kept.text, category: kept.category };
   const chosen = chosenMode();
   page.mode = chosen.mode;
   document.body.dataset.mode = chosen.mode;

@@ -15,7 +15,7 @@ DEMO = Path(__file__).parent.parent / "web" / "sites" / "demo" / "rules.geojson"
 DIMENSIONS = [qe.Labels("product"), qe.Labels("variable"), qe.Labels("model")]
 LABELS = [{"name": n, "kind": "labels"} for n in ("product", "variable", "model")]
 CODES = ["OCN001", "OCN002", "ICE001", "OCN003", "OBC001"]  # in file order
-GROUPS = {
+CATEGORIES = {
     "OCN": "demo_ocean, the product",
     "DOMAIN": "Domain design",
     "ICE": {"title": "Sea ice", "parent": "DOMAIN"},
@@ -99,14 +99,14 @@ def test_write_refuses_a_file_with_problems(tmp_path):
 
 
 # ---- adding rules ---------------------------------------------------------------
-def test_new_adds_the_next_code_in_a_group():
+def test_new_adds_the_next_code_in_a_category():
     file = demo()
-    index = file.new()  # the first group
+    index = file.new()  # the first category
     assert index == 5 and file.codes[index] == "OCN004"
     assert file.features[index]["id"] == "OCN004" and file.problem(index) is None
     file.new("OBC")
     assert file.codes[-1] == "OBC002"
-    with pytest.raises(qe.UnknownNameError, match="undeclared group"):
+    with pytest.raises(qe.UnknownNameError, match="undeclared category"):
         file.new("XYZ")
     empty = RuleFile()
     empty.new()
@@ -152,7 +152,7 @@ def test_add_checks_the_rule_with_queryearth():
         file.add("not a code")
     with pytest.raises(qe.UnknownNameError):
         file.add("OCN011", dimensions={"resolution": {"lt": 10}})
-    with pytest.raises(qe.UnknownNameError, match="undeclared group 'XYZ'"):
+    with pytest.raises(qe.UnknownNameError, match="undeclared category 'XYZ'"):
         file.add("XYZ001")
     assert len(file.features) == 6
 
@@ -395,29 +395,29 @@ def test_dimensions_are_guessed_from_the_rules():
     assert guess_dimensions(json.loads(DEMO.read_text())) == LABELS
 
 
-# ---- groups, order, edge rules and the file format --------------------------------
+# ---- categories, order, edge rules and the file format --------------------------------
 def test_the_file_is_written_as_queryearth_writes_one():
     file = demo()
-    assert file.groups == GROUPS
+    assert file.categories == CATEGORIES
     written = json.loads(file.text())
     assert list(written) == [
         "type",
         "conformsTo",  # other members stay where they were
         "queryearth",
-        "groups",
+        "categories",
         "dimensions",
         "features",
     ]
-    assert written["queryearth"] == qe.FORMAT and written["groups"] == GROUPS
+    assert written["queryearth"] == qe.FORMAT and written["categories"] == CATEGORIES
     registry = qe.Registry.from_file(DEMO)
-    assert registry.groups == GROUPS
+    assert registry.categories == CATEGORIES
     collection = {"type": "FeatureCollection", "name": "mine"}
     bare = RuleFile(collection | {"features": [rule("ABC001")], "x_after": 1})
     assert list(json.loads(bare.text())) == [
         "type",
         "name",
         "queryearth",
-        "dimensions",  # no groups member without groups
+        "dimensions",  # no categories member without categories
         "features",
         "x_after",
     ]
@@ -433,7 +433,7 @@ def test_a_file_for_a_later_queryearth_is_refused():
     assert json.loads(older.text())["queryearth"] == qe.FORMAT
 
 
-def test_rules_are_ordered_by_group_then_number():
+def test_rules_are_ordered_by_category_then_number():
     assert [demo().codes[i] for i in demo().order()] == [
         "OCN001",
         "OCN002",
@@ -450,42 +450,42 @@ def test_rules_are_ordered_by_group_then_number():
         "ZED002",
         "bad code",  # a code queryearth cannot read comes last
     ]
-    file = rules(*map(rule, codes), groups={"ZED": "Zed", "ERA5": "ERA5"})
+    file = rules(*map(rule, codes), categories={"ZED": "Zed", "ERA5": "ERA5"})
     assert [file.codes[i] for i in file.order()] == [
         "ZED002",
         "ERA5-001",
-        "ABC002",  # not a group: refused, after the groups
+        "ABC002",  # not a category: refused, after the categories
         "ABC010",
         "bad code",
     ]
-    assert "undeclared group 'ABC'" in file.problem(1)
+    assert "undeclared category 'ABC'" in file.problem(1)
 
 
-def test_groups_are_kept_as_queryearth_reads_them():
+def test_categories_are_kept_as_queryearth_reads_them():
     file = demo()
-    file.set_groups(GROUPS | {"OCN": "The product", "GRID": "Grids"})
-    assert json.loads(file.text())["groups"]["OCN"] == "The product"
+    file.set_categories(CATEGORIES | {"OCN": "The product", "GRID": "Grids"})
+    assert json.loads(file.text())["categories"]["OCN"] == "The product"
     index = file.new("GRID")
     assert file.codes[index] == "GRID001"
-    with pytest.raises(ValueError, match="rules still use OBC"):
-        file.set_groups({k: v for k, v in GROUPS.items() if k != "OBC"})
+    with pytest.raises(ValueError, match="OBC, GRID still have rules"):
+        file.set_categories({k: v for k, v in CATEGORIES.items() if k != "OBC"})
     for bad in ({"obc": "lower case"}, {"NEW": " "}):
         with pytest.raises(ValueError):
-            file.set_groups(file.groups | bad)
-    assert list(file.groups) == ["OCN", "DOMAIN", "ICE", "OBC", "GRID"]
+            file.set_categories(file.categories | bad)
+    assert list(file.categories) == ["OCN", "DOMAIN", "ICE", "OBC", "GRID"]
 
 
-def test_the_first_groups_must_take_in_every_prefix():
+def test_the_first_categories_must_take_in_every_prefix():
     file = rules(rule("OBC001"), rule("ITF001"))
     with pytest.raises(ValueError, match="add ITF too"):
-        file.set_groups({"OBC": "Open boundaries"})
-    file.set_groups({p: p for p in file.prefixes()})
-    assert file.groups == {"OBC": "OBC", "ITF": "ITF"} and file.problems() == []
+        file.set_categories({"OBC": "Open boundaries"})
+    file.set_categories({p: p for p in file.prefixes()})
+    assert file.categories == {"OBC": "OBC", "ITF": "ITF"} and file.problems() == []
     file.delete(1)
-    file.set_groups({"OBC": "Open boundaries"})  # ITF has no rules left
+    file.set_categories({"OBC": "Open boundaries"})  # ITF has no rules left
     file.delete(0)
-    file.set_groups({})
-    assert "groups" not in json.loads(file.text())
+    file.set_categories({})
+    assert "categories" not in json.loads(file.text())
 
 
 def test_an_edge_rule_applies_where_a_domain_edge_crosses_it():
@@ -508,16 +508,16 @@ def test_an_edge_rule_applies_where_a_domain_edge_crosses_it():
         file.update(0, edge="yes")
 
 
-# ---- groups in groups -----------------------------------------------------------
-def test_groups_sit_in_groups():
+# ---- subcategories -----------------------------------------------------------
+def test_categories_sit_in_categories():
     file = demo()
-    assert file.group_paths() == {
+    assert file.category_paths() == {
         "OCN": ["OCN"],
         "DOMAIN": ["DOMAIN"],
         "ICE": ["DOMAIN", "ICE"],
         "OBC": ["DOMAIN", "OBC"],
     }
-    assert qe.Registry.from_file(DEMO).group_path("OBC") == ["DOMAIN", "OBC"]
+    assert qe.Registry.from_file(DEMO).category_path("OBC") == ["DOMAIN", "OBC"]
     # a parent can hold rules itself
     index = file.new("DOMAIN")
     assert file.codes[index] == "DOMAIN001" and file.problem(index) is None
@@ -525,33 +525,68 @@ def test_groups_sit_in_groups():
 
 def test_a_parent_comes_before_its_children():
     file = demo()
-    groups = {"OBC": {"title": "Open boundaries", "parent": "BOUND"}}
-    groups |= {k: v for k, v in GROUPS.items() if k != "OBC"}
-    groups |= {"BOUND": {"title": "Boundaries", "parent": "DOMAIN"}}
-    file.set_groups(groups)  # OBC moves to just after its new parent
-    assert list(file.groups) == ["OCN", "DOMAIN", "ICE", "BOUND", "OBC"]
-    assert file.group_paths()["OBC"] == ["DOMAIN", "BOUND", "OBC"]
-    assert json.loads(file.text())["groups"]["OBC"]["parent"] == "BOUND"
+    categories = {"OBC": {"title": "Open boundaries", "parent": "BOUND"}}
+    categories |= {k: v for k, v in CATEGORIES.items() if k != "OBC"}
+    categories |= {"BOUND": {"title": "Boundaries", "parent": "DOMAIN"}}
+    file.set_categories(categories)  # OBC moves to just after its new parent
+    assert list(file.categories) == ["OCN", "DOMAIN", "ICE", "BOUND", "OBC"]
+    assert file.category_paths()["OBC"] == ["DOMAIN", "BOUND", "OBC"]
+    assert json.loads(file.text())["categories"]["OBC"]["parent"] == "BOUND"
     assert file.problems() == []
 
 
-def test_groups_cannot_sit_in_each_other_or_in_nothing():
+def test_categories_cannot_sit_in_each_other_or_in_nothing():
     file = demo()
-    loop = GROUPS | {"DOMAIN": {"title": "Domain design", "parent": "OBC"}}
+    loop = CATEGORIES | {"DOMAIN": {"title": "Domain design", "parent": "OBC"}}
     with pytest.raises(ValueError, match="cannot sit in each other: .*DOMAIN"):
-        file.set_groups(loop)
-    with pytest.raises(ValueError, match="sits in NOPE, which is not a group"):
-        file.set_groups(GROUPS | {"ICE": {"title": "Sea ice", "parent": "NOPE"}})
-    with pytest.raises(ValueError, match="DOMAIN has groups in it: ICE, OBC"):
-        file.set_groups({k: v for k, v in GROUPS.items() if k != "DOMAIN"})
-    assert file.groups == GROUPS
+        file.set_categories(loop)
+    with pytest.raises(ValueError, match="sits in NOPE, which is not a category"):
+        file.set_categories(
+            CATEGORIES | {"ICE": {"title": "Sea ice", "parent": "NOPE"}}
+        )
+    with pytest.raises(ValueError, match="DOMAIN has subcategories: ICE, OBC"):
+        file.set_categories({k: v for k, v in CATEGORIES.items() if k != "DOMAIN"})
+    assert file.categories == CATEGORIES
 
 
-def test_a_file_for_queryearth_0_4_opens():
+def test_files_from_before_queryearth_0_6_open():
     old = {"type": "FeatureCollection", "queryearth": "0.4"}
     old |= {"groups": {"OBC": "Open boundaries"}, "features": [rule("OBC001")]}
     file = RuleFile(old)
-    assert file.groups == {"OBC": "Open boundaries"} and file.problems() == []
+    assert file.categories == {"OBC": "Open boundaries"} and file.problems() == []
     written = json.loads(file.text())
     assert written["queryearth"] == qe.FORMAT
-    assert written["groups"] == {"OBC": "Open boundaries"}
+    assert written["categories"] == {"OBC": "Open boundaries"}
+
+
+def test_groups_in_a_file_for_queryearth_0_6_are_refused():
+    new = {"type": "FeatureCollection", "queryearth": "0.6", "features": []}
+    with pytest.raises(qe.LoadError, match='"groups" is called "categories"'):
+        RuleFile(new | {"groups": {"OBC": "Open boundaries"}})
+    old = new | {"queryearth": "0.5", "groups": {"OBC": "Open boundaries"}}
+    assert RuleFile(old).categories == {"OBC": "Open boundaries"}
+
+
+# ---- moving rules ---------------------------------------------------------------
+def test_a_moved_rule_takes_the_next_code_and_keeps_its_old_one():
+    file = demo()
+    assert file.move(0, "OBC") == "OBC002"  # OCN001
+    props = file.features[0]["properties"]
+    assert (props["code"], props["aliases"]) == ("OBC002", ["OCN001"])
+    assert file.features[0]["id"] == "OBC002" and file.problems() == []
+    assert file.move(0, "ICE") == "ICE002"  # moved again: both old codes kept
+    assert file.features[0]["properties"]["aliases"] == ["OCN001", "OBC002"]
+    # numbers kept as aliases are never given again
+    file.move(1, "OBC")  # OCN002 becomes OBC003
+    file.new("OCN")
+    assert file.codes[-1] == "OCN004"  # OCN003 is still a rule; 001 and 002 aliases
+    file.new("OBC")
+    assert file.codes[-1] == "OBC004"
+    with pytest.raises(ValueError, match="already in OBC"):
+        file.move(4, "OBC")
+    emptied = demo()
+    assert emptied.move(4, "ICE") == "ICE002"  # OBC001: no rule is OBC001 now,
+    emptied.new("OBC")
+    assert emptied.codes[-1] == "OBC002"  # but its number is not given again
+    with pytest.raises(qe.UnknownNameError, match="undeclared category 'NOPE'"):
+        file.move(4, "NOPE")

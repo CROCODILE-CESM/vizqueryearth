@@ -2,7 +2,8 @@
 
 The page runs this module in the browser through Pyodide and calls
 Session.call(name, arguments) for everything that needs queryearth: opening a
-file, editing a rule, giving it a drawn shape, declaring dimensions and groups,
+file, editing a rule, giving it a drawn shape, moving it to another category,
+declaring dimensions and categories,
 writing the file and answering queries. Every call returns JSON text: {"ok": result}
 or {"error": message}. Values typed on the page, such as "<8" for an axis or
 "900" for a change, are read here, so the page itself never interprets them.
@@ -80,33 +81,30 @@ class Session:
     def do_state(self) -> dict[str, Any]:
         """Everything the page shows: the rules, their shapes and any problems."""
         found = [self.file.shape(i) for i in range(len(self.file.features))]
-        groups = [self.file.group(i) for i in range(len(found))]
-        others = sorted(set(self.file.prefixes()) - set(self.file.groups))
-        tree, paths = self._tree(), self.file.group_paths()
+        tree, paths = self._tree(), self.file.category_paths()
+        rules = [self._rule(i, shape, paths) for i, shape in enumerate(found)]
         return {
             "name": self.name,
             "dimensions": [describe_dimension(d) for d in self.file.dimensions],
-            # the groups in the order declared, each with the rules it holds
-            # itself; "tree" orders them as a tree, each group before the
-            # groups in it
-            "groups": [
-                tree[prefix] | {"rules": groups.count(prefix)}
-                for prefix in self.file.groups
+            # the categories in the order declared, each with the rules it holds
+            # itself and at any depth under it; "tree" orders them as a tree,
+            # each category before its subcategories
+            "categories": [
+                tree[prefix]
+                | {
+                    "rules": sum(r["category"] == prefix for r in rules),
+                    "total": sum(prefix in r["path"] for r in rules),
+                }
+                for prefix in self.file.categories
             ],
             "tree": list(tree),
-            # what the rules can be filtered by: the groups, then any other
-            # prefixes the codes use
-            "filters": list(tree.values())
-            + [
-                {"prefix": p, "title": "", "parent": "", "depth": 0, "children": []}
-                for p in others
-            ],
+            "uncategorized": sum(not r["path"] for r in rules),
             "prefixes": self.file.prefixes(),
             "values": self._values(),
             "problems": self.file.problems(),
             "extent": shapes.extent(s for s in found if s is not None),
             "order": self.file.order(),
-            "rules": [self._rule(i, shape, paths) for i, shape in enumerate(found)],
+            "rules": rules,
         }
 
     def do_update(self, index: int, fields: Mapping[str, Any]) -> dict[str, Any]:
@@ -134,20 +132,28 @@ class Session:
         self.file.set_dimensions(dimensions)
         return self.do_state()
 
-    def do_groups(self, groups: list[Mapping[str, str]]) -> dict[str, Any]:
-        """Declare the code groups, as [{prefix, title, parent}] in order; an
+    def do_categories(self, categories: list[Mapping[str, str]]) -> dict[str, Any]:
+        """Declare the categories, as [{prefix, title, parent}] in order; an
         empty or missing parent is the top level. Parents are moved before
-        their children where needed."""
+        their subcategories where needed."""
         declared = {}
-        for group in groups:
-            title, parent = group["title"].strip(), group.get("parent") or None
-            declared[group["prefix"]] = (
+        for category in categories:
+            title = category["title"].strip()
+            parent = category.get("parent") or None
+            declared[category["prefix"]] = (
                 title if parent is None else {"title": title, "parent": parent}
             )
-        if len(declared) != len(groups):
-            raise ValueError("each prefix is one group")
-        self.file.set_groups(declared)
+        if len(declared) != len(categories):
+            raise ValueError("each prefix is one category")
+        self.file.set_categories(declared)
         return self.do_state()
+
+    def do_move(self, index: int, prefix: str) -> dict[str, Any]:
+        """Move a rule to another category (see RuleFile.move): its new code,
+        the old one, and the state."""
+        was = self.file.codes[index]
+        code = self.file.move(index, prefix)
+        return {"state": self.do_state(), "code": code, "was": was}
 
     def do_extent(self, indexes: list[int]) -> list[float] | None:
         """The extent of some rules' shapes, as the globe turns to them."""
@@ -170,7 +176,7 @@ class Session:
         return self.do_state()
 
     def do_new(self, prefix: str | None = None) -> dict[str, Any]:
-        """Add a rule with the next code in a group (see RuleFile.new)."""
+        """Add a rule with the next code in a category (see RuleFile.new)."""
         index = self.file.new(prefix or None)
         return {"state": self.do_state(), "index": index}
 
@@ -227,18 +233,18 @@ class Session:
         return {d["name"]: d["kind"] for d in described}
 
     def _tree(self) -> dict[str, dict[str, Any]]:
-        """The declared groups in tree order: each group, then the groups in it,
-        siblings in the order declared."""
+        """The declared categories in tree order: each category, then its
+        subcategories, siblings in the order declared."""
         found = {}
-        for prefix, value in self.file.groups.items():
+        for prefix, value in self.file.categories.items():
             if isinstance(value, str):
                 title, parent = value, None
             else:
                 title, parent = value["title"], value.get("parent")
             found[prefix] = {"prefix": prefix, "title": title, "parent": parent or ""}
-        for group in found.values():
-            group["children"] = [
-                p for p, g in found.items() if g["parent"] == group["prefix"]
+        for category in found.values():
+            category["children"] = [
+                p for p, c in found.items() if c["parent"] == category["prefix"]
             ]
         tree: dict[str, dict[str, Any]] = {}
 
@@ -247,8 +253,8 @@ class Session:
             for child in found[prefix]["children"]:
                 walk(child, depth + 1)
 
-        for prefix, group in found.items():
-            if not group["parent"]:
+        for prefix, category in found.items():
+            if not category["parent"]:
                 walk(prefix, 0)
         return tree
 
@@ -275,13 +281,11 @@ class Session:
             "message": props.get("message", ""),
             "level": self.file.level(index),
             "declared_level": props.get("level") or "",
-            "group": self.file.group(index) or "",
-            # the groups it is in, outermost first: ["REGION", "ITF"]
-            "path": (
-                paths.get(self.file.group(index) or "", [self.file.group(index)])
-                if self.file.group(index)
-                else []
-            ),
+            # the prefix of its code, and the categories it is in, outermost
+            # first: ["REGION", "ITF"]; none when its prefix is not a category
+            "category": self.file.category(index) or "",
+            "path": paths.get(self.file.category(index) or "", []),
+            "aliases": _texts(props.get("aliases")),
             "edge": props.get("edge") is True,
             "instruction": _text(props.get("instruction")),
             "confidence": _text(props.get("confidence")),
@@ -402,6 +406,12 @@ def _dimension_text(kind: str | None, value: Any) -> str:
                 f"{_SIGNS[k]}{_number_text(bounds[k])}" for k in _SIGNS if k in bounds
             )
     return json.dumps(value)
+
+
+def _texts(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    return [v for v in value if isinstance(v, str)] if isinstance(value, list) else []
 
 
 def _text(value: Any) -> str:

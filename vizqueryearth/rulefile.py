@@ -75,15 +75,16 @@ class RuleFile:
 
     dimensions declares the dimensions the rules use besides space and time, as
     queryearth Dimension objects or in the form of a rule file's "dimensions"
-    member ({"name": "resolution", "kind": "axis", "unit": "km"}); groups
-    declares the code groups as queryearth.Registry takes them, each prefix with
-    its title, or with its title and parent for a group in a group: {"REGION":
-    "Regions", "ITF": {"title": "Indonesian Throughflow", "parent": "REGION"}}.
-    Without them, the file's own "dimensions" and "groups" members declare them.
-    Once there are groups, every rule's prefix must be one.
+    member ({"name": "resolution", "kind": "axis", "unit": "km"}); categories
+    declares the categories of the codes as queryearth.Registry takes them, each
+    prefix with its title, or with its title and parent for a subcategory:
+    {"REGION": "Regions", "ITF": {"title": "Indonesian Throughflow", "parent":
+    "REGION"}}. Without them, the file's own "dimensions" and "categories"
+    members declare them ("groups" in files from before queryearth 0.6). Once
+    there are categories, every rule's prefix must be one.
 
     The file is written as queryearth writes one: a "queryearth" member naming
-    the release whose file format it uses (queryearth.FORMAT), its "groups" when
+    the release whose file format it uses (queryearth.FORMAT), its "categories" when
     there are any, and its "dimensions". A file that needs a later queryearth
     than this one is refused with queryearth.LoadError.
     """
@@ -93,7 +94,7 @@ class RuleFile:
         collection: Mapping[str, Any] | None = None,
         *,
         dimensions: Iterable[qe.Dimension | Mapping[str, Any]] | None = None,
-        groups: Mapping[str, Any] | None = None,
+        categories: Mapping[str, Any] | None = None,
     ) -> None:
         collection = collection or {"type": "FeatureCollection", "features": []}
         if (
@@ -101,16 +102,23 @@ class RuleFile:
             or collection.get("type") != "FeatureCollection"
         ):
             raise ValueError("a rule file is a GeoJSON FeatureCollection")
-        if "queryearth" in collection:  # queryearth says whether it can read it
+        # the categories, called "groups" in files from before queryearth 0.6
+        given = collection.get("categories", collection.get("groups"))
+        if {"queryearth", "groups"} & collection.keys():
+            # queryearth says whether it reads this file's format, and its name
+            # for the categories
+            named = ("queryearth", "groups", "categories")
+            members = {k: collection[k] for k in named if k in collection}
+            known = _parents_first(given) if isinstance(given, Mapping) else None
             empty = {"type": "FeatureCollection", "features": []}
-            qe.Registry().add(empty | {"queryearth": collection["queryearth"]})
+            qe.Registry(categories=known).add(empty | members)
         self.collection = copy.deepcopy(dict(collection))
         self.collection.setdefault("features", [])
         if dimensions is None:
             dimensions = self.collection.get("dimensions") or []
-        if groups is None:
-            groups = self.collection.get("groups") or {}
-        self._declare(dimensions, groups)
+        if categories is None:
+            categories = given or {}
+        self._declare(dimensions, categories)
 
     @classmethod
     def from_text(cls, text: str, **kwargs: Any) -> RuleFile:
@@ -149,8 +157,8 @@ class RuleFile:
         registry.add(self.collection)
         return registry
 
-    def group(self, index: int) -> str | None:
-        """A rule's group, the prefix of its code (ITF for ITF001), or None when
+    def category(self, index: int) -> str | None:
+        """A rule's category, the prefix of its code (ITF for ITF001), or None when
         queryearth cannot read its code."""
         try:
             return split_code(self.codes[index])[0]
@@ -159,20 +167,21 @@ class RuleFile:
 
     def prefixes(self) -> list[str]:
         """The prefixes the rules' codes use, in the order they first appear."""
-        found = (self.group(i) for i in range(len(self.features)))
+        found = (self.category(i) for i in range(len(self.features)))
         return list(dict.fromkeys(p for p in found if p is not None))
 
-    def group_paths(self) -> dict[str, list[str]]:
-        """Each group with the groups it sits in, outermost first, as queryearth
-        gives them: {"ITF": ["REGION", "ITF"], ...}."""
-        registry = qe.Registry("vizqueryearth", groups=self.groups)
-        return {prefix: registry.group_path(prefix) for prefix in self.groups}
+    def category_paths(self) -> dict[str, list[str]]:
+        """Each category with the categories it sits in, outermost first, as
+        queryearth gives them: {"ITF": ["REGION", "ITF"], ...}."""
+        registry = qe.Registry("vizqueryearth", categories=self.categories)
+        return {p: registry.category_path(p) for p in self.categories}
 
     def order(self) -> list[int]:
-        """The positions of the rules, sorted by code: by group, in the order the
-        groups are declared, then prefixes that are not groups, alphabetically,
+        """The positions of the rules, sorted by code: by category, in the order
+        the categories are declared, then prefixes that are not categories,
+        alphabetically,
         then by number. Codes queryearth cannot read come last."""
-        declared = {prefix: n for n, prefix in enumerate(self.groups)}
+        declared = {prefix: n for n, prefix in enumerate(self.categories)}
 
         def key(index: int) -> tuple[int, int, str, int]:
             code = self.codes[index]
@@ -254,40 +263,42 @@ class RuleFile:
         """Declare the dimensions the rules use, as Dimension objects or in the
         form of the file's "dimensions" member, which follows. Rules that use a
         name no longer declared become problems()."""
-        self._declare(dimensions, self.groups)
+        self._declare(dimensions, self.categories)
 
-    def set_groups(self, groups: Mapping[str, Any]) -> None:
-        """Declare the code groups, in queryearth's form (see RuleFile); the
-        file's "groups" member follows. They are put in an order queryearth
-        reads, each group after its parent, moving as few as possible.
+    def set_categories(self, categories: Mapping[str, Any]) -> None:
+        """Declare the categories, in queryearth's form (see RuleFile); the
+        file's "categories" member follows. They are put in an order queryearth
+        reads, each category after its parent, moving as few as possible.
 
-        Every rule's prefix must stay a group, and every parent a group: a group
-        that rules use, or that has groups in it, cannot be removed, and the
-        first groups of a file with rules must take in every prefix the rules
-        use. Groups cannot sit in each other."""
-        if not isinstance(groups, Mapping):
-            raise ValueError(f"groups map each prefix to a title, not {groups!r}")
+        Every rule's prefix must stay a category, and every parent a category: a
+        category that rules use, or that has subcategories, cannot be removed,
+        and the first categories of a file with rules must take in every prefix
+        the rules use. Categories cannot sit in each other."""
+        if not isinstance(categories, Mapping):
+            raise ValueError(
+                f"categories map each prefix to a title, not {categories!r}"
+            )
         used = self.prefixes()
-        gone = [p for p in self.groups if p not in groups and p in used]
+        gone = [p for p in self.categories if p not in categories and p in used]
         if gone:
             raise ValueError(
-                f"rules still use {', '.join(gone)}: change their codes or delete "
-                "them first"
+                f"{', '.join(gone)} still {'has' if len(gone) == 1 else 'have'} "
+                "rules: move them to another category or delete them first"
             )
-        for removed in (p for p in self.groups if p not in groups):
-            inside = [p for p, v in groups.items() if _parent(v) == removed]
+        for removed in (p for p in self.categories if p not in categories):
+            inside = [p for p, v in categories.items() if _parent(v) == removed]
             if inside:
                 raise ValueError(
-                    f"{removed} has groups in it: {', '.join(inside)}; move them to "
-                    "another group or remove them first"
+                    f"{removed} has subcategories: {', '.join(inside)}; move them "
+                    "to another category or remove them first"
                 )
-        missing = [p for p in used if p not in groups] if groups else []
+        missing = [p for p in used if p not in categories] if categories else []
         if missing:
             raise ValueError(
-                "once there are groups, every rule's prefix must be one: add "
+                "once there are categories, every rule's prefix must be one: add "
                 f"{', '.join(missing)} too"
             )
-        self._declare(self.dimensions, groups)
+        self._declare(self.dimensions, categories)
 
     def add(
         self, code: str, title: str = "", message: str = "", **properties: Any
@@ -300,13 +311,14 @@ class RuleFile:
         return len(self.features) - 1
 
     def new(self, prefix: str | None = None) -> int:
-        """Add a rule with the code queryearth gives next in a group, such as
+        """Add a rule with the code queryearth gives next in a category, such as
         ITF009 after ITF008; returns its position. Without a prefix, the first
-        group's, or in a file without groups the prefix of the last rule's code,
-        or RULE in an empty file."""
+        category's, or in a file without categories the prefix of the last rule's
+        code, or RULE in an empty file."""
         if prefix is None:
-            last = [p for p in map(self.group, range(len(self.features))) if p]
-            prefix = next(iter(self.groups), None) or (last[-1] if last else "RULE")
+            last = [p for p in map(self.category, range(len(self.features))) if p]
+            first = next(iter(self.categories), None)
+            prefix = first or (last[-1] if last else "RULE")
         code = self._numbering().next_code(prefix)
         return self.add(code, title="New rule", message="Say what this rule is about.")
 
@@ -371,6 +383,25 @@ class RuleFile:
             feature["id"] = props["code"]  # an id that named the old code follows it
         self._keep(index, feature)
 
+    def move(self, index: int, prefix: str) -> str:
+        """Move a rule to another category: it takes the code queryearth gives
+        next there, and keeps its old code in its "aliases", so the old code
+        still finds it and is never given again. Returns the new code."""
+        old = self.codes[index]
+        if self.category(index) == prefix:
+            raise ValueError(f"{old} is already in {prefix}")
+        code = self._numbering().next_code(prefix)
+        feature = copy.deepcopy(self.features[index])
+        props = feature["properties"]
+        aliases = props.get("aliases") or []
+        aliases = [aliases] if isinstance(aliases, str) else list(aliases)
+        props["code"] = code
+        props["aliases"] = aliases + [old] if old not in aliases else aliases
+        if feature.get("id") == old:
+            feature["id"] = code  # an id that named the old code follows it
+        self._keep(index, feature)
+        return code
+
     def set_shape(self, index: int, shape: Shape | None) -> None:
         """Give a rule a shape, such as from_drawn(...) or arctic(66.5); None for none."""
         feature = copy.deepcopy(self.features[index])
@@ -387,52 +418,68 @@ class RuleFile:
 
     def _registry(self) -> qe.Registry:
         return qe.Registry(
-            "vizqueryearth", dimensions=self.dimensions, groups=self.groups
+            "vizqueryearth", dimensions=self.dimensions, categories=self.categories
         )
 
     def _numbering(self) -> qe.Registry:
         """A Registry holding a stand-in for every rule whose code queryearth
-        reads, refused rules too, to ask queryearth for the next code."""
-        registry = qe.Registry("vizqueryearth", groups=self.groups)
-        for code in self.codes:
-            stand_in = {"code": code, "title": code, "message": code}
-            try:
-                registry.add(
-                    {"type": "Feature", "geometry": None, "properties": stand_in}
-                )
-            except ERRORS:
-                pass
+        reads, refused rules too, with the codes it keeps as aliases or
+        supersedes, to ask queryearth for the next code."""
+        registry = qe.Registry("vizqueryearth", categories=self.categories)
+        for feature in self.features:
+            props = feature.get("properties") or {}
+            code = props.get("code")
+            stand_in = {"code": code, "title": "-", "message": "-"}
+            kept = {k: props[k] for k in ("aliases", "supersedes") if k in props}
+            for tried in (stand_in | kept, stand_in):
+                try:
+                    registry.add(
+                        {"type": "Feature", "geometry": None, "properties": tried}
+                    )
+                    break
+                except ERRORS:
+                    pass
         return registry
 
     def _declare(
         self,
         dimensions: Iterable[qe.Dimension | Mapping[str, Any]],
-        groups: Mapping[str, Any],
+        categories: Mapping[str, Any],
     ) -> None:
-        """Check dimensions and groups with queryearth, keep them, and write them
-        into the file, with the "queryearth" member, before the features."""
+        """Check dimensions and categories with queryearth, keep them, and write
+        them into the file, with the "queryearth" member, before the features."""
         if isinstance(dimensions, (str, Mapping)) or not isinstance(
             dimensions, Iterable
         ):
             raise ValueError(f"dimensions are a list, not {dimensions!r}")
-        if not isinstance(groups, Mapping):
-            raise ValueError(f"groups map each prefix to a title, not {groups!r}")
+        if not isinstance(categories, Mapping):
+            raise ValueError(
+                f"categories map each prefix to a title, not {categories!r}"
+            )
         dimensions = tuple(
             d if isinstance(d, qe.Dimension) else dimension_from(d) for d in dimensions
         )
         registry = qe.Registry(  # checks them
-            "vizqueryearth", dimensions=dimensions, groups=_parents_first(groups)
+            "vizqueryearth",
+            dimensions=dimensions,
+            categories=_parents_first(categories),
         )
-        self.dimensions, self.groups = dimensions, registry.groups  # its form
+        self.dimensions, self.categories = dimensions, registry.categories
         written = {"queryearth": qe.FORMAT}
-        if self.groups:
-            written["groups"] = registry.groups
+        if self.categories:
+            written["categories"] = registry.categories
         written["dimensions"] = [describe_dimension(d) for d in dimensions]
         before, after, features = {}, {}, None
         for key, value in self.collection.items():  # other members stay put
             if key == "features":
                 features = value
-            elif key not in ("type", "queryearth", "groups", "dimensions"):
+            elif key not in (
+                "type",
+                "queryearth",
+                "categories",
+                "groups",
+                "dimensions",
+            ):
                 (before if features is None else after)[key] = value
         self.collection = {"type": self.collection["type"]} | before | written
         self.collection |= {"features": features} | after
@@ -453,37 +500,37 @@ class RuleFile:
 
 
 def _parent(value: Any) -> str | None:
-    """A group's parent, from its title or {"title", "parent"}."""
+    """A category's parent, from its title or {"title", "parent"}."""
     return value.get("parent") if isinstance(value, Mapping) else None
 
 
-def _parents_first(groups: Mapping[str, Any]) -> dict[str, Any]:
-    """Groups in an order queryearth reads: each after its parent. A group is
+def _parents_first(categories: Mapping[str, Any]) -> dict[str, Any]:
+    """Categories in an order queryearth reads: each after its parent. One is
     moved only when its parent comes later, to just after the parent."""
-    for prefix, value in groups.items():
+    for prefix, value in categories.items():
         parent = _parent(value)
-        if parent is not None and parent not in groups:
-            raise ValueError(f"{prefix} sits in {parent}, which is not a group")
+        if parent is not None and parent not in categories:
+            raise ValueError(f"{prefix} sits in {parent}, which is not a category")
     ordered: dict[str, Any] = {}
     waiting: dict[str, list[str]] = {}  # a parent's children placed before it
 
     def place(prefix: str) -> None:
-        ordered[prefix] = groups[prefix]
+        ordered[prefix] = categories[prefix]
         for child in waiting.pop(prefix, []):
             place(child)
 
-    for prefix, value in groups.items():
+    for prefix, value in categories.items():
         parent = _parent(value)
         if parent is None or parent in ordered:
             place(prefix)
         else:
             waiting.setdefault(parent, []).append(prefix)
-    if len(ordered) < len(groups):  # what is left sits in itself, round a loop
-        loop = [next(p for p in groups if p not in ordered)]
-        while (parent := _parent(groups[loop[-1]])) not in loop:
+    if len(ordered) < len(categories):  # what is left sits in itself, round a loop
+        loop = [next(p for p in categories if p not in ordered)]
+        while (parent := _parent(categories[loop[-1]])) not in loop:
             loop.append(parent)
         loop = loop[loop.index(parent) :] + [parent]
-        raise ValueError(f"groups cannot sit in each other: {' in '.join(loop)}")
+        raise ValueError(f"categories cannot sit in each other: {' in '.join(loop)}")
     return ordered
 
 
