@@ -244,3 +244,17 @@ body[data-mode="check"] .edit-only { display: none; }
 ul.plain { list-style: none; margin: 4px 0; padding: 0; }
 ul.plain li { margin: 2px 0; }
 .rule-card a { color: var(--accent); }
+
+/* groups in groups */
+.rules li.group-heading { font-size: 12px; font-weight: 600; color: var(--muted); padding: 10px 8px 2px; }
+.group-buttons button.on-path { border-color: var(--accent); color: var(--accent); }
+.group-buttons.nested { margin-top: 0; }
+.nest-mark, .has-groups { color: var(--muted); }
+.group-buttons button[aria-pressed="true"] .has-groups { color: inherit; }
+.group-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; padding-top: 6px; padding-bottom: 6px; }
+.group-list li .remove { grid-column: 3; grid-row: 1; justify-self: end; }
+.group-list li .parent { grid-column: 2; display: flex; gap: 6px; align-items: center; color: var(--muted); }
+.group-list li .parent span { flex: none; }
+.group-list li .parent select { flex: 1; min-width: 0; }
+.group-list li .count { grid-column: 3; justify-self: end; }
+.rule-card .group-path { margin-bottom: 6px; }

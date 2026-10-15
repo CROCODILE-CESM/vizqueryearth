@@ -3,11 +3,18 @@
   "conformsTo": [
     "http://www.opengis.net/spec/json-fg-1/1.0/conf/core"
   ],
-  "queryearth": "0.4",
+  "queryearth": "0.5",
   "groups": {
     "OCN": "demo_ocean, the product",
-    "ICE": "Sea ice",
-    "OBC": "Open boundaries"
+    "DOMAIN": "Domain design",
+    "ICE": {
+      "title": "Sea ice",
+      "parent": "DOMAIN"
+    },
+    "OBC": {
+      "title": "Open boundaries",
+      "parent": "DOMAIN"
+    }
   },
   "dimensions": [
     {

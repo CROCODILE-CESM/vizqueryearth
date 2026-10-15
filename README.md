@@ -19,9 +19,9 @@ The globe is on the left and the panel on the right. The page has two modes, swi
 
 **Check your area.** Draw a rectangle or a polygon where you work, or leave it empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. "No rule applies" means only that no rule matched, not that all is well. Tick **Also list rules that need more information** to see the rules that would apply if they knew more, such as a variable you left empty. Click a result to open that rule below.
 
-**Rules.** The list is sorted by code: by group, in the order the file gives its groups, then by number. Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`, `gulf`), or pick a group with its button; the globe then shows only those rules and turns to them. The page remembers your filter in this browser.
+**Rules.** The list is sorted by code: by group, in the order the file gives its groups, then by number, with a heading for each group that names the groups it sits in, such as "Regions › Coral Triangle and the Indonesian Throughflow". Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`, `gulf`), or pick a group with its button; the globe then shows only those rules and turns to them. Groups can sit in groups: the buttons show the top-level groups, and picking one shows the groups in it on a row below, indented. Picking a group shows its own rules and the rules of every group in it, at any depth. The page remembers your filter in this browser.
 
-Click a rule in the list, its label or its shape on the globe to open its card: the globe turns to it, and the card shows what the rule says and what it covers: its level, code, title and message, what to do, any changes, where and when it applies, what it applies to, and its references and evidence. Edge rules (see below) have a dashed outline and a lighter fill on the globe, and an "edge" tag.
+Click a rule in the list, its label or its shape on the globe to open its card: the globe turns to it, and the card shows what the rule says and what it covers: its level, code, title, groups and message, what to do, any changes, where and when it applies, what it applies to, and its references and evidence. Edge rules (see below) have a dashed outline and a lighter fill on the globe, and an "edge" tag.
 
 ### Edit
 
@@ -38,7 +38,7 @@ Click a rule in the list, its label or its shape on the globe to open its card: 
 
 Every edit is checked by queryearth before it is kept. If queryearth refuses one, the field keeps what you typed, marked in red, and the line at the bottom of the page says why.
 
-**Groups.** A rule's group is the prefix of its code: `OBC` for `OBC001`. Each group has a title, which you can edit here; add a group, or remove one that no rule uses. Once a file has groups, every rule's prefix must be one of them, so a file whose rules have no groups yet gets them all at once, with **Make a group for each prefix**, one per prefix in use; then give them titles.
+**Groups.** A rule's group is the prefix of its code: `OBC` for `OBC001`. Each group has a title, which you can edit here, and can sit in another group, such as Open boundaries in Domain design: pick the group it sits in, or Top level. A group in a group can hold groups too, and a group can hold rules of its own as well as groups. Add a group, with the group it sits in, or remove one that no rule and no group uses. The page refuses a change queryearth would refuse, such as two groups sitting in each other, and says why; it puts each group after the group it sits in when the file needs that. Once a file has groups, every rule's prefix must be one of them, so a file whose rules have no groups yet gets them all at once, with **Make a group for each prefix**, one per prefix in use; then give them titles and arrange them.
 
 **Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers with a unit, such as a resolution in km; versions are such as `4.07` or `ERA5T`. Add or remove them here; the rules file keeps the list.
 
@@ -69,9 +69,10 @@ A rules file says, next to its `features`, which queryearth file format it uses,
 ```json
 {
   "type": "FeatureCollection",
-  "queryearth": "0.4",
+  "queryearth": "0.5",
   "groups": {
-    "OBC": "Open boundaries",
+    "DOMAIN": "Domain design",
+    "OBC": {"title": "Open boundaries", "parent": "DOMAIN"},
     "ITF": "Coral Triangle and the Indonesian Throughflow"
   },
   "dimensions": [
@@ -82,7 +83,7 @@ A rules file says, next to its `features`, which queryearth file format it uses,
 }
 ```
 
-This is how queryearth 0.4 writes and reads rule files (`Registry.to_file`, `Registry.from_file`), and the page always writes these members; `groups` only when there are some. All of them are optional when you open a file. Without `dimensions`, the page uses the dimensions its site declares, or else guesses them from the rules. A file that needs a later queryearth than the page's is not opened, and the line at the bottom of the page says which release it needs.
+A group is its title, or its title and the group it sits in (its `parent`, which comes first in the list). This is how queryearth 0.5 writes and reads rule files (`Registry.to_file`, `Registry.from_file`), and the page always writes these members; `groups` only when there are some. All of them are optional when you open a file, and files written for queryearth 0.4, whose groups are all titles, open as they are and are written for 0.5. Without `dimensions`, the page uses the dimensions its site declares, or else guesses them from the rules. A file that needs a later queryearth than the page's is not opened, and the line at the bottom of the page says which release it needs.
 
 Rules you do not edit are written back as they were read.
 
@@ -141,7 +142,7 @@ The page's Python is a small package you can use in scripts. It is not on PyPI:
 pip install git+https://github.com/CROCODILE-CESM/vizqueryearth
 ```
 
-It needs Python 3.11 or later and `queryearth>=0.4,<0.5`.
+It needs Python 3.11 or later and `queryearth>=0.5,<0.6`.
 
 ```python
 import queryearth as qe
@@ -167,7 +168,7 @@ findings = rules.query(
 print(qe.report(findings))
 ```
 
-`RuleFile` checks every edit with queryearth and refuses what queryearth would refuse; `problems()` lists what queryearth refuses in the file as it stands. `set_groups()` and `set_dimensions()` declare groups and dimensions, `order()` gives the rules sorted by code, and `update(i, edge=True)` makes an edge rule. `vizqueryearth.shapes` turns drawn GeoJSON into rule shapes (`from_drawn`).
+`RuleFile` checks every edit with queryearth and refuses what queryearth would refuse; `problems()` lists what queryearth refuses in the file as it stands. `set_groups()` and `set_dimensions()` declare groups (in queryearth's form, parents first or moved there) and dimensions, `group_paths()` gives the groups each group sits in, `order()` gives the rules sorted by code, and `update(i, edge=True)` makes an edge rule. `vizqueryearth.shapes` turns drawn GeoJSON into rule shapes (`from_drawn`).
 
 ## Local development
 

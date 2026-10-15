@@ -15,7 +15,14 @@ DEMO = Path(__file__).parent.parent / "web" / "sites" / "demo" / "rules.geojson"
 DIMENSIONS = [qe.Labels("product"), qe.Labels("variable"), qe.Labels("model")]
 LABELS = [{"name": n, "kind": "labels"} for n in ("product", "variable", "model")]
 CODES = ["OCN001", "OCN002", "ICE001", "OCN003", "OBC001"]  # in file order
-GROUPS = {"OCN": "demo_ocean, the product", "ICE": "Sea ice", "OBC": "Open boundaries"}
+GROUPS = {
+    "OCN": "demo_ocean, the product",
+    "DOMAIN": "Domain design",
+    "ICE": {"title": "Sea ice", "parent": "DOMAIN"},
+    "OBC": {"title": "Open boundaries", "parent": "DOMAIN"},
+}
+MAJOR, MINOR = map(int, qe.FORMAT.split("."))
+LATER = f"{MAJOR}.{MINOR + 1}"  # a format this queryearth cannot read
 
 
 def demo():
@@ -417,8 +424,8 @@ def test_the_file_is_written_as_queryearth_writes_one():
 
 
 def test_a_file_for_a_later_queryearth_is_refused():
-    collection = {"type": "FeatureCollection", "queryearth": "0.5", "features": []}
-    with pytest.raises(qe.LoadError, match="needs queryearth 0.5 or later"):
+    collection = {"type": "FeatureCollection", "queryearth": LATER, "features": []}
+    with pytest.raises(qe.LoadError, match=f"needs queryearth {LATER} or later"):
         RuleFile(collection)
     with pytest.raises(qe.LoadError, match="release"):
         RuleFile(collection | {"queryearth": "soon"})
@@ -465,7 +472,7 @@ def test_groups_are_kept_as_queryearth_reads_them():
     for bad in ({"obc": "lower case"}, {"NEW": " "}):
         with pytest.raises(ValueError):
             file.set_groups(file.groups | bad)
-    assert list(file.groups) == ["OCN", "ICE", "OBC", "GRID"]
+    assert list(file.groups) == ["OCN", "DOMAIN", "ICE", "OBC", "GRID"]
 
 
 def test_the_first_groups_must_take_in_every_prefix():
@@ -499,3 +506,52 @@ def test_an_edge_rule_applies_where_a_domain_edge_crosses_it():
         file.set_shape(0, None)
     with pytest.raises(ValueError, match="true or false"):
         file.update(0, edge="yes")
+
+
+# ---- groups in groups -----------------------------------------------------------
+def test_groups_sit_in_groups():
+    file = demo()
+    assert file.group_paths() == {
+        "OCN": ["OCN"],
+        "DOMAIN": ["DOMAIN"],
+        "ICE": ["DOMAIN", "ICE"],
+        "OBC": ["DOMAIN", "OBC"],
+    }
+    assert qe.Registry.from_file(DEMO).group_path("OBC") == ["DOMAIN", "OBC"]
+    # a parent can hold rules itself
+    index = file.new("DOMAIN")
+    assert file.codes[index] == "DOMAIN001" and file.problem(index) is None
+
+
+def test_a_parent_comes_before_its_children():
+    file = demo()
+    groups = {"OBC": {"title": "Open boundaries", "parent": "BOUND"}}
+    groups |= {k: v for k, v in GROUPS.items() if k != "OBC"}
+    groups |= {"BOUND": {"title": "Boundaries", "parent": "DOMAIN"}}
+    file.set_groups(groups)  # OBC moves to just after its new parent
+    assert list(file.groups) == ["OCN", "DOMAIN", "ICE", "BOUND", "OBC"]
+    assert file.group_paths()["OBC"] == ["DOMAIN", "BOUND", "OBC"]
+    assert json.loads(file.text())["groups"]["OBC"]["parent"] == "BOUND"
+    assert file.problems() == []
+
+
+def test_groups_cannot_sit_in_each_other_or_in_nothing():
+    file = demo()
+    loop = GROUPS | {"DOMAIN": {"title": "Domain design", "parent": "OBC"}}
+    with pytest.raises(ValueError, match="cannot sit in each other: .*DOMAIN"):
+        file.set_groups(loop)
+    with pytest.raises(ValueError, match="sits in NOPE, which is not a group"):
+        file.set_groups(GROUPS | {"ICE": {"title": "Sea ice", "parent": "NOPE"}})
+    with pytest.raises(ValueError, match="DOMAIN has groups in it: ICE, OBC"):
+        file.set_groups({k: v for k, v in GROUPS.items() if k != "DOMAIN"})
+    assert file.groups == GROUPS
+
+
+def test_a_file_for_queryearth_0_4_opens():
+    old = {"type": "FeatureCollection", "queryearth": "0.4"}
+    old |= {"groups": {"OBC": "Open boundaries"}, "features": [rule("OBC001")]}
+    file = RuleFile(old)
+    assert file.groups == {"OBC": "Open boundaries"} and file.problems() == []
+    written = json.loads(file.text())
+    assert written["queryearth"] == qe.FORMAT
+    assert written["groups"] == {"OBC": "Open boundaries"}

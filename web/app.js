@@ -20,7 +20,7 @@ const LIBS = {
   land: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@v5.1.2/geojson/ne_50m_land.geojson",
   pyodide: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js",
 };
-const QUERYEARTH = "queryearth==0.4.0"; // a requirement or a wheel URL, for micropip
+const QUERYEARTH = "queryearth==0.5.0"; // a requirement or a wheel URL, for micropip
 const PY_FILES = ["__init__.py", "shapes.py", "rulefile.py", "session.py"];
 const LEVEL_COLOR = { error: "#c62828", warning: "#e08a00", info: "#1e6fd9" };
 const LEVELS = [
@@ -385,7 +385,7 @@ function clearArea() {
 function matches(rule) {
   const { text, group } = page.filter;
   const words = text.trim().toLowerCase();
-  if (group && rule.group !== group) return false;
+  if (group && !rule.path.includes(group)) return false; // the group, or a group in it
   return !words || rule.code.toLowerCase().includes(words) || rule.title.toLowerCase().includes(words);
 }
 
@@ -447,14 +447,7 @@ function rulesSection() {
       "div",
       { class: "filter" },
       el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter by code or title", value: page.filter.text, oninput: filterText }),
-      filters.length
-        ? el(
-            "div",
-            { class: "row group-buttons", role: "group", "aria-label": "Show one group" },
-            el("button", { type: "button", "aria-pressed": !page.filter.group, onclick: () => filterGroup("") }, "All"),
-            filters.map((f) => el("button", { type: "button", "aria-pressed": page.filter.group === f.prefix, title: f.title || f.prefix, onclick: () => filterGroup(f.prefix) }, f.title ? `${f.title} (${f.prefix})` : f.prefix))
-          )
-        : null
+      filters.length ? groupRows(filters) : null
     ),
     el("p", { id: "rule-count", class: "hint" }, countText()),
     el("ul", { id: "rule-list", class: "rules" }, ruleItems()),
@@ -463,7 +456,7 @@ function rulesSection() {
           "div",
           { class: "row" },
           groups.length
-            ? el("select", { id: "new-group", "aria-label": "Group of the new rule" }, groups.map((g) => el("option", { value: g.prefix, selected: g.prefix === preferred }, `${g.prefix}: ${g.title}`)))
+            ? el("select", { id: "new-group", "aria-label": "Group of the new rule" }, treeOrder(groups).map((g) => el("option", { value: g.prefix, selected: g.prefix === preferred }, `${"› ".repeat(g.depth)}${g.prefix}: ${g.title}`)))
             : null,
           el("button", { onclick: newRule }, "New rule")
         )
@@ -471,10 +464,69 @@ function rulesSection() {
   );
 }
 
+// The group buttons as a tree: the top-level groups, then, under the group
+// picked and each group it sits in, a row of the groups inside it.
+function groupRows(filters) {
+  const byPrefix = Object.fromEntries(filters.map((f) => [f.prefix, f]));
+  const picked = byPrefix[page.filter.group] ? page.filter.group : "";
+  const path = picked ? groupPath(picked) : [];
+  const button = (f) =>
+    el(
+      "button",
+      { type: "button", "aria-pressed": f.prefix === picked, class: path.includes(f.prefix) && f.prefix !== picked ? "on-path" : null, title: f.children.length ? `${f.title || f.prefix}, and the groups in it` : f.title || f.prefix, onclick: () => filterGroup(f.prefix) },
+      groupLabel(f),
+      f.children.length ? el("span", { class: "has-groups", "aria-hidden": "true" }, " ▸") : null
+    );
+  const rows = [
+    el(
+      "div",
+      { class: "row group-buttons", role: "group", "aria-label": "Show one group" },
+      el("button", { type: "button", "aria-pressed": !picked, onclick: () => filterGroup("") }, "All"),
+      filters.filter((f) => f.depth === 0).map(button)
+    ),
+  ];
+  for (const prefix of path) {
+    const parent = byPrefix[prefix];
+    if (!parent.children.length) continue;
+    rows.push(
+      el(
+        "div",
+        { class: "row group-buttons nested", role: "group", "aria-label": `Groups in ${parent.title || prefix}`, style: `margin-left:${(parent.depth + 1) * 14}px` },
+        el("span", { class: "nest-mark", "aria-hidden": "true" }, "›"),
+        parent.children.map((child) => button(byPrefix[child]))
+      )
+    );
+  }
+  return rows;
+}
+
+function groupLabel(group) {
+  return group.title ? `${group.title} (${group.prefix})` : group.prefix;
+}
+
+// A group and the groups it sits in, outermost first, as Python gives them.
+function groupPath(prefix) {
+  const byPrefix = Object.fromEntries((page.state?.filters || []).map((f) => [f.prefix, f]));
+  const path = [prefix];
+  while (byPrefix[path[0]]?.parent) path.unshift(byPrefix[path[0]].parent);
+  return path;
+}
+
+// A rule's groups by title, outermost first: "Regions › Coral Triangle …".
+function pathText(rule) {
+  const titles = Object.fromEntries((page.state?.filters || []).map((f) => [f.prefix, f.title || f.prefix]));
+  return rule.path.map((prefix) => titles[prefix] || prefix).join(" › ");
+}
+
 function ruleItems() {
-  return shown().map((r) => {
+  const headed = Boolean(page.state?.groups.length);
+  let last = null;
+  return shown().flatMap((r) => {
     const selected = r.index === page.selected;
-    return el(
+    // a heading where a group starts, with the groups it sits in
+    const heading = headed && r.group !== last ? el("li", { class: "group-heading", role: "presentation" }, pathText(r)) : null;
+    last = r.group;
+    const item = el(
       "li",
       { "aria-current": selected },
       el(
@@ -488,6 +540,7 @@ function ruleItems() {
       ),
       selected ? (page.mode === "edit" ? ruleForm(r) : ruleCard(r)) : null
     );
+    return heading ? [heading, item] : [item];
   });
 }
 
@@ -498,6 +551,7 @@ function ruleCard(rule) {
   return el(
     "div",
     { class: "rule-card" },
+    rule.path.length ? el("p", { class: "hint group-path" }, `Group: ${pathText(rule)}`) : null,
     el("p", {}, rule.message),
     rule.instruction ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), rule.instruction) : null,
     rule.changes.length
@@ -753,27 +807,52 @@ async function shapeCall(name, args) {
 }
 
 // ---- groups: the prefixes of the codes, with titles ------------------------------
+function treeOrder(groups) {
+  const byPrefix = Object.fromEntries(groups.map((g) => [g.prefix, g]));
+  return (page.state?.tree || []).map((prefix) => byPrefix[prefix]).filter(Boolean);
+}
+
+// The groups as the page sends them to Python: in the order declared.
+function listedGroups() {
+  return (page.state?.groups || []).map(({ prefix, title, parent }) => ({ prefix, title, parent }));
+}
+
+function parentOptions(except, chosen) {
+  return [
+    el("option", { value: "", selected: !chosen }, "Top level"),
+    treeOrder(page.state?.groups || [])
+      .filter((g) => g.prefix !== except)
+      .map((g) => el("option", { value: g.prefix, selected: g.prefix === chosen }, `${"› ".repeat(g.depth)}${g.prefix}: ${g.title}`)),
+  ];
+}
+
 function groupsSection() {
   const state = page.state;
   const groups = state?.groups || [];
   const ungrouped = !groups.length && state?.prefixes.length ? state.prefixes : null;
-  const listed = groups.map(({ prefix, title }) => ({ prefix, title }));
+  const change = (prefix, fields) => setGroups(listedGroups().map((g) => (g.prefix === prefix ? { ...g, ...fields } : g)));
   return el(
     "section",
     { id: "groups" },
     el("h2", {}, "Groups"),
-    el("p", { class: "hint" }, "A rule's group is the prefix of its code: OBC for OBC001. Once a file has groups, every rule's code uses one, and a new rule takes the next number in its group."),
+    el("p", { class: "hint" }, "A rule's group is the prefix of its code: OBC for OBC001. A group can sit in another, such as Open boundaries in Domain design; picking a group shows the rules of every group in it too. Once a file has groups, every rule's code uses one, and a new rule takes the next number in its group."),
     el(
       "ul",
-      { class: "dims" },
-      groups.map((g) =>
+      { class: "dims group-list" },
+      treeOrder(groups).map((g) =>
         el(
           "li",
-          {},
+          { style: `padding-left:${g.depth * 16}px`, "data-group": g.prefix },
           el("strong", {}, g.prefix),
-          el("input", { "aria-label": `Title of ${g.prefix}`, value: g.title, onchange: (e) => setGroups(listed.map((h) => (h.prefix === g.prefix ? { ...h, title: e.target.value } : h))) }),
-          el("span", { class: "count" }, `${g.rules} rule${g.rules === 1 ? "" : "s"}`),
-          el("button", { type: "button", class: "remove", "aria-label": `Remove ${g.prefix}`, title: g.rules ? `${g.prefix} has rules` : `Remove ${g.prefix}`, disabled: g.rules > 0, onclick: () => setGroups(listed.filter((h) => h.prefix !== g.prefix)) }, "×")
+          el("input", { "aria-label": `Title of ${g.prefix}`, value: g.title, onchange: (e) => change(g.prefix, { title: e.target.value }) }),
+          el("button", { type: "button", class: "remove", "aria-label": `Remove ${g.prefix}`, title: `Remove ${g.prefix}`, onclick: () => setGroups(listedGroups().filter((h) => h.prefix !== g.prefix)) }, "×"),
+          el(
+            "label",
+            { class: "parent" },
+            el("span", {}, "in"),
+            el("select", { "aria-label": `Group that ${g.prefix} sits in`, onchange: (e) => change(g.prefix, { parent: e.target.value }) }, parentOptions(g.prefix, g.parent))
+          ),
+          el("span", { class: "count", title: "rules in this group itself, and groups in it" }, `${g.rules} rule${g.rules === 1 ? "" : "s"}${g.children.length ? `, ${g.children.length} group${g.children.length === 1 ? "" : "s"}` : ""}`)
         )
       )
     ),
@@ -782,13 +861,14 @@ function groupsSection() {
           "div",
           { class: "notice" },
           el("p", {}, `These rules have no groups. Once there are groups, every rule's prefix must be one, so groups start with one for each prefix in use: ${ungrouped.join(", ")}.`),
-          el("div", { class: "row" }, el("button", { onclick: () => setGroups(ungrouped.map((prefix) => ({ prefix, title: prefix }))) }, "Make a group for each prefix"))
+          el("div", { class: "row" }, el("button", { onclick: () => setGroups(ungrouped.map((prefix) => ({ prefix, title: prefix, parent: "" }))) }, "Make a group for each prefix"))
         )
       : el(
           "form",
           { class: "row add-dim", onsubmit: addGroup },
           el("input", { id: "g-prefix", "aria-label": "Prefix of the group", placeholder: "prefix, such as OBC", required: true, autocapitalize: "characters" }),
           el("input", { id: "g-title", "aria-label": "Title of the group", placeholder: "title, such as Open boundaries", required: true }),
+          el("select", { id: "g-parent", "aria-label": "Group it sits in" }, parentOptions(null, "")),
           el("button", { type: "submit" }, "Add")
         )
   );
@@ -798,8 +878,8 @@ async function addGroup(event) {
   event.preventDefault();
   const prefix = document.getElementById("g-prefix").value.trim().toUpperCase();
   const title = document.getElementById("g-title").value.trim();
-  const listed = (page.state?.groups || []).map(({ prefix, title }) => ({ prefix, title }));
-  await setGroups([...listed, { prefix, title }]);
+  const parent = document.getElementById("g-parent").value;
+  await setGroups([...listedGroups(), { prefix, title, parent }]);
 }
 
 async function setGroups(groups) {
@@ -810,6 +890,10 @@ async function setGroups(groups) {
     render();
   } catch (err) {
     say(`Not kept: ${err.message}`, true);
+    // show the groups as they are, but keep what was typed to add one
+    const typed = ["g-prefix", "g-title", "g-parent"].map((id) => document.getElementById(id)?.value);
+    render();
+    ["g-prefix", "g-title", "g-parent"].forEach((id, i) => document.getElementById(id) && (document.getElementById(id).value = typed[i] ?? ""));
   }
 }
 

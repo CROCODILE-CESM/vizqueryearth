@@ -76,10 +76,11 @@ class RuleFile:
     dimensions declares the dimensions the rules use besides space and time, as
     queryearth Dimension objects or in the form of a rule file's "dimensions"
     member ({"name": "resolution", "kind": "axis", "unit": "km"}); groups
-    declares the code groups, prefix to title ({"ITF": "Indonesian
-    Throughflow"}), as for queryearth.Registry. Without them, the file's own
-    "dimensions" and "groups" members declare them. Once there are groups, every
-    rule's prefix must be one.
+    declares the code groups as queryearth.Registry takes them, each prefix with
+    its title, or with its title and parent for a group in a group: {"REGION":
+    "Regions", "ITF": {"title": "Indonesian Throughflow", "parent": "REGION"}}.
+    Without them, the file's own "dimensions" and "groups" members declare them.
+    Once there are groups, every rule's prefix must be one.
 
     The file is written as queryearth writes one: a "queryearth" member naming
     the release whose file format it uses (queryearth.FORMAT), its "groups" when
@@ -92,7 +93,7 @@ class RuleFile:
         collection: Mapping[str, Any] | None = None,
         *,
         dimensions: Iterable[qe.Dimension | Mapping[str, Any]] | None = None,
-        groups: Mapping[str, str] | None = None,
+        groups: Mapping[str, Any] | None = None,
     ) -> None:
         collection = collection or {"type": "FeatureCollection", "features": []}
         if (
@@ -160,6 +161,12 @@ class RuleFile:
         """The prefixes the rules' codes use, in the order they first appear."""
         found = (self.group(i) for i in range(len(self.features)))
         return list(dict.fromkeys(p for p in found if p is not None))
+
+    def group_paths(self) -> dict[str, list[str]]:
+        """Each group with the groups it sits in, outermost first, as queryearth
+        gives them: {"ITF": ["REGION", "ITF"], ...}."""
+        registry = qe.Registry("vizqueryearth", groups=self.groups)
+        return {prefix: registry.group_path(prefix) for prefix in self.groups}
 
     def order(self) -> list[int]:
         """The positions of the rules, sorted by code: by group, in the order the
@@ -244,11 +251,15 @@ class RuleFile:
         name no longer declared become problems()."""
         self._declare(dimensions, self.groups)
 
-    def set_groups(self, groups: Mapping[str, str]) -> None:
-        """Declare the code groups, prefix to title, in order; the file's "groups"
-        member follows. Every rule's prefix must stay a group: a group that rules
-        use cannot be removed, and the first groups of a file with rules must
-        take in every prefix the rules use."""
+    def set_groups(self, groups: Mapping[str, Any]) -> None:
+        """Declare the code groups, in queryearth's form (see RuleFile); the
+        file's "groups" member follows. They are put in an order queryearth
+        reads, each group after its parent, moving as few as possible.
+
+        Every rule's prefix must stay a group, and every parent a group: a group
+        that rules use, or that has groups in it, cannot be removed, and the
+        first groups of a file with rules must take in every prefix the rules
+        use. Groups cannot sit in each other."""
         if not isinstance(groups, Mapping):
             raise ValueError(f"groups map each prefix to a title, not {groups!r}")
         used = self.prefixes()
@@ -258,6 +269,13 @@ class RuleFile:
                 f"rules still use {', '.join(gone)}: change their codes or delete "
                 "them first"
             )
+        for removed in (p for p in self.groups if p not in groups):
+            inside = [p for p, v in groups.items() if _parent(v) == removed]
+            if inside:
+                raise ValueError(
+                    f"{removed} has groups in it: {', '.join(inside)}; move them to "
+                    "another group or remove them first"
+                )
         missing = [p for p in used if p not in groups] if groups else []
         if missing:
             raise ValueError(
@@ -384,7 +402,7 @@ class RuleFile:
     def _declare(
         self,
         dimensions: Iterable[qe.Dimension | Mapping[str, Any]],
-        groups: Mapping[str, str],
+        groups: Mapping[str, Any],
     ) -> None:
         """Check dimensions and groups with queryearth, keep them, and write them
         into the file, with the "queryearth" member, before the features."""
@@ -397,12 +415,13 @@ class RuleFile:
         dimensions = tuple(
             d if isinstance(d, qe.Dimension) else dimension_from(d) for d in dimensions
         )
-        groups = dict(groups)
-        qe.Registry("vizqueryearth", dimensions=dimensions, groups=groups)  # checks
-        self.dimensions, self.groups = dimensions, groups
+        registry = qe.Registry(  # checks them
+            "vizqueryearth", dimensions=dimensions, groups=_parents_first(groups)
+        )
+        self.dimensions, self.groups = dimensions, registry.groups  # its form
         written = {"queryearth": qe.FORMAT}
-        if groups:
-            written["groups"] = dict(groups)
+        if self.groups:
+            written["groups"] = registry.groups
         written["dimensions"] = [describe_dimension(d) for d in dimensions]
         before, after, features = {}, {}, None
         for key, value in self.collection.items():  # other members stay put
@@ -426,6 +445,41 @@ class RuleFile:
             self.features.append(feature)
         else:
             self.features[index] = feature
+
+
+def _parent(value: Any) -> str | None:
+    """A group's parent, from its title or {"title", "parent"}."""
+    return value.get("parent") if isinstance(value, Mapping) else None
+
+
+def _parents_first(groups: Mapping[str, Any]) -> dict[str, Any]:
+    """Groups in an order queryearth reads: each after its parent. A group is
+    moved only when its parent comes later, to just after the parent."""
+    for prefix, value in groups.items():
+        parent = _parent(value)
+        if parent is not None and parent not in groups:
+            raise ValueError(f"{prefix} sits in {parent}, which is not a group")
+    ordered: dict[str, Any] = {}
+    waiting: dict[str, list[str]] = {}  # a parent's children placed before it
+
+    def place(prefix: str) -> None:
+        ordered[prefix] = groups[prefix]
+        for child in waiting.pop(prefix, []):
+            place(child)
+
+    for prefix, value in groups.items():
+        parent = _parent(value)
+        if parent is None or parent in ordered:
+            place(prefix)
+        else:
+            waiting.setdefault(parent, []).append(prefix)
+    if len(ordered) < len(groups):  # what is left sits in itself, round a loop
+        loop = [next(p for p in groups if p not in ordered)]
+        while (parent := _parent(groups[loop[-1]])) not in loop:
+            loop.append(parent)
+        loop = loop[loop.index(parent) :] + [parent]
+        raise ValueError(f"groups cannot sit in each other: {' in '.join(loop)}")
+    return ordered
 
 
 def _put(props: dict[str, Any], name: str, value: Any) -> None:

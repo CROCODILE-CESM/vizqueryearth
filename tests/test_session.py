@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import pytest
+import queryearth as qe
 
 from vizqueryearth.session import Session
 
@@ -101,10 +102,11 @@ def test_open_refuses_what_is_not_a_rule_file():
 
 def test_a_file_for_a_later_queryearth_leaves_the_open_file():
     session = opened(name="demo.geojson")
-    later = json.loads(DEMO.read_text()) | {"queryearth": "0.5"}
+    major, minor = map(int, qe.FORMAT.split("."))
+    later = json.loads(DEMO.read_text()) | {"queryearth": f"{major}.{minor + 1}"}
     out = call(session, "open", text=json.dumps(later), name="later.geojson")
-    assert out["error"].startswith("this file needs queryearth 0.5 or later; this is")
-    assert out["error"].endswith("which reads files up to 0.4")
+    assert out["error"].startswith(f"this file needs queryearth {major}.{minor + 1}")
+    assert out["error"].endswith(f"which reads files up to {qe.FORMAT}")
     state = ok(session, "state")
     assert state["name"] == "demo.geojson" and len(state["rules"]) == 5
 
@@ -125,17 +127,25 @@ def test_the_state_has_what_the_page_shows():
         "ICE001",
         "OBC001",
     ]
-    assert state["groups"] == [
-        {"prefix": "OCN", "title": "demo_ocean, the product", "rules": 3},
-        {"prefix": "ICE", "title": "Sea ice", "rules": 1},
-        {"prefix": "OBC", "title": "Open boundaries", "rules": 1},
+    top = {"parent": "", "depth": 0}
+    assert state["groups"] == [  # in the order declared
+        {"prefix": "OCN", "title": "demo_ocean, the product", "rules": 3}
+        | top
+        | {"children": []},
+        {"prefix": "DOMAIN", "title": "Domain design", "rules": 0}
+        | top
+        | {"children": ["ICE", "OBC"]},
+        {"prefix": "ICE", "title": "Sea ice", "parent": "DOMAIN", "depth": 1}
+        | {"children": [], "rules": 1},
+        {"prefix": "OBC", "title": "Open boundaries", "parent": "DOMAIN", "depth": 1}
+        | {"children": [], "rules": 1},
     ]
-    assert state["filters"] == [
-        {"prefix": g["prefix"], "title": g["title"]} for g in state["groups"]
-    ]
+    assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC"]
+    assert [f["prefix"] for f in state["filters"]] == state["tree"]
     gulf, bering, arctic, early, edge = state["rules"]
     assert (gulf["group"], gulf["edge"]) == ("OCN", False)
     assert (edge["group"], edge["edge"]) == ("OBC", True)
+    assert gulf["path"] == ["OCN"] and edge["path"] == ["DOMAIN", "OBC"]
     # what a rule's card shows besides its fields
     assert bering["instruction"].startswith("Compare demo_ocean with observations")
     assert bering["references"] == [
@@ -212,32 +222,63 @@ def test_a_new_rule_takes_the_next_code_in_its_group():
     bare = opened(collection(rule("ZED007"), rule("ABC001")))
     out = ok(bare, "new")  # no groups: the prefix of the last code
     assert out["state"]["rules"][out["index"]]["code"] == "ABC002"
-    assert ok(bare, "state")["filters"] == [
-        {"prefix": "ABC", "title": ""},
-        {"prefix": "ZED", "title": ""},
+    none = {"title": "", "parent": "", "depth": 0, "children": []}
+    state = ok(bare, "state")
+    assert state["filters"] == [{"prefix": "ABC"} | none, {"prefix": "ZED"} | none]
+    assert state["rules"][0]["path"] == ["ZED"]
+
+
+def listed(state):
+    """The groups as the page sends them back."""
+    return [
+        {"prefix": g["prefix"], "title": g["title"], "parent": g["parent"]}
+        for g in state["groups"]
     ]
 
 
 def test_groups_are_declared_as_a_list():
     session = opened()
-    groups = ok(session, "state")["groups"]
-    listed = [{"prefix": g["prefix"], "title": g["title"]} for g in groups]
-    state = ok(
-        session, "groups", groups=listed + [{"prefix": "GRID", "title": "Grids"}]
-    )
-    assert [g["prefix"] for g in state["groups"]] == ["OCN", "ICE", "OBC", "GRID"]
-    assert json.loads(ok(session, "text"))["groups"]["GRID"] == "Grids"
-    renamed = [g | {"title": "Ice"} if g["prefix"] == "ICE" else g for g in listed]
+    groups = listed(ok(session, "state"))
+    grid = {"prefix": "GRID", "title": "Grids", "parent": "DOMAIN"}
+    state = ok(session, "groups", groups=groups + [grid])
+    assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC", "GRID"]
+    written = json.loads(ok(session, "text"))["groups"]
+    assert written["GRID"] == {"title": "Grids", "parent": "DOMAIN"}
+    renamed = [g | {"title": "Ice"} if g["prefix"] == "ICE" else g for g in groups]
     state = ok(session, "groups", groups=renamed)  # and GRID removed
-    assert [g["title"] for g in state["groups"]][1] == "Ice"
-    assert "rules still use OBC" in call(session, "groups", groups=listed[:2])["error"]
-    out = call(session, "groups", groups=listed + [{"prefix": "x", "title": "X"}])
+    assert state["groups"][2]["title"] == "Ice"
+    out = call(session, "groups", groups=[g for g in groups if g["prefix"] != "OBC"])
+    assert "rules still use OBC" in out["error"]
+    out = call(session, "groups", groups=groups + [{"prefix": "x", "title": "X"}])
     assert "not a code prefix" in out["error"]
-    out = call(session, "groups", groups=listed + [listed[0]])
+    out = call(session, "groups", groups=groups + [groups[0]])
     assert "one group" in out["error"]
     bare = opened(collection(rule("OBC001"), rule("ITF001")))
     out = call(bare, "groups", groups=[{"prefix": "OBC", "title": "Open boundaries"}])
     assert "add ITF too" in out["error"]
+
+
+def test_a_group_moves_to_another_parent():
+    session = opened()
+    groups = listed(ok(session, "state"))
+    moved = [g | {"parent": ""} if g["prefix"] == "OBC" else g for g in groups]
+    state = ok(session, "groups", groups=moved)  # OBC to the top level
+    assert state["tree"] == ["OCN", "DOMAIN", "ICE", "OBC"]
+    assert next(r for r in state["rules"] if r["code"] == "OBC001")["path"] == ["OBC"]
+    under = [g | {"parent": "OBC"} if g["prefix"] == "DOMAIN" else g for g in moved]
+    state = ok(session, "groups", groups=under)  # DOMAIN into OBC, which moves up
+    assert [g["prefix"] for g in state["groups"]] == ["OCN", "OBC", "DOMAIN", "ICE"]
+    assert next(r for r in state["rules"] if r["code"] == "ICE001")["path"] == [
+        "OBC",
+        "DOMAIN",
+        "ICE",
+    ]
+    loop = [g | {"parent": "ICE"} if g["prefix"] == "OBC" else g for g in listed(state)]
+    assert "cannot sit in each other" in call(session, "groups", groups=loop)["error"]
+    out = call(
+        session, "groups", groups=[g for g in listed(state) if g["prefix"] != "DOMAIN"]
+    )
+    assert "DOMAIN has groups in it: ICE" in out["error"]
 
 
 def test_the_edge_box_is_ticked_and_some_rules_have_an_extent():

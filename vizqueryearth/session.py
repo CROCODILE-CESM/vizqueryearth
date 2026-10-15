@@ -82,26 +82,31 @@ class Session:
         found = [self.file.shape(i) for i in range(len(self.file.features))]
         groups = [self.file.group(i) for i in range(len(found))]
         others = sorted(set(self.file.prefixes()) - set(self.file.groups))
+        tree, paths = self._tree(), self.file.group_paths()
         return {
             "name": self.name,
             "dimensions": [describe_dimension(d) for d in self.file.dimensions],
+            # the groups in the order declared, each with the rules it holds
+            # itself; "tree" orders them as a tree, each group before the
+            # groups in it
             "groups": [
-                {"prefix": prefix, "title": title, "rules": groups.count(prefix)}
-                for prefix, title in self.file.groups.items()
+                tree[prefix] | {"rules": groups.count(prefix)}
+                for prefix in self.file.groups
             ],
+            "tree": list(tree),
             # what the rules can be filtered by: the groups, then any other
             # prefixes the codes use
-            "filters": [
-                {"prefix": prefix, "title": title}
-                for prefix, title in self.file.groups.items()
-            ]
-            + [{"prefix": prefix, "title": ""} for prefix in others],
+            "filters": list(tree.values())
+            + [
+                {"prefix": p, "title": "", "parent": "", "depth": 0, "children": []}
+                for p in others
+            ],
             "prefixes": self.file.prefixes(),
             "values": self._values(),
             "problems": self.file.problems(),
             "extent": shapes.extent(s for s in found if s is not None),
             "order": self.file.order(),
-            "rules": [self._rule(i, shape) for i, shape in enumerate(found)],
+            "rules": [self._rule(i, shape, paths) for i, shape in enumerate(found)],
         }
 
     def do_update(self, index: int, fields: Mapping[str, Any]) -> dict[str, Any]:
@@ -130,8 +135,15 @@ class Session:
         return self.do_state()
 
     def do_groups(self, groups: list[Mapping[str, str]]) -> dict[str, Any]:
-        """Declare the code groups, as [{prefix, title}] in order."""
-        declared = {g["prefix"]: g["title"].strip() for g in groups}
+        """Declare the code groups, as [{prefix, title, parent}] in order; an
+        empty or missing parent is the top level. Parents are moved before
+        their children where needed."""
+        declared = {}
+        for group in groups:
+            title, parent = group["title"].strip(), group.get("parent") or None
+            declared[group["prefix"]] = (
+                title if parent is None else {"title": title, "parent": parent}
+            )
         if len(declared) != len(groups):
             raise ValueError("each prefix is one group")
         self.file.set_groups(declared)
@@ -214,7 +226,35 @@ class Session:
         described = (describe_dimension(d) for d in self.file.dimensions)
         return {d["name"]: d["kind"] for d in described}
 
-    def _rule(self, index: int, shape: shapes.Shape | None) -> dict[str, Any]:
+    def _tree(self) -> dict[str, dict[str, Any]]:
+        """The declared groups in tree order: each group, then the groups in it,
+        siblings in the order declared."""
+        found = {}
+        for prefix, value in self.file.groups.items():
+            if isinstance(value, str):
+                title, parent = value, None
+            else:
+                title, parent = value["title"], value.get("parent")
+            found[prefix] = {"prefix": prefix, "title": title, "parent": parent or ""}
+        for group in found.values():
+            group["children"] = [
+                p for p, g in found.items() if g["parent"] == group["prefix"]
+            ]
+        tree: dict[str, dict[str, Any]] = {}
+
+        def walk(prefix: str, depth: int) -> None:
+            tree[prefix] = found[prefix] | {"depth": depth}
+            for child in found[prefix]["children"]:
+                walk(child, depth + 1)
+
+        for prefix, group in found.items():
+            if not group["parent"]:
+                walk(prefix, 0)
+        return tree
+
+    def _rule(
+        self, index: int, shape: shapes.Shape | None, paths: Mapping[str, list[str]]
+    ) -> dict[str, Any]:
         """What the page shows of one rule, with every value as it is edited."""
         feature = self.file.features[index]
         props = feature.get("properties") or {}
@@ -236,6 +276,12 @@ class Session:
             "level": self.file.level(index),
             "declared_level": props.get("level") or "",
             "group": self.file.group(index) or "",
+            # the groups it is in, outermost first: ["REGION", "ITF"]
+            "path": (
+                paths.get(self.file.group(index) or "", [self.file.group(index)])
+                if self.file.group(index)
+                else []
+            ),
             "edge": props.get("edge") is True,
             "instruction": _text(props.get("instruction")),
             "confidence": _text(props.get("confidence")),

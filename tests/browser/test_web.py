@@ -367,6 +367,7 @@ def test_sort_and_filter_the_rules(app, context):
     page.fill("#rule-filter", "")
 
     groups = page.locator("#rules .group-buttons")
+    groups.get_by_role("button", name="Domain design (DOMAIN)").click()
     groups.get_by_role("button", name="Open boundaries (OBC)").click()
     settle(page)  # the globe turns to the group's rules
     assert listed(page) == ["OBC001"] and on_globe(page) == [4]
@@ -391,8 +392,10 @@ def test_groups_new_codes_and_edge_rules(app, context):
     groups = page.locator("#groups")
     page.fill("#g-prefix", "grid")  # taken in capitals
     page.fill("#g-title", "Grids")
+    page.select_option("#g-parent", "DOMAIN")  # in a group
     groups.get_by_role("button", name="Add", exact=True).click()
-    page.wait_for_function(f"{APP}.page.state.groups.length === 4")
+    page.wait_for_function(f"{APP}.page.state.groups.length === 5")
+    assert state(page)["tree"] == ["OCN", "DOMAIN", "ICE", "OBC", "GRID"]
 
     # a new rule takes the next code in the group picked
     page.select_option("#new-group", "OBC")
@@ -405,12 +408,14 @@ def test_groups_new_codes_and_edge_rules(app, context):
     assert page.input_value("#f-code") == "GRID001"
 
     # a group with rules cannot be removed; without them it can
-    assert groups.get_by_role("button", name="Remove GRID").is_disabled()
+    groups.get_by_role("button", name="Remove GRID").click()
+    page.wait_for_timeout(300)
+    assert "rules still use GRID" in page.inner_text("#status")
     page.get_by_role("button", name="Delete GRID001").click()
     page.get_by_role("button", name="Click again to delete GRID001").click()
     page.wait_for_function(f"{APP}.page.state.rules.length === 6")
     groups.get_by_role("button", name="Remove GRID").click()
-    page.wait_for_function(f"{APP}.page.state.groups.length === 3")
+    page.wait_for_function(f"{APP}.page.state.groups.length === 4")
 
     # the edge box goes to the file; a rule without a shape cannot have it
     page.locator(".rule-row", has_text="OCN002").click()
@@ -426,8 +431,9 @@ def test_groups_new_codes_and_edge_rules(app, context):
     with page.expect_download() as info:
         page.locator("#file").get_by_role("button", name="Download rules file").click()
     saved = json.loads(Path(info.value.path()).read_text())
-    assert saved["queryearth"] == "0.4"
-    assert list(saved["groups"]) == ["OCN", "ICE", "OBC"]
+    assert saved["queryearth"] == "0.5"
+    assert list(saved["groups"]) == ["OCN", "DOMAIN", "ICE", "OBC"]
+    assert saved["groups"]["OBC"] == {"title": "Open boundaries", "parent": "DOMAIN"}
     props = {f["properties"]["code"]: f["properties"] for f in saved["features"]}
     assert props["OCN002"]["edge"] is True and props["OBC001"]["edge"] is True
     assert "edge" not in props["OCN003"] and "OBC002" in props
@@ -436,15 +442,15 @@ def test_groups_new_codes_and_edge_rules(app, context):
 
 def test_a_file_for_a_later_queryearth_is_not_opened(app, context, serve, tmp_path):
     later = json.loads((WEB / "sites" / "demo" / "rules.geojson").read_text())
-    (tmp_path / "later.geojson").write_text(json.dumps(later | {"queryearth": "0.5"}))
+    (tmp_path / "later.geojson").write_text(json.dumps(later | {"queryearth": "9.0"}))
     page, errors = visit(context, f"{app}/sites/demo/", 5)
     page.get_by_role("button", name="Open link").click()
     page.fill("#link-url", f"{serve(tmp_path)}/later.geojson")
     page.locator("#linkbar").get_by_role("button", name="Open", exact=True).click()
     page.wait_for_function(
-        "document.getElementById('status').textContent.includes('0.5')"
+        "document.getElementById('status').textContent.includes('9.0')"
     )
-    assert "this file needs queryearth 0.5 or later" in page.inner_text("#status")
+    assert "this file needs queryearth 9.0 or later" in page.inner_text("#status")
     assert len(state(page)["rules"]) == 5 and "src=" not in page.url
     assert not errors
 
@@ -537,11 +543,82 @@ def area_on_globe(page):
 )
 def test_typing_gulf_turns_to_the_gulf_stream(app, context, serve):
     rules = Path(os.environ["CROCODASH_RULES"])
-    page, errors = visit(context, f"{app}/?src={serve(rules.parent)}/{rules.name}", 26)
+    count = len(json.loads(rules.read_text())["features"])
+    page, errors = visit(
+        context, f"{app}/?src={serve(rules.parent)}/{rules.name}", count
+    )
     page.fill("#rule-filter", "gulf")
     assert listed(page) == ["OBC001"]
     page.wait_for_timeout(700)
     settle(page)
     lon, lat = page.evaluate(f"{APP}.map().getCenter().toArray()")
     assert -85 < lon < -50 and 20 < lat < 50  # off North America
+    assert not errors
+
+
+def test_groups_in_groups(app, context, serve, tmp_path):
+    page, errors = visit(context, f"{app}/sites/demo/", 5)
+    groups = page.locator("#rules .group-buttons")
+    top = groups.first.get_by_role("button").all_inner_texts()
+    assert top == ["All", "demo_ocean, the product (OCN)", "Domain design (DOMAIN) ▸"]
+
+    # picking a parent shows the rules of the groups in it, and those groups
+    groups.get_by_role("button", name="Domain design (DOMAIN)").click()
+    settle(page)
+    assert listed(page) == ["ICE001", "OBC001"] and on_globe(page) == [2, 4]
+    nested = page.locator("#rules .group-buttons.nested")
+    assert nested.get_by_role("button").all_inner_texts() == [
+        "Sea ice (ICE)",
+        "Open boundaries (OBC)",
+    ]
+    headings = page.locator("#rule-list .group-heading").all_inner_texts()
+    assert headings == ["Domain design › Sea ice", "Domain design › Open boundaries"]
+    nested.get_by_role("button", name="Open boundaries (OBC)").click()
+    assert listed(page) == ["OBC001"]
+    assert "on-path" in groups.get_by_role(
+        "button", name="Domain design"
+    ).get_attribute("class")
+
+    # a rule's card says which groups it is in
+    page.locator(".rule-row", has_text="OBC001").click()
+    card = page.locator(".rule-card").inner_text()
+    assert "Group: Domain design › Open boundaries" in card
+
+    # in Edit, a group moves to another parent; queryearth refuses loops, and a
+    # group with groups in it is not removed
+    page.locator(".modes").get_by_role("button", name="Edit").click()
+    section = page.locator("#groups")
+    section.locator("[data-group=OBC] select").select_option("")
+    page.wait_for_function(f"{APP}.page.state.tree.join() === 'OCN,DOMAIN,ICE,OBC'")
+    assert state(page)["groups"][3]["parent"] == ""
+    section.locator("[data-group=DOMAIN] select").select_option("ICE")
+    page.wait_for_timeout(300)
+    assert "cannot sit in each other" in page.inner_text("#status")
+    assert section.locator("[data-group=DOMAIN] select").input_value() == ""
+    section.get_by_role("button", name="Remove DOMAIN").click()
+    page.wait_for_timeout(300)
+    assert "DOMAIN has groups in it: ICE" in page.inner_text("#status")
+    section.locator("[data-group=OCN] select").select_option("OBC")
+    page.wait_for_function(f"{APP}.page.state.tree.join() === 'DOMAIN,ICE,OBC,OCN'")
+    assert [g["prefix"] for g in state(page)["groups"]] == [
+        "DOMAIN",
+        "ICE",
+        "OBC",
+        "OCN",
+    ]
+
+    # a file written for queryearth 0.4 opens, and is written for this one
+    old = json.loads((WEB / "sites" / "demo" / "rules.geojson").read_text())
+    old["queryearth"] = "0.4"
+    old["groups"] = {"OCN": "demo_ocean", "ICE": "Sea ice", "OBC": "Open boundaries"}
+    (tmp_path / "old.geojson").write_text(json.dumps(old))
+    page.get_by_role("button", name="Open link").click()
+    page.fill("#link-url", f"{serve(tmp_path)}/old.geojson")
+    page.locator("#linkbar").get_by_role("button", name="Open", exact=True).click()
+    page.wait_for_function(f"{APP}.page.state.name === 'old.geojson'")
+    assert state(page)["problems"] == [] and len(state(page)["rules"]) == 5
+    with page.expect_download() as info:
+        page.locator("#file").get_by_role("button", name="Download rules file").click()
+    saved = json.loads(Path(info.value.path()).read_text())
+    assert saved["queryearth"] == "0.5" and saved["groups"] == old["groups"]
     assert not errors
