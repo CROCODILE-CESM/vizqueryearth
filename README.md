@@ -7,6 +7,7 @@ It runs entirely in your browser. There is no server and no sign-in, and nothing
 ## Try it
 
 - The demo, with made-up rules: https://crocodile-cesm.github.io/vizqueryearth/sites/demo/
+- CrocoDash's rules, advice for regional ocean model cases: https://crocodile-cesm.github.io/vizqueryearth/sites/crocodash/
 - The page itself, to open your own rules: https://crocodile-cesm.github.io/vizqueryearth/
 
 The first visit downloads about 20 MB (Python and queryearth, see [How it works](#how-it-works)); later visits are quicker.

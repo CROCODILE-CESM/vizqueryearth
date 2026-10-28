@@ -1,0 +1,5 @@
+{
+  "title": "CrocoDash rules",
+  "description": "Advice for regional ocean model cases set up with CrocoDash: grids, open boundaries and regions. Most rules come from expert interviews, and all are drafts until an expert has reviewed them. Draw your domain and give your grid's resolution in km, from its smallest cell to its largest (such as 5-9), the ratio of its largest cell to its smallest, and its ice component (cice, dice or sice).",
+  "rules": "rules.geojson"
+}
