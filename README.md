@@ -162,6 +162,7 @@ Everything runs in your browser. The page loads [MapLibre GL](https://maplibre.o
 - The globe draws map data only to about 85° north and south and fills the poles from there. South of 84°S the land is drawn as one band, which also covers the last degree of the Ross Ice Shelf. A point drawn within half a degree of a pole is taken to be on it.
 - A downloaded web page loads the app from GitHub Pages, so it changes when the app does.
 - Opening a link needs a host that allows cross-origin reads.
+- The page knows two kinds of dimension, labels and axes, and cannot run one you wrote in Python. A file that uses your own dimension is refused, or, where its values look like names, read as labels, which match differently: then checks against that dimension give wrong answers.
 
 ## License
 
