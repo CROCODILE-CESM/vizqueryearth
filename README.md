@@ -9,6 +9,7 @@ It runs entirely in your browser. There is no server and no sign-in, and nothing
 - The demo, with made-up rules: https://crocodile-cesm.github.io/vizqueryearth/?src=sites/demo.geojson
 - CrocoDash's rules, advice for regional ocean model cases: https://crocodile-cesm.github.io/vizqueryearth/?src=sites/crocodash.geojson
 - Regional ocean modeling advice, 94 rules extracted by Claude from expert interviews (https://aidanjanney.github.io/RegionalOceanModelingInterviews/) and not reviewed by an expert: https://crocodile-cesm.github.io/vizqueryearth/?src=sites/interviews.geojson
+- Known issues in popular Earth-system datasets (ERA5, ERA5-Land, JRA55-do, JRA-3Q, GLORYS12, ORAS5, HYCOM, EN4, WOA23, ERSSTv5, IMERG, GEBCO), 86 rules Claude gathered from the producers' own documentation, each quoting its source: https://crocodile-cesm.github.io/vizqueryearth/?src=sites/datasets.geojson
 - The page itself, to open your own rules: https://crocodile-cesm.github.io/vizqueryearth/
 
 The first visit downloads about 20 MB (Python and queryearth, see [How it works](#how-it-works)); later visits are quicker.
