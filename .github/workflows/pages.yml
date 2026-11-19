@@ -17,12 +17,12 @@ concurrency:  # one deploy at a time; a newer push waits for the running one
   group: pages
   cancel-in-progress: false
 
+# Upload and deploy are separate jobs: in one job, deploy-pages can look for the
+# artifact before GitHub lists it, and fail with "No artifacts named
+# github-pages" (actions/deploy-pages#451); a re-run cannot recover that run.
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Copy the site, following web/py's link to the Python package
@@ -30,5 +30,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
