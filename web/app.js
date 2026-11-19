@@ -1,7 +1,8 @@
 // vizqueryearth: check and edit queryearth rules on a globe, in the browser.
 //
 // The page has two modes: Check, for people who read the rules (which apply to
-// my area?), and Edit, for people who write them.
+// my area?), and Create, for people who write them. The rules tree is on the
+// left, the globe in the middle, and the mode's panel on the right.
 //
 // The page reads its settings, shows a globe (MapLibre) with drawing tools
 // (Terra Draw), and starts Python (Pyodide) with queryearth and vizqueryearth's
@@ -26,8 +27,8 @@ const LEVEL_COLOR = { error: "#c62828", warning: "#e08a00", info: "#1e6fd9" };
 const LEVELS = ["info", "warning", "error"];
 const KINDS = ["labels", "axis"];
 const HINTS = {
-  labels: "names, separated by commas; * and ? match any letters",
-  axis: "<8, <=8, >2, >=2, or 2-8 (from 2 up to, not including, 8)",
+  labels: "names, comma-separated; * and ? are wildcards",
+  axis: "<8, <=8, >2, >=2, or 2-8",
 };
 const DEFAULT_VIEW = { center: [-30, 30], zoom: 1.3 };
 // A page shown inside another (such as an editor's preview) may not be allowed to download.
@@ -127,11 +128,11 @@ function browserStore(name, place) {
 const store = browserStore("draft", () => location.pathname + location.search);
 // each viewer's filter of the rules list, for this page
 const filterStore = browserStore("filter", () => location.pathname);
-// the mode each viewer used last, Check or Edit
+// the mode each viewer used last, Check or Create
 const modeStore = browserStore("mode", () => "last");
-// whether each viewer keeps the rule form's GeoJSON open
-const geojsonStore = browserStore("geojson", () => "open");
-const MODES = ["check", "edit"];
+const MODES = ["check", "create"];
+// Create was called Edit: links with #edit, and modes kept as "edit", still work
+const modeNamed = (name) => (name === "edit" ? "create" : name);
 
 // ---- settings: inline, from a site's site.json, then ?src= ----------------------
 async function readSettings() {
@@ -186,7 +187,7 @@ async function call(name, args = {}) {
 
 // ---- the page -------------------------------------------------------------------
 const page = {
-  mode: "check", // "check": read the rules, check an area; "edit": write them
+  mode: "check", // "check": read the rules, check an area; "create": write them
   settings: null,
   state: null, // what Python says about the rules: Session.do_state()
   selected: null, // the rule being edited, by position
@@ -200,8 +201,8 @@ const page = {
   draft: null, // edits kept in this browser from an earlier visit
   pageTitle: "",
   filter: { text: "", category: "" }, // which rules the tree and the globe show
-  empty: [], // categories made in Edit that hold no rule yet, by path
-  panel: null, // the category whose actions are open in Edit (ALL: the root's)
+  empty: [], // categories made in Create that hold no rule yet, by path
+  panel: null, // the category whose actions are open in Create (ALL: the root's)
   treeFocus: null, // the tree item that takes the keyboard
 };
 let map, draw, maplibregl, pythonReady;
@@ -219,35 +220,35 @@ function build() {
       el(
         "div",
         { class: "modes", role: "group", "aria-label": "Mode" },
-        el("button", { type: "button", "data-mode": "check", title: "Read the rules, and check which apply to your area", onclick: () => setMode("check") }, "Check"),
-        el("button", { type: "button", "data-mode": "edit", title: "Write the rules: their fields, shapes, categories and dimensions", onclick: () => setMode("edit") }, "Edit")
+        el("button", { type: "button", "data-mode": "check", title: "Which rules apply to your area", onclick: () => setMode("check") }, "Check"),
+        el("button", { type: "button", "data-mode": "create", title: "Write and edit rules", onclick: () => setMode("create") }, "Create")
       ),
       el("span", { class: "grow" }),
       el("button", { onclick: () => fileInput.click() }, "Open file"),
       el("button", { id: "open-link", "aria-expanded": false, "aria-controls": "linkbar", onclick: () => showLinkBar(document.getElementById("linkbar").hidden) }, "Open link"),
-      el("button", { class: "edit-only", onclick: downloadRules }, "Download rules file"),
-      el("button", { class: "edit-only", onclick: downloadPage }, "Download as web page"),
+      el("button", { class: "create-only", title: "Download the rules file", onclick: downloadRules }, "Download"),
       fileInput
     ),
     el(
       "form",
       { id: "linkbar", class: "bar linkbar", hidden: true, onsubmit: submitLink },
-      el("label", { for: "link-url" }, "Link to a rules file"),
-      el("input", { id: "link-url", type: "text", inputmode: "url", autocomplete: "off", spellcheck: "false", placeholder: "https://…/rules.geojson", required: true }),
+      el("input", { id: "link-url", type: "text", inputmode: "url", autocomplete: "off", spellcheck: "false", "aria-label": "Link to a rules file", title: "The file's host must let other sites read it, as GitHub and gists do", placeholder: "https://…/rules.geojson", required: true }),
       el("button", { class: "primary", type: "submit" }, "Open"),
-      el("button", { type: "button", onclick: () => showLinkBar(false) }, "Cancel"),
-      el("span", { class: "hint" }, "The file's host must let other sites read it, as GitHub and gists do.")
+      el("button", { type: "button", onclick: () => showLinkBar(false) }, "Cancel")
     ),
-    el("main", {}, el("div", { id: "map" }), el("aside", { id: "panel" })),
-    el("div", { id: "status", role: "status" })
+    el("main", {}, el("aside", { id: "rules-panel", class: "side" }), el("div", { id: "map" }), el("aside", { id: "panel", class: "side" })),
+    el("div", { id: "status", role: "status" }),
+    el("div", { id: "tip", role: "tooltip", hidden: true })
   );
 }
 
 function render() {
+  hideTip(); // the rows and shapes under it are about to be replaced
+  document.getElementById("rules-panel").replaceChildren(rulesSection());
   const parts =
-    page.mode === "edit"
-      ? [page.draft ? draftNotice() : null, rulesSection(), dimensionsSection(), fileSection()]
-      : [page.draft ? draftPointer() : null, checkSection(), rulesSection()];
+    page.mode === "create"
+      ? [page.draft ? draftNotice() : null, ruleSection(), dimensionsSection(), fileSection()]
+      : [page.draft ? draftPointer() : null, ruleSection(), checkSection()];
   document.getElementById("panel").replaceChildren(...parts.filter(Boolean));
   drawRules();
   drawArea();
@@ -260,8 +261,9 @@ function edited(state) {
   saveDraft();
 }
 
-// ---- modes: Check to read the rules, Edit to write them -------------------------
-function setMode(mode) {
+// ---- modes: Check to read the rules, Create to write them -----------------------
+function setMode(name) {
+  const mode = modeNamed(name);
   if (!MODES.includes(mode)) return;
   stopDrawing(); // a drawing belongs to the mode it was started in
   page.mode = mode;
@@ -272,12 +274,12 @@ function setMode(mode) {
   render();
 }
 
-// #edit or #check in the address, else the viewer's last mode, else Check. A
-// page made for a set of rules opens in Check unless its address says #edit.
+// #create or #check in the address, else the viewer's last mode, else Check. A
+// page made for a set of rules opens in Check unless its address says #create.
 function chosenMode() {
-  const asked = location.hash.slice(1);
+  const asked = modeNamed(location.hash.slice(1));
   if (MODES.includes(asked)) return { mode: asked, asked: true };
-  const last = page.settings.site ? null : modeStore.get();
+  const last = page.settings.site ? null : modeNamed(modeStore.get());
   return { mode: MODES.includes(last) ? last : "check", asked: false };
 }
 
@@ -291,20 +293,15 @@ function checkSection() {
     { id: "check" },
     s.description ? el("p", { class: "hint" }, s.description) : null,
     state && !state.rules.length && !s.source
-      ? el(
-          "div",
-          { class: "notice" },
-          el("p", {}, "No rules loaded yet. Open a rules file or a link to one, or switch to Edit to start a set."),
-          el("p", {}, el("a", { href: new URL("sites/demo/", APP).href }, "Try the demo"))
-        )
+      ? el("p", { class: "notice" }, "No rules yet. Open a file, ", el("a", { href: new URL("sites/demo/", APP).href }, "try the demo"), ", or start some in Create.")
       : null,
-    el("h2", {}, "Check your area"),
-    el("p", { class: "hint" }, "Draw where you work, or leave it empty to ask about anywhere."),
+    el("h2", {}, "Check"),
     el(
       "div",
-      { class: "row" },
-      el("button", { onclick: () => startDrawing("rectangle", "area") }, "Draw rectangle"),
-      el("button", { onclick: () => startDrawing("polygon", "area") }, "Draw polygon"),
+      { class: "row", title: "Where you work. No area: anywhere." },
+      el("span", { class: "row-label" }, "Area"),
+      el("button", { onclick: () => startDrawing("rectangle", "area") }, "Rectangle"),
+      el("button", { onclick: () => startDrawing("polygon", "area") }, "Polygon"),
       el("button", { onclick: clearArea, disabled: !page.area.length }, "Clear")
     ),
     el(
@@ -316,7 +313,7 @@ function checkSection() {
     (state?.dimensions || []).map((dim) => {
       const id = `q-${dim.name}`;
       const values = state.values[dim.name] || [];
-      const hint = dim.kind === "axis" ? "a number or a range, such as 8 or 5-10" : "one or more, separated by commas";
+      const hint = dim.kind === "axis" ? "8, or 5-10" : "comma-separated";
       return field(
         id,
         [dim.name, unit(dim)],
@@ -326,8 +323,7 @@ function checkSection() {
         ]
       );
     }),
-    el("p", { class: "hint" }, "A rule about a dimension you leave empty does not apply."),
-    el("div", { class: "row" }, el("button", { class: "primary", onclick: runQuery, disabled: !state?.rules.length }, "Check")),
+    el("div", { class: "row" }, el("button", { class: "primary", title: "A rule about a dimension left empty does not apply", onclick: runQuery, disabled: !state?.rules.length }, "Check")),
     page.results ? resultsView(page.results) : null
   );
 }
@@ -343,7 +339,7 @@ async function runQuery() {
   try {
     page.results = await call("query", { area: page.area, start: q.start, end: q.end, values });
     const n = page.results.length;
-    say(n === 0 ? "No rule applies. That means only that no rule matched, not that all is well." : n === 1 ? "1 rule applies." : `${n} rules apply.`);
+    say(n === 0 ? "No rule applies." : n === 1 ? "1 rule applies." : `${n} rules apply.`);
   } catch (err) {
     page.results = null;
     say(err.message, true);
@@ -355,16 +351,16 @@ function resultsView(results) {
   const n = results.length;
   return [
     el("h3", {}, n === 0 ? "No rule applies" : n === 1 ? "1 rule applies" : `${n} rules apply`),
+    n === 0 ? el("p", { class: "hint" }, "No rule matched; that does not mean all is well.") : null,
     results.map((i) => {
       const r = page.state.rules[i];
       const instruction = r.properties.instruction;
       return el(
         "div",
-        { class: "card", role: "button", tabindex: "0", title: `Select ${r.code}`, onclick: rowClick(() => select(r.index, { reveal: true })), onkeydown: (e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), select(r.index, { reveal: true })) },
+        { class: "card", role: "button", tabindex: "0", onclick: () => select(r.index, { reveal: true }), onkeydown: (e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), select(r.index, { reveal: true })) },
         el("div", { class: "head" }, el("span", { class: `chip ${r.level}` }, r.level), el("strong", {}, r.code), el("span", {}, r.title)),
         el("p", {}, r.message),
-        typeof instruction === "string" ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), instruction) : null,
-        el("div", { class: "row" }, copyButton(r))
+        typeof instruction === "string" ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), instruction) : null
       );
     }),
   ];
@@ -451,9 +447,8 @@ function filterText(event) {
 function countText() {
   const total = page.state?.rules.length || 0;
   const n = page.state ? page.state.rules.filter(textMatches).length : 0;
-  if (!total) return page.mode === "edit" ? "No rules yet: add one with + Rule, or open a rules file." : "No rules yet.";
-  const showing = n === total ? `${total} rule${total === 1 ? "" : "s"}` : `${n} of ${total} rules match`;
-  return `${showing}. Click a category to show its rules on the globe, or a rule to ${page.mode === "edit" ? "edit" : "read"} it.`;
+  if (!total) return "No rules yet.";
+  return n === total ? `${total} rule${total === 1 ? "" : "s"}` : `${n} of ${total} rules`;
 }
 
 function opened() {
@@ -487,7 +482,7 @@ function rulesSection() {
     "section",
     { id: "rules" },
     el("h2", {}, "Rules"),
-    el("div", { class: "filter" }, el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter by code or title", value: page.filter.text, oninput: filterText })),
+    el("div", { class: "filter" }, el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter", value: page.filter.text, oninput: filterText })),
     el("p", { id: "rule-count", class: "hint" }, countText()),
     el("ul", { id: "rule-tree", class: "tree", role: "tree", "aria-label": "Rules by category", onkeydown: treeKeydown }, treeItems())
   );
@@ -497,6 +492,7 @@ function renderTree() {
   const tree = document.getElementById("rule-tree");
   if (!tree) return;
   const focused = document.activeElement?.closest?.("#rule-tree [role=treeitem]")?.dataset.node;
+  hideTip();
   tree.replaceChildren(...treeItems());
   document.getElementById("rule-count").textContent = countText();
   drawRules();
@@ -534,7 +530,6 @@ function treeNode({ id, level, label, row, children = null, panel = null }) {
     { role: "treeitem", "data-node": id, "aria-level": level, "aria-label": label, "aria-expanded": open, "aria-selected": picked, tabindex: id === (page.treeFocus || ALL) ? "0" : "-1" },
     row,
     panel,
-    rule && picked ? (page.mode === "edit" ? ruleForm(rule) : ruleCard(rule)) : null,
     children && open && children.length ? el("ul", { role: "group" }, children) : null
   );
 }
@@ -553,7 +548,7 @@ function twisty(id) {
 }
 
 function allRow(count) {
-  const edit = page.mode === "edit";
+  const edit = page.mode === "create";
   return el(
     "div",
     { class: `tree-row all-row${page.filter.category ? "" : " picked"}`, title: "Show every rule on the globe", "data-drop": "", onclick: rowClick(() => pickCategory("")) },
@@ -570,7 +565,7 @@ function allRow(count) {
 }
 
 function categoryRow(path, count) {
-  const edit = page.mode === "edit";
+  const edit = page.mode === "create";
   return el(
     "div",
     { class: `tree-row category-row${page.filter.category === path ? " picked" : ""}`, title: path, "data-drop": path, onclick: rowClick(() => pickCategory(path)) },
@@ -588,15 +583,15 @@ function categoryRow(path, count) {
 }
 
 function ruleNode(r, level) {
-  const edit = page.mode === "edit";
+  const edit = page.mode === "create";
   const selected = r.index === page.selected;
   const row = el(
     "div",
-    { class: "tree-row rule-row", onclick: rowClick(() => select(selected ? null : r.index)) },
+    { class: "tree-row rule-row", onclick: rowClick(() => select(selected ? null : r.index)), ...rowTip(r) },
     edit ? dragHandle({ kind: "rule", index: r.index, label: `${r.code} ${r.title}` }) : el("span", { class: "twisty" }),
-    el("span", { class: `chip ${r.level}` }, r.level),
-    el("span", { class: "code", title: r.code }, lastPart(r.code)),
-    el("span", { class: "title", title: r.title }, r.title)
+    el("span", { class: `dot ${r.level}` }),
+    el("span", { class: "code" }, lastPart(r.code)),
+    el("span", { class: "title" }, r.title)
   );
   return treeNode({ id: `rule:${r.index}`, level, label: `${r.code} ${r.title}, ${r.level}`, row });
 }
@@ -652,6 +647,7 @@ function dragHandle(what) {
 function startDrag(event, what) {
   if (event.button !== 0) return;
   event.preventDefault();
+  hideTip();
   const handle = event.currentTarget;
   handle.setPointerCapture(event.pointerId);
   const start = [event.clientX, event.clientY];
@@ -713,8 +709,8 @@ function categoryPanel(path) {
   return el(
     "div",
     { class: "tree-panel" },
-    field(`c-move-${path}`, `Move ${name} to`, move),
-    field(`c-name-${path}`, `Name of ${path}`, rename),
+    field(`c-move-${path}`, "Move to", move),
+    field(`c-name-${path}`, "Name", rename),
     addCategoryForm(path),
     el("div", { class: "row" }, el("button", { type: "button", class: "danger", onclick: () => removeCategory(path) }, `Remove ${name}`))
   );
@@ -725,8 +721,8 @@ function addCategoryForm(parent) {
   return el(
     "form",
     { class: "row add-category", onsubmit: (e) => addCategory(e, parent) },
-    el("input", { id: `new-category-${parent || "top"}`, class: "new-name", "aria-label": label, placeholder: "name, such as OBC", required: true }),
-    el("button", { type: "submit" }, parent ? "Add subcategory" : "Add category")
+    el("input", { id: `new-category-${parent || "top"}`, class: "new-name", "aria-label": label, placeholder: parent ? "New subcategory" : "New category", required: true }),
+    el("button", { type: "submit" }, "Add")
   );
 }
 
@@ -739,12 +735,12 @@ function addCategory(event, parent) {
   page.empty = [...page.empty, path];
   page.panel = null;
   openTo(path);
-  say(`Added ${path}. A category is kept in the file once a rule is in it.`);
+  say(`Added ${path}. It is kept in the file once a rule is in it.`);
   render();
 }
 
 function removeCategory(path) {
-  if (page.state.rules.some((r) => within(r.category, path))) return say(`${path} still has rules: move them to another category or delete them first.`, true);
+  if (page.state.rules.some((r) => within(r.category, path))) return say(`${path} still has rules: move or delete them first.`, true);
   page.empty = page.empty.filter((p) => !within(p, path));
   if (within(page.filter.category, path)) setFilter({ category: "" });
   page.panel = null;
@@ -805,6 +801,28 @@ function treeKeydown(event) {
   event.preventDefault();
 }
 
+// ---- the selected rule, at the top of the right panel ------------------------------
+// Check shows it as people read it; Create shows its form and its GeoJSON.
+function ruleSection() {
+  const create = page.mode === "create";
+  const rule = page.selected === null ? null : page.state?.rules[page.selected];
+  if (!rule) return create ? el("p", { id: "rule", class: "hint" }, "Pick a rule to edit, or click + Rule.") : null;
+  return el(
+    "section",
+    { id: "rule" },
+    el(
+      "div",
+      { class: "rule-head" },
+      el("span", { class: `chip ${rule.level}` }, rule.level),
+      el("strong", { class: "code" }, rule.code),
+      el("span", { class: "grow" }),
+      create ? deleteButton(rule) : null,
+      el("button", { type: "button", class: "small", "aria-label": "Close", title: "Close", onclick: () => select(null) }, "×")
+    ),
+    create ? [ruleForm(rule), geojsonWindow(rule)] : ruleCard(rule)
+  );
+}
+
 // ---- a rule as people read it, in Check mode --------------------------------------
 function ruleCard(rule) {
   const dims = Object.entries(rule.dimensions).filter(([, text]) => text);
@@ -814,14 +832,18 @@ function ruleCard(rule) {
   return el(
     "div",
     { class: "rule-card" },
-    el("p", { class: "hint category-path" }, rule.code.split("/").join(" › ")),
+    el("p", { class: "rule-title" }, rule.title),
     el("p", {}, rule.message),
     typeof instruction === "string" ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), instruction) : null,
-    el("h3", {}, "Where"),
-    el("p", {}, rule.fill ? "In the area shown on the globe." : "Anywhere."),
-    el("h3", {}, "When"),
-    el("p", {}, timeText(rule.time)),
-    dims.length ? [el("h3", {}, "What it applies to"), el("ul", { class: "plain" }, dims.map(([name, text]) => el("li", {}, el("strong", {}, `${name}: `), text)))] : null,
+    el(
+      "dl",
+      { class: "facts" },
+      el("dt", {}, "Where"),
+      el("dd", {}, rule.fill ? "Shown on the globe" : "Anywhere"),
+      el("dt", {}, "When"),
+      el("dd", {}, timeText(rule.time)),
+      dims.map(([name, text]) => [el("dt", {}, name), el("dd", {}, text)])
+    ),
     Array.isArray(references) && references.length
       ? [el("h3", {}, "References"), el("ul", { class: "plain" }, references.map((ref) => el("li", {}, typeof ref === "string" ? linked(ref, ref) : linked(ref?.title || ref?.citation || ref?.url || ref?.doi || JSON.stringify(ref), ref?.url || (ref?.doi ? `https://doi.org/${ref.doi}` : "")))))]
       : null,
@@ -836,15 +858,13 @@ function copyButton(rule) {
 }
 
 // ---- a rule's record, as the rules file holds it, to read and copy ----------------
-function geojsonBlock(rule) {
+// Always shown in Create, under the form, and redrawn after every edit.
+function geojsonWindow(rule) {
   const text = el("pre", { class: "geojson", id: "f-geojson-text", tabindex: "0", "aria-label": `${rule.code} as GeoJSON` }, packed(rule.record));
   return el(
-    "details",
-    { id: "f-geojson", open: geojsonStore.get() === true, ontoggle: (e) => geojsonStore.set(e.target.open) },
-    // kept at once: the toggle event comes later, after any re-render
-    el("summary", { onclick: (e) => geojsonStore.set(!e.currentTarget.parentElement.open) }, "GeoJSON"),
-    el("p", { class: "hint" }, "This rule as the rules file holds it."),
-    el("div", { class: "row" }, el("button", { type: "button", onclick: () => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { shown: text }) }, "Copy")),
+    "div",
+    { id: "f-geojson" },
+    el("div", { class: "rule-head" }, el("h3", {}, "GeoJSON"), el("span", { class: "grow" }), el("button", { type: "button", class: "small", onclick: () => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { shown: text }) }, "Copy")),
     text
   );
 }
@@ -885,7 +905,7 @@ async function copyText(text, what, { shown = null, after = null } = {}) {
 }
 
 function timeText({ start, end }) {
-  return start && end ? `From ${start} to ${end}.` : start ? `From ${start}.` : end ? `Until ${end}.` : "Any time.";
+  return start && end ? `${start} to ${end}` : start ? `From ${start}` : end ? `Until ${end}` : "Any time";
 }
 
 // A link only for a web address, never for script or data URLs from a file.
@@ -902,11 +922,6 @@ function ruleForm(rule) {
   const dims = page.state.dimensions;
   const paths = categories();
   const dates = /^\d{4}-\d{2}-\d{2}$/;
-  const shapeText = rule.fill
-    ? rule.editable
-      ? "This rule has a shape. Move its corners, or draw a new one."
-      : "This rule's shape crosses the date line, reaches a pole or has holes: draw a new one to change it."
-    : "No shape: the rule applies anywhere.";
   return el(
     "div",
     { class: "rule-form" },
@@ -927,34 +942,34 @@ function ruleForm(rule) {
     field("f-title", "Title", el("input", { id: "f-title", value: rule.title, onchange: edit((e) => ({ title: e.target.value })) })),
     field("f-message", "Message", el("textarea", { id: "f-message", onchange: edit((e) => ({ message: e.target.value })) }, rule.message)),
 
-    el("h3", {}, "Where"),
-    el("p", { class: "hint" }, shapeText),
+    el("h3", {}, "Where", rule.fill ? null : el("span", { class: "unit" }, " (anywhere)")),
     page.drawing === "corners"
       ? el(
           "div",
           { class: "notice" },
-          el("p", {}, `Moving the corners of ${rule.code}: drag a corner, or the middle of an edge to add one.`),
+          el("p", {}, "Drag a corner, or an edge's middle to add one."),
           el("div", { class: "row" }, el("button", { class: "primary", onclick: () => finishCorners(true) }, "Done"), el("button", { onclick: () => finishCorners(false) }, "Cancel"))
         )
       : el(
           "div",
           { class: "row" },
-          el("button", { onclick: () => startDrawing("rectangle", "rule") }, "Draw rectangle"),
-          el("button", { onclick: () => startDrawing("polygon", "rule") }, "Draw polygon"),
-          el("button", { onclick: moveCorners, disabled: !rule.editable }, "Move corners"),
-          el("button", { onclick: () => shapeCall("clear", {}), disabled: !rule.fill }, "Remove shape")
+          el("button", { title: "Draw a rectangle", onclick: () => startDrawing("rectangle", "rule") }, "Rectangle"),
+          el("button", { title: "Draw a polygon", onclick: () => startDrawing("polygon", "rule") }, "Polygon"),
+          el("button", { title: "Move the corners of this shape", onclick: moveCorners, disabled: !rule.editable }, "Move corners"),
+          el("button", { title: "Remove the shape: the rule then applies anywhere", onclick: () => shapeCall("clear", {}), disabled: !rule.fill }, "Clear")
         ),
+    rule.fill && !rule.editable ? el("p", { class: "hint" }, "Crosses the date line, reaches a pole or has holes: draw a new shape to change it.") : null,
     el(
       "div",
       { class: "row" },
-      el("button", { onclick: () => shapeCall("cap", { pole: "north", latitude: Number(document.getElementById("cap-north").value) }) }, "Arctic cap from"),
+      el("button", { title: "From this latitude to the North Pole", onclick: () => shapeCall("cap", { pole: "north", latitude: Number(document.getElementById("cap-north").value) }) }, "Arctic cap"),
       el("input", { id: "cap-north", class: "inline-number", type: "number", value: 66.5, step: 0.5, min: 0, max: 89, "aria-label": "Arctic cap latitude" }),
       el("span", {}, "°N")
     ),
     el(
       "div",
       { class: "row" },
-      el("button", { onclick: () => shapeCall("cap", { pole: "south", latitude: Number(document.getElementById("cap-south").value) }) }, "Antarctic cap from"),
+      el("button", { title: "From this latitude to the South Pole", onclick: () => shapeCall("cap", { pole: "south", latitude: Number(document.getElementById("cap-south").value) }) }, "Antarctic cap"),
       el("input", { id: "cap-south", class: "inline-number", type: "number", value: -60, step: 0.5, min: -89, max: 0, "aria-label": "Antarctic cap latitude" }),
       el("span", {}, "°")
     ),
@@ -966,20 +981,16 @@ function ruleForm(rule) {
       field("f-start", "From", el("input", { id: "f-start", type: "date", value: rule.time.start, onchange: edit(timeFields) })),
       field("f-end", "To", el("input", { id: "f-end", type: "date", value: rule.time.end, onchange: edit(timeFields) }))
     ),
-    [rule.time.start, rule.time.end].some((t) => t && !dates.test(t)) ? el("p", { class: "hint" }, `${timeText(rule.time)} Dates picked here replace it.`) : null,
+    [rule.time.start, rule.time.end].some((t) => t && !dates.test(t)) ? el("p", { class: "hint" }, `${timeText(rule.time)}. Dates picked here replace it.`) : null,
 
-    dims.length ? el("h3", {}, "What it applies to") : null,
+    dims.length ? el("h3", {}, "Applies to") : null,
     dims.map((d) =>
       field(
         `f-dim-${d.name}`,
         [d.name, unit(d)],
         el("input", { id: `f-dim-${d.name}`, "data-rule-dim": d.name, value: rule.dimensions[d.name], placeholder: HINTS[d.kind], title: HINTS[d.kind], onchange: edit((e) => ({ dimensions: { [d.name]: e.target.value } })) })
       )
-    ),
-
-    geojsonBlock(rule),
-
-    el("div", { class: "row danger-row" }, deleteButton(rule))
+    )
   );
 }
 
@@ -989,14 +1000,14 @@ function timeFields() {
 
 function deleteButton(rule) {
   // Two clicks delete: the first asks, the second deletes; asking ends after a while.
-  const button = el("button", { class: "danger" }, `Delete ${rule.code}`);
+  const button = el("button", { type: "button", class: "small danger", "aria-label": `Delete ${rule.code}` }, "Delete");
   button.onclick = () => {
     if (button.dataset.asking) return deleteRule(rule);
     button.dataset.asking = "1";
-    button.textContent = `Click again to delete ${rule.code}`;
+    button.textContent = "Click again to delete";
     setTimeout(() => {
       delete button.dataset.asking;
-      button.textContent = `Delete ${rule.code}`;
+      button.textContent = "Delete";
     }, 5000);
   };
   return button;
@@ -1029,6 +1040,7 @@ function select(index, { reveal = false } = {}) {
   render();
   if (rule?.extent) fitExtent(rule.extent);
   if (reveal) document.querySelector(`[data-node="rule:${index}"]`)?.scrollIntoView({ block: "nearest" });
+  if (rule) document.getElementById("rule")?.scrollIntoView({ block: "start" }); // the top of the right panel
 }
 
 async function newRule(category) {
@@ -1036,7 +1048,7 @@ async function newRule(category) {
     const out = await call("new", { category });
     edited(out.state);
     select(out.index, { reveal: true });
-    say(`Added ${page.state.rules[out.index].code}: fill in its fields and draw its shape.`);
+    say(`Added ${page.state.rules[out.index].code}.`);
   } catch (err) {
     say(err.message, true);
   }
@@ -1070,8 +1082,7 @@ function dimensionsSection() {
   return el(
     "section",
     { id: "dimensions" },
-    el("h2", {}, "Dimensions"),
-    el("p", { class: "hint" }, "What rules can depend on besides place and time: labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km. They come from the rules' values; add one here to check against it, or set an axis's unit."),
+    el("h2", { title: "What rules depend on besides place and time, read from the rules' values. Labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km." }, "Dimensions"),
     el(
       "ul",
       { class: "dims" },
@@ -1089,9 +1100,9 @@ function dimensionsSection() {
     el(
       "form",
       { class: "row add-dim", onsubmit: addDimension },
-      el("input", { id: "d-name", "aria-label": "Name of the dimension", placeholder: "name, such as product", required: true }),
+      el("input", { id: "d-name", "aria-label": "Name of the dimension", placeholder: "Name", required: true }),
       el("select", { id: "d-kind", "aria-label": "Kind", onchange: (e) => (document.getElementById("d-unit").disabled = e.target.value !== "axis") }, KINDS.map((k) => el("option", { value: k }, k))),
-      el("input", { id: "d-unit", "aria-label": "Unit", placeholder: "unit, such as km", disabled: true }),
+      el("input", { id: "d-unit", "aria-label": "Unit", placeholder: "Unit", disabled: true }),
       el("button", { type: "submit" }, "Add")
     )
   );
@@ -1121,12 +1132,14 @@ function fileSection() {
   return el(
     "section",
     { id: "file" },
-    el("h2", {}, "File"),
-    el("p", { class: "hint" }, `${state?.name || "rules.geojson"}: download it to keep your changes, and open it again later.`),
-    el("div", { class: "row" }, el("button", { class: "primary", onclick: downloadRules }, "Download rules file"), el("button", { onclick: copyRules }, "Copy rules file")),
-    field("page-title", "Title of the web page", el("input", { id: "page-title", value: page.pageTitle, oninput: (e) => (page.pageTitle = e.target.value) })),
-    el("div", { class: "row" }, el("button", { onclick: downloadPage }, "Download as web page")),
-    el("p", { class: "hint" }, "The web page shows these rules on the globe, as you see them now, wherever you put it: GitHub Pages, any web host, or a folder on your computer.")
+    el("h2", {}, "File ", el("span", { class: "unit" }, state?.name || "rules.geojson")),
+    el("div", { class: "row" }, el("button", { class: "primary", title: "Download the rules file", onclick: downloadRules }, "Download"), el("button", { title: "Copy the whole rules file", onclick: copyRules }, "Copy")),
+    el(
+      "div",
+      { class: "row", title: "A page that shows these rules on the globe, for GitHub Pages, any web host, or your computer" },
+      el("input", { id: "page-title", class: "grow", "aria-label": "Title of the web page", placeholder: "Page title", value: page.pageTitle, oninput: (e) => (page.pageTitle = e.target.value) }),
+      el("button", { onclick: downloadPage }, "Download web page")
+    )
   );
 }
 
@@ -1203,23 +1216,23 @@ function draftNotice() {
   return el(
     "div",
     { class: "notice" },
-    el("p", {}, `You have edits from ${new Date(draft.saved).toLocaleString()} that were not downloaded.`),
+    el("p", {}, `Unsaved edits from ${new Date(draft.saved).toLocaleString()}.`),
     el(
       "div",
       { class: "row" },
-      el("button", { class: "primary", onclick: async () => ((page.draft = null), await open(draft.text, draft.name, { dimensions: draft.dimensions })) }, "Restore them"),
+      el("button", { class: "primary", onclick: async () => ((page.draft = null), await open(draft.text, draft.name, { dimensions: draft.dimensions })) }, "Restore"),
       el("button", { onclick: () => (store.clear(), (page.draft = null), render()) }, "Discard")
     )
   );
 }
 
-// In Check mode, a pointer to the edits waiting in Edit mode.
+// In Check mode, a pointer to the edits waiting in Create mode.
 function draftPointer() {
   return el(
     "div",
     { class: "notice" },
-    el("p", {}, `You have edits from ${new Date(page.draft.saved).toLocaleString()} that were not downloaded.`),
-    el("div", { class: "row" }, el("button", { class: "primary", onclick: () => setMode("edit") }, "Go to Edit to restore them"))
+    el("p", {}, `Unsaved edits from ${new Date(page.draft.saved).toLocaleString()}.`),
+    el("div", { class: "row" }, el("button", { class: "primary", onclick: () => setMode("create") }, "Restore in Create"))
   );
 }
 
@@ -1334,8 +1347,9 @@ async function startMap() {
   );
   await new Promise((resolve) => map.on("load", resolve));
   map.on("click", "rules-fill", ruleClicked);
-  map.on("mouseenter", "rules-fill", () => (map.getCanvas().style.cursor = "pointer"));
-  map.on("mouseleave", "rules-fill", () => (map.getCanvas().style.cursor = ""));
+  map.on("mousemove", "rules-fill", ruleHovered);
+  map.on("mouseleave", "rules-fill", () => ((map.getCanvas().style.cursor = ""), hideTip()));
+  map.on("movestart", hideTip);
 
   await loadScript(LIBS.terraDraw);
   await loadScript(LIBS.terraDrawAdapter);
@@ -1406,7 +1420,7 @@ function drawRules() {
     .filter((r) => r.label)
     .map((r) =>
       new maplibregl.Marker({
-        element: el("div", { class: `label ${r.level}${r.index === page.selected ? " selected" : ""}`, title: r.title, onclick: (e) => (e.stopPropagation(), labelClicked(r)) }, lastPart(r.code)),
+        element: el("div", { class: `label ${r.level}${r.index === page.selected ? " selected" : ""}`, onclick: (e) => (e.stopPropagation(), labelClicked(r)), onpointermove: (e) => e.pointerType === "mouse" && !page.drawing && showTip([r], e.clientX, e.clientY), onpointerleave: hideTip }, lastPart(r.code)),
         opacityWhenCovered: 0, // labels on the far side of the globe are hidden
       })
         .setLngLat(r.label)
@@ -1420,6 +1434,59 @@ function drawArea() {
   const features = shape ? [{ type: "Feature", geometry: shape.fill, properties: {} }] : [];
   if (shape?.outline) features.push({ type: "Feature", geometry: shape.outline, properties: {} });
   map.getSource("area").setData(collection(features));
+}
+
+// ---- tooltips: a rule's level, code, title and message, on hover -----------------
+// One box for the globe's shapes and labels and the tree's rows, placed by the
+// pointer (or the row) and kept inside the window.
+function showTip(rules, x, y, gap = 14) {
+  const tip = document.getElementById("tip");
+  const most = 4;
+  const shown = rules.slice(0, most).map((r) =>
+    el(
+      "div",
+      { class: "tip-rule" },
+      el("div", { class: "head" }, el("span", { class: `chip ${r.level}` }, r.level), el("strong", {}, r.code)),
+      r.title ? el("div", { class: "tip-title" }, r.title) : null,
+      r.message ? el("p", {}, r.message) : null
+    )
+  );
+  if (rules.length > most) shown.push(el("p", { class: "hint" }, `and ${rules.length - most} more here`));
+  tip.replaceChildren(...shown);
+  tip.classList.toggle("several", rules.length > 1);
+  tip.hidden = false;
+  const { width, height } = tip.getBoundingClientRect();
+  const left = x + gap + width <= innerWidth - 8 ? x + gap : x - gap - width;
+  const top = Math.min(y + gap, innerHeight - height - 8);
+  tip.style.left = `${Math.max(8, left)}px`;
+  tip.style.top = `${Math.max(8, top)}px`;
+}
+
+function hideTip() {
+  const tip = document.getElementById("tip");
+  if (tip) tip.hidden = true;
+}
+
+// A tree row's tooltip, beside the rules panel, level with the row.
+function rowTip(rule) {
+  return {
+    onpointerenter: (e) => {
+      if (e.pointerType !== "mouse") return;
+      const row = e.currentTarget.getBoundingClientRect();
+      const panel = document.getElementById("rules-panel").getBoundingClientRect();
+      showTip([rule], Math.min(panel.right, innerWidth), row.top, 6);
+    },
+    onpointerleave: hideTip,
+  };
+}
+
+// Every rule under the pointer, topmost first.
+function ruleHovered(event) {
+  map.getCanvas().style.cursor = "pointer";
+  if (page.drawing || event.originalEvent?.buttons) return hideTip(); // drawing, or turning the globe
+  const indexes = [...new Set(event.features.map((f) => f.properties.index))];
+  const box = map.getContainer().getBoundingClientRect();
+  showTip(indexes.map((i) => page.state.rules[i]).filter(Boolean), box.left + event.point.x, box.top + event.point.y);
 }
 
 function labelClicked(rule) {
@@ -1491,6 +1558,7 @@ function cameraShowing(center, points) {
 function startDrawing(kind, purpose) {
   if (!draw) return say("The globe is still loading.", true);
   stopDrawing();
+  hideTip();
   page.drawing = purpose;
   draw.setMode(kind);
   say(
@@ -1527,7 +1595,7 @@ async function finishDrawing() {
     }
     page.results = null;
     drawArea();
-    if (page.areaShape) say("Area drawn. Fill in the rest and click Check.");
+    if (page.areaShape) say("Area drawn.");
     render();
   } else if (purpose === "rule") {
     await keepShape(features);
@@ -1550,7 +1618,7 @@ function moveCorners() {
   page.drawing = "corners";
   draw.addFeatures(rule.editable.map((geometry) => ({ type: "Feature", properties: { mode: "polygon" }, geometry })));
   draw.setMode("select");
-  say("Drag corners, or the middle of an edge to add one. Click Done when finished.");
+  say("Drag the corners, then click Done.");
   render();
 }
 
@@ -1580,10 +1648,11 @@ async function main() {
   const chosen = chosenMode();
   page.mode = chosen.mode;
   document.body.dataset.mode = chosen.mode;
+  if (chosen.asked && location.hash !== `#${chosen.mode}`) history.replaceState(null, "", `${location.pathname}${location.search}#${chosen.mode}`); // #edit is now #create
   build();
   for (const button of document.querySelectorAll(".modes button")) button.setAttribute("aria-pressed", String(button.dataset.mode === page.mode));
   window.addEventListener("hashchange", () => setMode(location.hash.slice(1)));
-  say("Starting… The first visit downloads Python and queryearth (about 20 MB); later visits are quicker.");
+  say("Loading Python and queryearth (about 20 MB on the first visit)…");
   pythonReady = startPython();
   const mapReady = startMap().catch((err) => say(`The globe could not start: ${err.message}`, true));
   render();
@@ -1601,17 +1670,17 @@ async function main() {
   if (!page.state) {
     // nothing to open, or it could not be opened: the status line says why
     page.state = await call("state");
-    if (!source) say("Ready. Open a rules file, or switch to Edit and click + Rule to start one.");
+    if (!source) say("Ready.");
     render();
   }
   const draft = store.get();
   if (draft && page.state && draft.text !== (await call("text").catch(() => null))) {
-    // edits waiting: show them in Edit mode, unless the address asked for Check,
-    // where a notice points to them
+    // edits waiting: show them in Create mode, unless the address asked for
+    // Check, where a notice points to them
     page.draft = draft;
-    if (page.mode !== "edit" && !chosen.asked) setMode("edit");
+    if (page.mode !== "create" && !chosen.asked) setMode("create");
     else render();
-    say("You have edits that were not downloaded: restore or discard them in Edit.");
+    say("Unsaved edits from your last visit: restore or discard them in Create.");
   }
   window.__vizqueryearth = { page, call, map: () => map, draw: () => draw }; // for tests
 }

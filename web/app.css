@@ -1,4 +1,4 @@
-/* vizqueryearth: a globe on the left, a panel on the right. */
+/* vizqueryearth: the rules on the left, the globe in the middle, the mode's panel on the right. */
 :root {
   --bg: #f6f7f9;
   --panel: #ffffff;
@@ -71,11 +71,9 @@ body {
   background: var(--panel);
 }
 .bar h1 { font-size: 17px; margin: 0; }
-.bar .grow { flex: 1; }
+.grow { flex: 1; }
 .linkbar { gap: 8px; }
-.linkbar label { font-weight: 600; }
 .linkbar input { flex: 1; min-width: 200px; width: auto; }
-.linkbar .hint { margin: 0; flex-basis: 100%; }
 
 button, select, input, textarea {
   font: inherit;
@@ -111,30 +109,40 @@ textarea { min-height: 70px; resize: vertical; }
 main {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: 280px 1fr 380px;
   min-height: 0;
 }
 #map { min-height: 300px; background: var(--space); }
-#panel {
+.side {
   overflow-y: auto;
-  border-left: 1px solid var(--line);
   background: var(--panel);
   padding: 12px 16px 24px;
 }
+#rules-panel { border-right: 1px solid var(--line); padding: 12px 10px 24px; }
+#panel { border-left: 1px solid var(--line); }
+@media (max-width: 1100px) {
+  main { grid-template-columns: 240px 1fr 340px; }
+}
+/* a phone: the globe, then the mode's panel, then the rules, one under the other */
 @media (max-width: 800px) {
-  main { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
-  #panel { border-left: 0; border-top: 1px solid var(--line); }
+  main { grid-template-columns: 1fr; grid-template-rows: 55vh auto auto; overflow-y: auto; }
+  .side, #rules-panel, #panel { overflow-y: visible; border: 0; border-top: 1px solid var(--line); }
+  #panel { order: 1; }
+  #rules-panel { order: 2; }
 }
 
-#panel section + section { border-top: 1px solid var(--line); margin-top: 16px; }
-#panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 14px 0 6px; }
-#panel > :first-child h2:first-child, #panel > :first-child > .hint:first-child { margin-top: 4px; }
-#panel h3 { font-size: 13px; margin: 16px 0 4px; }
+.side section + section { border-top: 1px solid var(--line); margin-top: 16px; }
+.side h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 14px 0 6px; }
+.side h2 .unit { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.side > :first-child h2:first-child, .side > :first-child > .hint:first-child, .side > .hint:first-child { margin-top: 4px; }
+.side h3 { font-size: 13px; margin: 16px 0 4px; }
 .hint { color: var(--muted); margin: 4px 0 8px; }
 .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
 .field { margin: 8px 0; }
 .field label { display: block; font-weight: 600; margin-bottom: 3px; }
-.field .unit { color: var(--muted); font-weight: 400; }
+.field .unit, h3 .unit { color: var(--muted); font-weight: 400; }
+.row-label { font-weight: 600; margin-right: 4px; }
+.row input.grow { flex: 1; width: auto; min-width: 8em; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .inline-number { width: 72px; }
 .notice { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: var(--bg); }
@@ -159,32 +167,32 @@ main {
 .tree ul { padding-left: 14px; }
 .tree [role="treeitem"] { outline: none; border-radius: 6px; }
 .tree [role="treeitem"]:focus-visible > .tree-row { outline: 2px solid var(--accent); outline-offset: -2px; }
-.tree-row { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+/* each row is one line: long names end in "…", and a rule's tooltip has it whole */
+.tree-row { display: flex; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 6px; cursor: pointer; }
+.tree-row > * { flex: none; }
 .tree-row:hover { background: var(--bg); }
-.tree-row.picked { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent); }
+.tree-row.picked, .tree [data-node^="rule:"][aria-selected="true"] > .tree-row { background: var(--bg); box-shadow: inset 3px 0 0 var(--accent); }
+.tree-row .name, .tree-row .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-row .name { font-weight: 600; }
-/* a long category name wraps in place; its prefix and count stay on its line */
-.category-row, .all-row { flex-wrap: nowrap; }
-.category-row .name { min-width: 0; }
 .all-row .name { color: var(--muted); }
-.tree-row .count { margin-left: auto; color: var(--muted); font-size: 12px; min-width: 1.5em; text-align: right; }
+.tree-row .count { color: var(--muted); font-size: 12px; min-width: 1.5em; text-align: right; }
 .tree-row .code { font-weight: 700; white-space: nowrap; }
-.tree-row .title { flex: 1; min-width: 8em; }
 .twisty { display: inline-block; width: 1em; color: var(--muted); user-select: none; }
-.tree [data-node^="rule:"][aria-selected="true"] { background: var(--bg); outline: 2px solid var(--accent); margin: 6px 0; }
-/* in Edit, each row is one line: long titles end in "…", whole in a tooltip */
-body[data-mode="edit"] .tree-row { flex-wrap: nowrap; align-items: center; }
-body[data-mode="edit"] .tree-row > * { flex: none; }
-body[data-mode="edit"] .tree-row .name, body[data-mode="edit"] .tree-row .title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-body[data-mode="edit"] .tree-row .count { margin-left: 0; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; }
+.dot.error { background: var(--error); }
+.dot.warning { background: var(--warning); }
+.dot.info { background: var(--info); }
+/* a category's + Rule and ⋯ show on hover, where there is one */
+@media (hover: hover) {
+  .category-row button.small { opacity: 0; }
+  .category-row:hover button.small, .category-row:focus-within button.small, [role="treeitem"]:focus > .category-row button.small, .category-row button[aria-expanded="true"] { opacity: 1; }
+}
 button.small { padding: 2px 6px; font-size: 12px; }
 .drag { cursor: grab; touch-action: none; user-select: none; color: var(--muted); }
 .drag-ghost { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; padding: 2px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2); }
 .drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; background: var(--bg); }
 .tree-panel { margin: 2px 0 8px 20px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); }
 .add-category input { flex: 1; min-width: 7em; width: auto; }
-.rule-form { padding: 0 10px 10px; }
-.danger-row { margin-top: 16px; }
 .dims { list-style: none; margin: 0 0 6px; padding: 0; }
 .dims li { display: flex; gap: 6px; align-items: center; padding: 3px 0; }
 .dims li span { flex: 1; color: var(--muted); }
@@ -225,27 +233,55 @@ button.small { padding: 2px 6px; font-size: 12px; }
 .filter input[type="search"] { margin: 2px 0 4px; }
 .dims li input.unit { flex: 1; min-width: 0; }
 
-/* the two modes: Check to read the rules, Edit to write them */
+/* the two modes: Check to read the rules, Create to write them */
 .modes { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .modes button { border: 0; border-radius: 0; padding: 5px 14px; }
 .modes button + button { border-left: 1px solid var(--line); }
 .modes button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
 .modes button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-body[data-mode="check"] .edit-only { display: none; }
+body[data-mode="check"] .create-only { display: none; }
+
+/* the selected rule, at the top of the right panel */
+#rule { scroll-margin-top: 12px; } /* scrolled to, it keeps the panel's padding */
+.rule-head { display: flex; gap: 8px; align-items: center; margin: 4px 0 8px; }
+.rule-head .code { min-width: 0; overflow-wrap: anywhere; }
+.rule-head h3 { margin: 0; }
 
 /* a rule as people read it */
-.rule-card { padding: 0 10px 10px; }
 .rule-card p { margin: 4px 0; }
+.rule-card .rule-title { font-weight: 600; }
+dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 10px 0; }
+dl.facts dt { color: var(--muted); }
+dl.facts dd { margin: 0; }
 .rule-card blockquote { margin: 6px 0; padding: 2px 10px; border-left: 3px solid var(--line); color: var(--muted); }
 ul.plain { list-style: none; margin: 4px 0; padding: 0; }
 ul.plain li { margin: 2px 0; }
 .rule-card a { color: var(--accent); }
 
-.rule-card .category-path { margin-bottom: 6px; }
-
 /* a rule's GeoJSON, to read and copy */
 #f-geojson { margin-top: 16px; }
-#f-geojson summary { font-weight: 600; cursor: pointer; }
+#f-geojson .rule-head { margin-bottom: 0; }
 pre.geojson, textarea.copy-fallback { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; margin: 6px 0; }
-pre.geojson { max-height: 320px; overflow: auto; white-space: pre; tab-size: 2; }
+pre.geojson { max-height: 45vh; overflow: auto; white-space: pre; tab-size: 2; }
 textarea.copy-fallback { width: 100%; }
+
+/* a rule's tooltip, on the globe and in the tree */
+#tip {
+  position: fixed;
+  z-index: 1001;
+  max-width: 320px;
+  pointer-events: none;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  font-size: 13px;
+}
+#tip .head { display: flex; gap: 6px; align-items: center; }
+#tip .tip-title { font-weight: 600; margin-top: 3px; }
+#tip p { margin: 3px 0 0; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden; }
+#tip.several p { -webkit-line-clamp: 2; }
+#tip .tip-rule + .tip-rule { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+#tip p.hint { display: block; margin-top: 6px; }

@@ -14,35 +14,34 @@ The first visit downloads about 20 MB (Python and queryearth, see [How it works]
 
 ## Using the page
 
-The globe is on the left and the panel on the right. The page has two modes, switched at the top: **Check**, for people who read the rules, and **Edit**, for people who write them. **Open file** and **Open link** work in both.
+The rules are on the left, the globe in the middle and the panel for the mode on the right. The page has two modes, switched at the top: **Check**, for people who read the rules, and **Create**, for people who write them. **Open file** and **Open link** work in both. Hover over a rule's shape or label on the globe, or its row in the list, to see its level, code, title and message; hover over a button for what it does.
 
 ### Check
 
-**Check your area.** Draw a rectangle or a polygon where you work, or leave it empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. A rule about a dimension you leave empty does not apply, and "No rule applies" means only that no rule matched, not that all is well. Click a result to open that rule below, or copy its GeoJSON.
+**Check.** Draw a **Rectangle** or a **Polygon** where you work, or leave the area empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. A rule about a dimension you leave empty does not apply, and "No rule applies" means only that no rule matched, not that all is well. Click a result to open that rule at the top of the panel.
 
-**Rules.** The rules are a tree, made from their codes: a code may be a path, such as `REGION/ITF/ITF001`, whose part before the last slash is its category, `REGION/ITF`, inside `REGION`. **All rules** is at the root, then the categories, their subcategories at any depth, and the rules in each, sorted by code; rules whose code has no slash sit at the root. Each category shows how many rules are in it, at any depth. The categories start closed. Open or close a branch with its arrow; the page remembers which you opened, in this browser.
+**Rules.** The rules are a tree on the left, made from their codes: a code may be a path, such as `REGION/ITF/ITF001`, whose part before the last slash is its category, `REGION/ITF`, inside `REGION`. **All rules** is at the root, then the categories, their subcategories at any depth, and the rules in each, sorted by code; rules whose code has no slash sit at the root. Each category shows how many rules are in it, at any depth, and each row is one line: a long title ends in "…", and the row's tooltip has it whole. The categories start closed. Open or close a branch with its arrow; the page remembers which you opened, in this browser.
 
 Click a category to show its rules on the globe, and those of every category in it; the globe turns to them. Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`, `gulf`), with the categories they are in, opened; the globe shows them too and turns to them. Clear the filter and the branches are as you left them. The page remembers your filter. The tree works from the keyboard: the arrow keys move up and down and open and close branches, Home and End go to the first and last item, and Enter or Space picks a category or opens a rule.
 
-Click a rule in the tree, its label or its shape on the globe to open its card, with its categories opened in the tree: the globe turns to it, and the card shows what the rule says and what it covers: its code, message and instruction, where and when it applies, what it applies to, its references and evidence, and any other property it carries. **Copy GeoJSON** copies the rule as the rules file holds it.
+Click a rule in the tree, its label or its shape on the globe to open its card at the top of the right panel, with its categories opened in the tree: the globe turns to it, and the card shows what the rule says and what it covers: its code, message and instruction, where and when it applies, what it applies to, its references and evidence, and any other property it carries. **Copy GeoJSON** copies the rule as the rules file holds it.
 
-### Edit
+### Create
 
-**Rules.** The same tree, one line to a row, where you also manage the rules and categories. A category exists because a rule's code is in it, so moving and renaming change codes:
+**Rules.** The same tree, where you also manage the rules and categories. A category exists because a rule's code is in it, so moving and renaming change codes:
 
 - To move a rule, drag it by its handle (⠿) onto a category, or onto **All rules** for none, or pick another **Category** in its form. Its code takes the new path and keeps its last part: `REGION/ITF/ITF003` moved to `DOMAIN/OBC` becomes `DOMAIN/OBC/ITF003`;
 - To move a category, drag it onto another one (or onto **All rules**, for the top level), or use **Move to…** in its **⋯**. Renaming it there works the same way: every code in it takes the new path;
-- **+ Rule** on a category adds a rule numbered after the last part of its path, such as `DOMAIN/OBC/OBC006` after `DOMAIN/OBC/OBC005`; on **All rules** it adds `RULE001` at the root;
-- **+ Category** on **All rules**, and **Add subcategory** in a category's **⋯**, make a category. It holds no rule yet, so it is kept only while the page is open: put a rule in it to keep it in the file. **Remove** in the **⋯** removes a category with no rules; one that holds rules is not removed, and the page says why.
+- **+ Rule** on a category (it shows when you point at the category) adds a rule numbered after the last part of its path, such as `DOMAIN/OBC/OBC006` after `DOMAIN/OBC/OBC005`; on **All rules** it adds `RULE001` at the root;
+- **+ Category** on **All rules**, and **Add** in a category's **⋯**, make a category. It holds no rule yet, so it is kept only while the page is open: put a rule in it to keep it in the file. **Remove** in the **⋯** removes a category with no rules; one that holds rules is not removed, and the page says why.
 
-Clicking a rule opens its form in the tree:
+Clicking a rule opens its form at the top of the right panel, with **Delete** beside its code (it asks you to click a second time):
 
 - code, level (info, warning or error), category (picking another moves the rule, as dragging does), title and message;
-- **Where:** draw a rectangle or a polygon, move the corners of the current shape, remove it (the rule then applies anywhere), or give it the Arctic or Antarctic from a latitude;
+- **Where:** draw a **Rectangle** or a **Polygon**, **Move corners** of the current shape, **Clear** it (the rule then applies anywhere), or give it the **Arctic cap** or **Antarctic cap** from a latitude;
 - **When:** from and to dates;
-- **What it applies to:** one field per dimension (see the table below);
-- **GeoJSON:** the rule as the rules file holds it, kept up to date as you edit, with **Copy**. The page remembers whether you keep it open;
-- **Delete**, which asks you to click a second time.
+- **Applies to:** one field per dimension (see the table below);
+- **GeoJSON:** the rule as the rules file holds it, always shown under the form and kept up to date as you edit, with **Copy**, to paste into another file, a gist or a message.
 
 Other properties of a rule, such as its instruction, references and evidence, are kept as they are and shown in Check.
 
@@ -50,17 +49,17 @@ Every edit is checked by queryearth before it is kept. If queryearth refuses one
 
 **Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km. A rules file does not list them, so the page reads them from the rules' values: a range such as `{"lt": 8, "unit": "km"}` makes an axis in that unit, and a name or a list of names makes labels. Set an axis's unit here when its rules give none, add a dimension to check against, or remove one no rule uses.
 
-**File.** **Download rules file** saves the rules as queryearth writes rule files, and **Copy rules file** copies the same text, to paste into a file, a gist or a message. **Download as web page** saves a page that shows them; see [Sharing](#sharing). The same two buttons are at the top of the page in Edit mode.
+**File.** **Download** saves the rules as queryearth writes rule files (it is also at the top of the page in Create), and **Copy** copies the same text. **Download web page** saves a page that shows them, with the title typed beside it; see [Sharing](#sharing).
 
-Edits you have not downloaded are kept in your browser. When you come back to the same page address, Edit mode offers them back; the page switches to Edit to show you, unless its address asked for Check.
+Edits you have not downloaded are kept in your browser. When you come back to the same page address, Create mode offers them back; the page switches to Create to show you, unless its address asked for Check.
 
 ### Which mode a page opens in
 
-`#edit` at the end of the address opens Edit mode and `#check` opens Check mode, also after a link's `?src=`: `https://crocodile-cesm.github.io/vizqueryearth/?src=<link>#edit`. Otherwise the page itself opens in the mode you used last, and a site's page or a downloaded web page opens in Check. Switching modes changes the `#` in the address, so you can share the address as it is.
+`#create` at the end of the address opens Create mode and `#check` opens Check mode, also after a link's `?src=`: `https://crocodile-cesm.github.io/vizqueryearth/?src=<link>#create`. Create was called Edit before, and `#edit` still opens it. Otherwise the page itself opens in the mode you used last, and a site's page or a downloaded web page opens in Check. Switching modes changes the `#` in the address, so you can share the address as it is.
 
 What to type for a dimension:
 
-| Kind | In a rule | In Check your area |
+| Kind | In a rule | In Check |
 |---|---|---|
 | labels | names separated by commas: `glorys, era5*` (`*` and `?` match any letters) | `glorys` |
 | axis | `<8`, `<=8`, `>2`, `>=2`, several such as `>2, <=8`, or `2-8` (from 2 up to, not including, 8) | a number or a range: `8`, `5-10` |
@@ -73,7 +72,7 @@ A rules file is a GeoJSON FeatureCollection with one Feature per rule, as querye
 
 ## Sharing
 
-**A link.** Put your rules file where other sites may read it, then share the page with `?src=` (and `#edit` at the end for people who will edit it):
+**A link.** Put your rules file where other sites may read it, then share the page with `?src=` (and `#create` at the end for people who will edit it):
 
 ```
 https://crocodile-cesm.github.io/vizqueryearth/?src=https://raw.githubusercontent.com/<you>/<repo>/main/rules.geojson
@@ -81,7 +80,7 @@ https://crocodile-cesm.github.io/vizqueryearth/?src=https://raw.githubuserconten
 
 The file's host must allow cross-origin reads, as raw files on GitHub and gists do. Many other hosts do not; the page then says it could not open the link.
 
-**Your own page.** **Download as web page** gives an `index.html` that holds the rules file, the dimensions, the title you give it and the view of the globe you see. It loads the app itself from GitHub Pages, so it is one small file you can host anywhere:
+**Your own page.** **Download web page** gives an `index.html` that holds the rules file, the dimensions, the title you give it and the view of the globe you see. It loads the app itself from GitHub Pages, so it is one small file you can host anywhere:
 
 - GitHub Pages: make a repository, add `index.html`, then in Settings → Pages choose "Deploy from a branch", `main` and `/ (root)`. The page appears at `https://<you>.github.io/<repository>/` after a minute.
 - Netlify Drop: drag a folder holding `index.html` onto https://app.netlify.com/drop.
@@ -102,7 +101,7 @@ Curated pages live in this repository under `web/sites/<name>/` and appear at `h
 | Field | What it is |
 |---|---|
 | `title` | The page's title, at the top and in the browser tab. |
-| `description` | A sentence or two shown above Check your area. Optional. |
+| `description` | A sentence or two shown at the top of the Check panel. Optional. |
 | `rules` | The rules file: a path relative to the folder (`"rules.geojson"`), a URL, or the FeatureCollection itself. |
 | `dimensions` | Optional: dimensions to declare before those read from the rules, such as one no rule uses yet or an axis's unit: `[{"name": "product", "kind": "labels"}, {"name": "resolution", "kind": "axis", "unit": "km"}]`. |
 | `view` | Optional: where the globe starts, `{"center": [lon, lat], "zoom": 1.6}`. Without it, the globe turns to the rules. |

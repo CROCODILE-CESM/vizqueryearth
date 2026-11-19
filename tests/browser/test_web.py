@@ -142,7 +142,7 @@ def click_at(page, lon, lat):
 
 def downloaded(page, button):
     with page.expect_download() as info:
-        page.locator("#file").get_by_role("button", name=button).click()
+        page.locator("#file").get_by_role("button", name=button, exact=True).click()
     return Path(info.value.path()).read_text()
 
 
@@ -151,8 +151,12 @@ def test_check_a_drawn_domain():
     tree = page.locator("#rule-tree")
     assert tree.locator(".rule-row").count() == 0  # the categories start closed
     assert row(page, "cat:OCN").locator(".count").inner_text() == "3"
+    row(page, "cat:OCN").locator(".twisty").click()
+    row(page, f"rule:{codes(page).index('OCN/OCN002')}").hover()  # a tooltip
+    assert "OCN/OCN002" in page.locator("#tip").inner_text()
+    row(page, "cat:OCN").locator(".twisty").click()
 
-    page.locator("#check").get_by_role("button", name="Draw rectangle").click()
+    page.locator("#check").get_by_role("button", name="Rectangle").click()
     click_at(page, 172, 56)  # across the date line, in the Bering Sea
     click_at(page, -168, 63)
     page.wait_for_function(f"{APP}.page.areaShape !== null")
@@ -164,22 +168,21 @@ def test_check_a_drawn_domain():
     page.wait_for_function(f"{APP}.page.results !== null")
     assert page.evaluate(f"{APP}.page.results") == [codes(page).index("OCN/OCN002")]
 
-    card = page.locator("#check .card")
-    card.get_by_role("button", name="Copy GeoJSON").click()
+    page.locator("#check .card").click()  # opens the rule in the panel, read only
+    text = page.locator("#rule .rule-card").inner_text()
+    assert "What to do: Compare demo_ocean" in text and "Made up for this demo" in text
+    assert page.locator(".rule-form").count() == 0
+    page.locator("#rule").get_by_role("button", name="Copy GeoJSON").click()
     page.wait_for_timeout(300)
     assert (
         json.loads(page.evaluate("navigator.clipboard.readText()"))
         == DEMO["features"][1]
     )
-    card.locator("p").first.click()  # opens the rule in the tree, read only
-    text = page.locator(".rule-card").inner_text()
-    assert "What to do: Compare demo_ocean" in text and "Made up for this demo" in text
-    assert page.locator(".rule-form").count() == 0
     assert errors == []
 
 
 def test_edit_a_rule_and_download_the_file():
-    page, errors = visit("/sites/demo/#edit", 5)
+    page, errors = visit("/sites/demo/#create", 5)
     row(page, "cat:DOMAIN").locator(".twisty").click()
     row(page, "cat:DOMAIN/ICE").get_by_role(
         "button", name="New rule in DOMAIN/ICE"
@@ -197,12 +200,15 @@ def test_edit_a_rule_and_download_the_file():
     page.wait_for_function(f"{APP}.page.state.rules[5].time.start === '2001-01-01'")
     page.evaluate(f"{APP}.map().jumpTo({{center: [-40, 70], zoom: 2.5}})")
     page.wait_for_timeout(600)
-    page.locator(".rule-form").get_by_role("button", name="Draw rectangle").click()
+    page.locator(".rule-form").get_by_role("button", name="Rectangle").click()
     click_at(page, -50, 65)
     click_at(page, -30, 75)
     page.wait_for_function(f"{APP}.page.state.rules[5].fill !== null")
+    shown = json.loads(page.locator("#f-geojson-text").inner_text())  # always open
+    assert shown["properties"]["title"] == "Thin ice"
+    assert shown["geometry"]["type"] == "Polygon"
 
-    saved = json.loads(downloaded(page, "Download rules file"))
+    saved = json.loads(downloaded(page, "Download"))
     rule = saved["features"][5]
     assert saved["queryearth"] == "0.7"
     assert rule["properties"]["title"] == "Thin ice"
@@ -215,7 +221,8 @@ def test_edit_a_rule_and_download_the_file():
 
 
 def test_move_rules_and_categories_in_the_tree():
-    page, errors = visit("/sites/demo/#edit", 5)
+    page, errors = visit("/sites/demo/#edit", 5)  # Create's old name
+    assert page.evaluate("location.hash") == "#create"
     row(page, "cat:DOMAIN").locator(".twisty").click()
     row(page, "cat:OCN").locator(".twisty").click()
     drag(page, row(page, "rule:0").locator(".drag"), row(page, "cat:DOMAIN/OBC"))
@@ -241,26 +248,26 @@ def test_move_rules_and_categories_in_the_tree():
     # a category without rules is kept in the page; one with rules stays
     row(page, "cat:OCN").get_by_role("button", name="More for OCN").click()
     page.fill('[id="new-category-OCN"]', "SALT")
-    page.get_by_role("button", name="Add subcategory").click()
+    page.locator('[data-node="cat:OCN"] .add-category').get_by_role("button").click()
     assert row(page, "cat:OCN/SALT").locator(".count").inner_text() == "0"
     row(page, "cat:OCN").get_by_role("button", name="More for OCN").click()
     page.get_by_role("button", name="Remove OCN").click()
     assert "OCN still has rules" in page.inner_text("#status")
 
-    saved = json.loads(downloaded(page, "Download rules file"))
+    saved = json.loads(downloaded(page, "Download"))
     assert [f["properties"]["code"] for f in saved["features"]] == codes(page)
     assert errors == []
 
 
 def test_download_as_a_web_page(tmp_path):
-    page, errors = visit("/sites/demo/#edit", 5)
+    page, errors = visit("/sites/demo/#create", 5)
     page.fill("#d-name", "resolution")
     page.select_option("#d-kind", "axis")
     page.fill("#d-unit", "km")
     page.locator("#dimensions").get_by_role("button", name="Add", exact=True).click()
     page.wait_for_function(f"{APP}.page.state.dimensions.length === 4")
     page.fill("#page-title", "Demo copy")
-    (tmp_path / "index.html").write_text(downloaded(page, "Download as web page"))
+    (tmp_path / "index.html").write_text(downloaded(page, "Download web page"))
     copy, more = visit(f"{serve(tmp_path)}/", 5)
     assert copy.title() == "Demo copy"
     assert [d["name"] for d in state(copy)["dimensions"]][-1] == "resolution"
@@ -301,8 +308,10 @@ def test_open_a_queryearth_0_6_file_by_link(tmp_path):
 def test_crocodash_rules():
     rules = Path(os.environ["CROCODASH_RULES"])
     count = len(json.loads(rules.read_text())["features"])
-    page, errors = visit(f"{app()}/?src={serve(rules.parent)}/{rules.name}#edit", count)
-    assert downloaded(page, "Download rules file") == rules.read_text()
+    page, errors = visit(
+        f"{app()}/?src={serve(rules.parent)}/{rules.name}#create", count
+    )
+    assert downloaded(page, "Download") == rules.read_text()
     first = codes(page)[0]
     page.locator("#rule-tree .tree-row .name").nth(1).click()  # a category
     page.wait_for_timeout(300)
