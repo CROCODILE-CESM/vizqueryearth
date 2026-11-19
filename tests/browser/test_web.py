@@ -156,10 +156,13 @@ def test_check_a_drawn_domain():
     assert "OCN/OCN002" in page.locator("#tip").inner_text()
     row(page, "cat:OCN").locator(".twisty").click()
 
-    page.locator("#check").get_by_role("button", name="Rectangle").click()
+    rectangle = page.locator("#check").get_by_role("button", name="Rectangle")
+    rectangle.click()
+    assert rectangle.get_attribute("aria-pressed") == "true"  # lit while it draws
     click_at(page, 172, 56)  # across the date line, in the Bering Sea
     click_at(page, -168, 63)
     page.wait_for_function(f"{APP}.page.areaShape !== null")
+    assert rectangle.get_attribute("aria-pressed") == "false"
     page.fill("#q-start", "2001-01-01")
     page.fill("#q-end", "2001-03-31")
     page.fill("[data-dim=product]", "demo_ocean")

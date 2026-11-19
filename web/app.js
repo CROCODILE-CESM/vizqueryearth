@@ -196,6 +196,7 @@ const page = {
   query: { start: "", end: "", values: {} },
   results: null, // the positions of the rules that apply
   drawing: null, // what the drawing tools are for: "area", "rule" or "corners"
+  drawingKind: null, // and with which tool: "rectangle" or "polygon"
   drawingEnded: 0, // when the last drawing ended
   markers: [],
   draft: null, // edits kept in this browser from an earlier visit
@@ -330,8 +331,8 @@ function checkSection() {
       "div",
       { class: "row", title: "Where you work. No area: anywhere." },
       el("span", { class: "row-label" }, "Area"),
-      el("button", { onclick: () => startDrawing("rectangle", "area") }, "Rectangle"),
-      el("button", { onclick: () => startDrawing("polygon", "area") }, "Polygon"),
+      drawButton("rectangle", "area"),
+      drawButton("polygon", "area"),
       el("button", { onclick: clearArea, disabled: !page.area.length }, "Clear")
     ),
     el(
@@ -971,8 +972,8 @@ function ruleForm(rule) {
       : el(
           "div",
           { class: "row" },
-          el("button", { title: "Draw a rectangle", onclick: () => startDrawing("rectangle", "rule") }, "Rectangle"),
-          el("button", { title: "Draw a polygon", onclick: () => startDrawing("polygon", "rule") }, "Polygon"),
+          drawButton("rectangle", "rule"),
+          drawButton("polygon", "rule"),
           el("button", { title: "Move the corners of this shape", onclick: moveCorners, disabled: !rule.editable }, "Move corners"),
           el("button", { title: "Remove the shape: the rule then applies anywhere", onclick: () => shapeCall("clear", {}), disabled: !rule.fill }, "Clear")
         ),
@@ -1613,12 +1614,25 @@ function cameraShowing(center, points) {
 }
 
 // ---- drawing ----------------------------------------------------------------------
+// A Rectangle or Polygon button: lit while it draws; clicked again, it stops.
+function drawButton(kind, purpose) {
+  const on = page.drawing === purpose && page.drawingKind === kind;
+  const name = kind === "rectangle" ? "Rectangle" : "Polygon";
+  return el(
+    "button",
+    { type: "button", class: on ? "active" : null, "aria-pressed": on, title: on ? "Drawing: click again or press Esc to stop" : `Draw a ${kind}`, onclick: () => (on ? cancelDrawing() : startDrawing(kind, purpose)) },
+    name
+  );
+}
+
 function startDrawing(kind, purpose) {
   if (!draw) return say("The globe is still loading.", true);
   stopDrawing();
   hideTip();
   page.drawing = purpose;
+  page.drawingKind = kind;
   draw.setMode(kind);
+  render(); // lights the button
   say(
     kind === "rectangle"
       ? "Click one corner, then the opposite corner."
@@ -1626,10 +1640,17 @@ function startDrawing(kind, purpose) {
   );
 }
 
+function cancelDrawing() {
+  stopDrawing();
+  say("Stopped drawing.");
+  render();
+}
+
 function stopDrawing() {
   if (!draw) return;
   if (page.drawing) page.drawingEnded = performance.now();
   page.drawing = null;
+  page.drawingKind = null;
   draw.clear();
   draw.setMode("static");
 }
@@ -1691,8 +1712,7 @@ async function finishCorners(keep) {
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (page.drawing && page.drawing !== "corners") {
-    stopDrawing();
-    say("Stopped drawing.");
+    cancelDrawing();
   } else if (page.adding) {
     page.adding = null;
     render();

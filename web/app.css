@@ -93,6 +93,8 @@ button.primary {
   color: var(--accent-text);
 }
 button:disabled { opacity: 0.5; cursor: default; }
+/* a drawing tool while it draws */
+button.active { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 button.danger { color: var(--error); }
 button.danger[data-asking] { background: var(--error); border-color: var(--error); color: #fff; }
 button.remove { padding: 2px 8px; line-height: 1.2; }
