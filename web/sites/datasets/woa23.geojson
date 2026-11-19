@@ -1,0 +1,440 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "World Ocean Atlas 2023: known issues",
+    "description": "Known issues of World Ocean Atlas 2023 (WOA23), NOAA NCEI climatologies of temperature, salinity, dissolved oxygen and inorganic nutrients that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180.0, 66.0],
+            [0.0, 66.0],
+            [180.0, 66.0],
+            [180.0, 90.0],
+            [0.0, 90.0],
+            [-180.0, 90.0],
+            [-180.0, 66.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "WOA23/WOA23001",
+        "title": "Artificially high winter salinity in the Arctic",
+        "message": "The Arctic Ocean is sampled mostly in boreal summer, so the all-data first-guess salinity field is very fresh near the surface, while the few winter observations are much saltier. The objective analysis therefore gives artificially high winter salinities in some parts of the Arctic. The density stabilization step can then wrongly change winter salinity and create discontinuities in the stabilized temperature and salinity fields.",
+        "level": "warning",
+        "instruction": "Before relying on Arctic winter salinity, inspect the data distribution, statistical fields and objectively analyzed fields that the atlas provides.",
+        "variables": [
+          "salinity",
+          "temperature"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 2: Salinity (NOAA Atlas NESDIS 90), Appendix C: Geographic salinity limitations",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Salinity.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Using such biased first-guess fields in the objective analysis procedure results in artificially high salinities during winter in some portions of the Arctic Ocean.",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Salinity.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23002",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -50.0],
+              [0.0, -50.0],
+              [-180.0, -50.0],
+              [-180.0, -90.0]
+            ]
+          ],
+          [
+            [
+              [99.0, 0.0],
+              [121.0, 0.0],
+              [121.0, 23.0],
+              [99.0, 23.0],
+              [99.0, 0.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "WOA23/WOA23002",
+        "title": "Sparse salinity data in Southern Ocean and South China Sea",
+        "message": "The producers say the Arctic winter salinity problem is one of a few regions that may be seriously affected by sparse or seasonally biased data. Because of its remoteness, size and severe weather, the Southern Ocean is prone to the same issue, as are some marginal seas such as the South China Sea.",
+        "level": "warning",
+        "instruction": "In these regions, inspect the data distribution, statistical fields and objectively analyzed fields provided in the atlas, especially where the issue may be suspected.",
+        "variables": [
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 2: Salinity (NOAA Atlas NESDIS 90), Appendix C: Geographic salinity limitations",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Salinity.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The above example is just one of a few regions that may be seriously impacted by data sparsity, temporal or spatial, and/or by seasonal bias issues. Because of its remoteness, vastness, and severe weather conditions, especially in boreal winter, the Southern Ocean data are also prone to the same issue, as are some marginal seas (e.g., South China Sea).",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Salinity.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23003",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, 60.0],
+              [0.0, 60.0],
+              [180.0, 60.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 60.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -55.0],
+              [0.0, -55.0],
+              [-180.0, -55.0],
+              [-180.0, -90.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "WOA23/WOA23003",
+        "title": "Large uncertainty in Arctic winter and ice-covered areas",
+        "message": "The producers state that some regions of the global ocean remain severely undersampled, such as the Arctic Ocean in boreal winter and ice-covered areas, so large uncertainties remain in the temperature climatologies there.",
+        "level": "warning",
+        "instruction": "Use the number-of-observations fields provided with WOA23 to judge how reliable the temperature fields are in these areas.",
+        "variables": [
+          "temperature"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 1: Temperature (NOAA Atlas NESDIS 89), Section 6: Future work",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Temperature.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Finally, there are still certain regions of the global ocean that are severely under sampled (e.g., Arctic Ocean in boreal winter or/and ice-covered areas) and thus large uncertainties continue to remain in the climatologies for those regions.",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Temperature.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23004",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [21.0, -42.0],
+              [30.0, -42.0],
+              [32.0, -42.0],
+              [32.0, -31.0],
+              [21.0, -31.0],
+              [21.0, -35.0],
+              [21.0, -42.0]
+            ]
+          ],
+          [
+            [
+              [112.0, -49.0],
+              [120.0, -49.0],
+              [120.0, -37.0],
+              [112.0, -37.0],
+              [112.0, -49.0]
+            ]
+          ],
+          [
+            [
+              [72.0, -46.0],
+              [82.0, -46.0],
+              [82.0, -39.0],
+              [72.0, -39.0],
+              [72.0, -46.0]
+            ]
+          ],
+          [
+            [
+              [35.0, -53.0],
+              [63.0, -53.0],
+              [63.0, -34.0],
+              [35.0, -34.0],
+              [35.0, -53.0]
+            ]
+          ],
+          [
+            [
+              [3.0, -36.0],
+              [8.0, -36.0],
+              [8.0, -30.0],
+              [3.0, -30.0],
+              [3.0, -36.0]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1955-01-01",
+          "1994-12-31"
+        ]
+      },
+      "properties": {
+        "name": "WOA23/WOA23004",
+        "title": "Early-decade stabilization fixes in South Indian Ocean",
+        "message": "After density stabilization, a few small regions developed large salinity bullseyes. These were limited to early decades and to areas with very few observations, for example cold February 1955-1964 data in the South-Central Indian Ocean that led the stabilization to raise salinity from 250 m to 800 m. The producers fixed these cases by adding the decadal seasonal statistical means to the monthly statistical means in listed boxes and months, then rerunning the analysis.",
+        "level": "info",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 1: Temperature (NOAA Atlas NESDIS 89), Section 3.5.1 and Appendix C",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Temperature.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "After inspecting the WOA23 temperature (and salinity) fields post-stabilization, there were a few small regions that developed large salinity “bullseyes.” These were isolated to the early decades and in regions that had very few observations.",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Temperature.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23005",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2000-01-01",
+          "2022-12-31"
+        ]
+      },
+      "properties": {
+        "name": "WOA23/WOA23005",
+        "title": "Real-time Argo salinity excluded",
+        "message": "Unadjusted real-time Argo salinity can be biased. Conductivity sensor drift is the largest source of error, and a salty bias of about 0.004 caused by a CTD manufacturer defect was found in 2015-2020, peaking in 2017-2018. WOA23 therefore left all real-time Argo salinity out of its climatologies, losing about 5.6% (~145,000 of 2.6 million) of Argo salinity profiles.",
+        "level": "info",
+        "instruction": "If you need the real-time Argo salinity profiles, they are still available in WOD23. Expect them to be missing from the WOA23 fields.",
+        "variables": [
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 2: Salinity (NOAA Atlas NESDIS 90), Section 2.2.8: Exclusion of real-time Argo profiling float salinity data",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Salinity.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Thus, since a bias in Argo salinity can exist in some of the real-time data that have not been adjusted, we have decided to eliminate all real-time Argo salinity data from the climatological calculations. This resulted in the loss of about 5.6%, or ~145,000 of 2.6 million, Argo salinity profiles from our analyses.",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Salinity.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23006",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1965-01-01",
+          "2022-12-31"
+        ]
+      },
+      "properties": {
+        "name": "WOA23/WOA23006",
+        "title": "Oxygen version 1.0 superseded by version 1.1",
+        "message": "Version 1.0 of the WOA23 dissolved oxygen, AOU and oxygen saturation climatologies is superseded by version 1.1 (May 2024). Version 1.1 changes the global mean adjustment added to delayed-mode profiling float O2 data: it uses float and bottle/CTD profile matchups at depths of 700 m or more with the smallest O2 variance, instead of depth ranges with the lowest salinity variance. The global mean differences are small, about 0.093 µmol/kg over 0-5500 m and 0.142 µmol/kg over 0-2000 m.",
+        "level": "warning",
+        "instruction": "Use version 1.1, and replace any WOA23 oxygen, AOU or oxygen saturation files downloaded before the update.",
+        "variables": [
+          "dissolved oxygen",
+          "apparent oxygen utilization",
+          "dissolved oxygen saturation"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 3: Dissolved Oxygen, Apparent Oxygen Utilization, Dissolved Oxygen Saturation, and 30-year Climate Normal (NOAA Atlas NESDIS 91, version 1.1), Errata",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Oxygen.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "We recommend the use of version 1.1 which supersedes version 1.0 released in April 2024.",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Oxygen.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23007",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [20.0, -60.0],
+              [120.0, -60.0],
+              [147.0, -60.0],
+              [147.0, -10.0],
+              [120.0, -10.0],
+              [120.0, 31.0],
+              [20.0, 31.0],
+              [20.0, -60.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, 66.0],
+              [0.0, 66.0],
+              [180.0, 66.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 66.0]
+            ]
+          ],
+          [
+            [
+              [-120.0, -60.0],
+              [-70.0, -60.0],
+              [-70.0, 0.0],
+              [-120.0, 0.0],
+              [-120.0, -60.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "WOA23/WOA23007",
+        "title": "Oxygen severely undersampled in several regions",
+        "message": "Some regions remain severely undersampled for oxygen, for example the Arctic Ocean, the South East Pacific, the Indian Ocean and marginal seas, so large uncertainties remain in the oxygen climatologies there. Below about 2 km depth the global ocean is largely undersampled, and the Arctic is the least sampled basin.",
+        "level": "warning",
+        "instruction": "Use the standard deviation, number-of-observations and standard error of the analysis fields that WOA23 provides to judge the oxygen fields in these regions.",
+        "variables": [
+          "dissolved oxygen",
+          "apparent oxygen utilization",
+          "dissolved oxygen saturation"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 3: Dissolved Oxygen, Apparent Oxygen Utilization, Dissolved Oxygen Saturation, and 30-year Climate Normal (NOAA Atlas NESDIS 91, version 1.1), Section 2.2",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Oxygen.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "There are still certain regions of the global ocean that are severely under sampled (e.g. Arctic Ocean, South East Pacific, Indian Ocean, marginal seas) and thus large uncertainties continue to remain in the climatologies for these regions. The WOA23 provides standard deviation, number of observations, and standard error of the analysis fields.",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Oxygen.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "WOA23/WOA23008",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, 60.0],
+              [0.0, 60.0],
+              [180.0, 60.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 60.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -50.0],
+              [0.0, -50.0],
+              [-180.0, -50.0],
+              [-180.0, -90.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "WOA23/WOA23008",
+        "title": "Nutrients sparse and summer-biased in polar seas",
+        "message": "In the Arctic, the northern marginal seas and the Southern Ocean, nutrient data are infrequent in time and space and biased toward boreal and austral summer, when sampling from research ships is easier.",
+        "level": "warning",
+        "instruction": "Treat the nutrient fields in these regions with caution, especially the winter fields, and check the number-of-observations fields.",
+        "variables": [
+          "phosphate",
+          "nitrate",
+          "silicate"
+        ],
+        "references": [
+          {
+            "title": "World Ocean Atlas 2023, Volume 4: Dissolved Inorganic Nutrients (Phosphate, Nitrate, and Silicate) (NOAA Atlas NESDIS 92)",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Nutrients.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "We note that in portions of the World Ocean such as the Arctic, northern marginal seas, and the Southern Ocean, nutrient data temporal and spatial sampling is noticeably infrequent and seasonally-biased to boreal and austral summer when water sampling from research ships is nominally easier.",
+            "url": "https://www.ncei.noaa.gov/data/oceans/woa/WOA23/DOCUMENTATION/WOA23_Nutrients.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

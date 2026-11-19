@@ -1,0 +1,209 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "GLORYS12V1: known issues",
+    "description": "Known issues of GLORYS12V1, Copernicus Marine Global Ocean Physics Reanalysis at 1/12° (GLOBAL_MULTIYEAR_PHY_001_030) that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "GLORYS12/GLORYS12001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180.0, 70.0],
+            [0.0, 70.0],
+            [180.0, 70.0],
+            [180.0, 90.0],
+            [0.0, 90.0],
+            [-180.0, 90.0],
+            [-180.0, 70.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GLORYS12/GLORYS12001",
+        "title": "Sea ice too thick in the Beaufort Gyre",
+        "message": "GLORYS12 piles up sea ice in the Beaufort Gyre, where it is almost 1 m thicker than Cryosat-2 in January 2014. The build-up stops the ice from melting well, so summer ice there is generally too thick. In the Central and Eurasian basins the ice is thinner than observed.",
+        "level": "warning",
+        "variables": [
+          "sea ice thickness",
+          "sea ice volume"
+        ],
+        "references": [
+          {
+            "title": "Lellouche et al. (2021), The Copernicus Global 1/12° Oceanic and Sea Ice GLORYS12 Reanalysis, Frontiers in Earth Science 9:698876",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The unrealistic piling up of sea ice thickness in the Beaufort Gyre present in all GLORYS reanalysis (Chevallier et al., 2017; Uotila et al., 2019) is also present in GLORYS12. Comparisons with Cryosat-2 in January 2014 (Figure 5A) show an overestimation of the order of almost 1 m in the area.",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GLORYS12/GLORYS12002",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [120.0, -10.0],
+              [180.0, -10.0],
+              [180.0, 10.0],
+              [120.0, 10.0],
+              [120.0, -10.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -10.0],
+              [-80.0, -10.0],
+              [-80.0, 10.0],
+              [-180.0, 10.0],
+              [-180.0, -10.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GLORYS12/GLORYS12002",
+        "title": "South Equatorial Current too strong in tropical Pacific",
+        "message": "Compared with drogued drifters at 15 m, the main weakness in the surface currents is a tropical Pacific South Equatorial Current that is too strong. This is mainly due to a bias in the reference height (mean dynamic topography) used for assimilating altimetry.",
+        "level": "warning",
+        "variables": [
+          "zonal velocity",
+          "surface currents"
+        ],
+        "references": [
+          {
+            "title": "Lellouche et al. (2021), The Copernicus Global 1/12° Oceanic and Sea Ice GLORYS12 Reanalysis, Frontiers in Earth Science 9:698876",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The main shortcoming concerns the tropical Pacific South Equatorial Current which is too strong in GLORYS12. It has been shown that this was mainly due to a bias in the reference height for the altimetry (Hamon et al., 2019).",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GLORYS12/GLORYS12003",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1993-01-01",
+          "2003-12-31"
+        ]
+      },
+      "properties": {
+        "name": "GLORYS12/GLORYS12003",
+        "title": "Temperature and salinity less reliable before 2004",
+        "message": "Before the Argo array arrived in 2004, far fewer in situ profiles constrain the reanalysis. Departures from in situ observations are about 0.75°C and 0.2 psu over 1993-2002, against 0.45°C and 0.1 psu in the Argo period. The paper says the arrival of Argo halved these departures.",
+        "level": "warning",
+        "instruction": "Treat temperature and especially salinity before 2004, and any trend computed across 2004, with caution.",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "Lellouche et al. (2021), The Copernicus Global 1/12° Oceanic and Sea Ice GLORYS12 Reanalysis, Frontiers in Earth Science 9:698876",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "For instance, the representation of temperature and salinity is strongly impacted by the arrival of the global Argo array in 2004 reducing the departures from in situ observations by a factor of 2.",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GLORYS12/GLORYS12004",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2002-01-01",
+          "2007-12-31"
+        ]
+      },
+      "properties": {
+        "name": "GLORYS12/GLORYS12004",
+        "title": "Spurious jumps in eddy energy in 2002 and 2004",
+        "message": "Eddy kinetic energy has two artificial discontinuities. The first is a rise from early 2002 to 2007, caused by a change in the SST resolution used by the ERA-Interim forcing. The second is a rapid jump in 2004, when the 3D-VAR bias-correction window was shortened as Argo profiles arrived.",
+        "level": "warning",
+        "instruction": "Do not interpret changes in eddy energy, or in its seasonal amplitude, across 2002 or 2004 as real ocean changes.",
+        "variables": [
+          "eddy kinetic energy",
+          "ocean currents"
+        ],
+        "references": [
+          {
+            "title": "Lellouche et al. (2021), The Copernicus Global 1/12° Oceanic and Sea Ice GLORYS12 Reanalysis, Frontiers in Earth Science 9:698876",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The time evolution of the monthly EKE clearly highlights two major discontinuities, which result from changes in the ERAinterim atmospheric forcing in 2002 and in the in situ observing system in 2004.",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GLORYS12/GLORYS12005",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2004-01-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "GLORYS12/GLORYS12005",
+        "title": "Sea level drifts low against altimetry from 2004",
+        "message": "From 2004 the reanalysis sea level drifts low against the assimilated altimetry by about 0.25 mm per year. The gap reaches 1 cm by the end of 2016, with peaks of 2 cm, and is mainly linked to the orbit standard of the altimeter data. Global mean sea level rise is slightly below altimetry, and too much of it is thermal expansion, so the steric and mass parts are not split correctly.",
+        "level": "warning",
+        "instruction": "Do not use GLORYS12 to separate steric and mass (barystatic) contributions to sea level rise.",
+        "variables": [
+          "sea level anomaly",
+          "global mean sea level",
+          "steric sea level"
+        ],
+        "references": [
+          {
+            "title": "Lellouche et al. (2021), The Copernicus Global 1/12° Oceanic and Sea Ice GLORYS12 Reanalysis, Frontiers in Earth Science 9:698876",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "However, from 2004, a bias is diagnosed, which tends to increase and reaches 1 cm at the end of the period, with peaks varying from 1 cm or even 2 cm at times. This means that GLORYS12 tends to become too low in comparison with altimetry by about 0.25 mm per year.",
+            "url": "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2021.698876/full"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

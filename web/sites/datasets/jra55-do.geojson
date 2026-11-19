@@ -1,0 +1,368 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "JRA55-do: known issues",
+    "description": "Known issues of JRA-55 based surface dataset for driving ocean–sea-ice models (JRA55-do) that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-100.0, 5.0],
+            [-10.0, 5.0],
+            [-10.0, 55.0],
+            [-100.0, 55.0],
+            [-100.0, 5.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1967-01-01",
+          "1987-12-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA55DO/JRA55DO001",
+        "title": "Anti-cyclonic tropical cyclones, North Atlantic 1967-1987",
+        "message": "Many North Atlantic tropical cyclones between 1967 and 1987 rotate the wrong way (anti-cyclonically) in the JRA-55 analysis, so JRA55-do up to v1.4 has them too. Around each erroneous analysis the atmospheric fields are unrealistic within about 1000 km for the next 6 hours, and the footprint can last a few days.",
+        "level": "warning",
+        "instruction": "Use JRA55-do v1.5 or later (the final version is v1.6.0). These versions replace the surface fields around these cyclones with fields from 20CRv3.",
+        "variables": [
+          "surface atmospheric fields",
+          "sea level pressure",
+          "wind vector"
+        ],
+        "references": [
+          {
+            "title": "User manual of JRA-55 based surface dataset for driving ocean–sea-ice models (JRA55-do), v1.6 (14 December 2024), Appendix C.11.1",
+            "url": "https://climate.mri-jma.go.jp/pub/ocean/JRA55-do/docs/v1_6-manual/User_manual_jra55_do_v1_6.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Erroneous behaviors are found for some tropical cyclones in the period from 1959 to 1987 in the original JRA-55 analysis. Specifically, lots of tropical cyclones have anti-cyclonic rotation in the JRA-55 analysis and the JRA55-do dataset.",
+            "url": "https://climate.mri-jma.go.jp/pub/ocean/JRA55-do/docs/v1_6-manual/User_manual_jra55_do_v1_6.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO002",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, 40.0],
+              [0.0, 40.0],
+              [180.0, 40.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 40.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -50.0],
+              [0.0, -50.0],
+              [-180.0, -50.0],
+              [-180.0, -90.0]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1958-01-01",
+          "1978-12-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA55DO/JRA55DO002",
+        "title": "High-latitude air temperature tied to CORE, 1958-1978",
+        "message": "Before satellites, the sea ice under JRA-55 is largely climatological in the Southern Hemisphere and probably too extensive in the Labrador Sea. As a result, JRA-55 air temperature and humidity are unreliable there and suspiciously low near the ice edge, which can make deep water formation unrealistically strong in ocean models. To compensate, JRA55-do adds the smoothed monthly CORE-minus-JRA-55 difference to these fields poleward of 40°N and 50°S for 1958-1978.",
+        "level": "warning",
+        "variables": [
+          "air temperature",
+          "specific humidity"
+        ],
+        "references": [
+          {
+            "title": "JRA-55 based surface dataset for driving ocean–sea-ice models (JRA55-do), Tsujino et al., Ocean Modelling 130 (2018) 79–139, Section 3.3.4",
+            "url": "https://data.coaps.fsu.edu/pub/eric/papers_html/Tsujino_et_al_18.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "As a result, the air temperature and specific humidity of JRA-55 tend to be suspiciously low in the marginal sea-ice zones, specifically in the Labrador Sea, in the pre-satellite period, which can result in unrealistically strong deep water formation in ocean models. Thus, at latitudes poleward of 40°N or 50°S, we added the time series of the difference of the temperature and specific humidity between the adjusted JRA-55 and CORE (CORE minus the adjusted JRA-55) to the adjusted JRA-55 fields for 1958–1978.",
+            "url": "https://data.coaps.fsu.edu/pub/eric/papers_html/Tsujino_et_al_18.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO003",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1991-01-01",
+          "1992-12-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA55DO/JRA55DO003",
+        "title": "Pinatubo eruption missing from shortwave, 1991-1992",
+        "message": "The drop in downward shortwave radiation after the 1991 Mt. Pinatubo eruption is in CORE but missing from JRA-55 and JRA55-do. Models forced with JRA55-do cool around 1991 only because of low air temperatures assimilated into JRA-55. The producers found this insufficient to reproduce the observed cooling in 1991.",
+        "level": "warning",
+        "variables": [
+          "downward shortwave radiation",
+          "air temperature"
+        ],
+        "references": [
+          {
+            "title": "Evaluation of global ocean–sea-ice model simulations based on the experimental protocols of the Ocean Model Intercomparison Project phase 2 (OMIP-2), Tsujino et al., Geosci. Model Dev. 13, 3643–3708, 2020",
+            "url": "https://gmd.copernicus.org/articles/13/3643/2020/gmd-13-3643-2020.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "This eruption is absent in the OMIP-2 (JRA55-do) dataset, resulting in stronger cooling by 5 W m−2 only in OMIP-1 for the year 1991 according to Tsujino et al. (2018) (see their Fig. 22). The decline found in OMIP-2 is due to the low air temperature assimilated in the original JRA-55 analysis product, which turned out to be insufficient to reproduce the observed cooling in 1991.",
+            "url": "https://gmd.copernicus.org/articles/13/3643/2020/gmd-13-3643-2020.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO004",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180.0, -65.0],
+            [0.0, -65.0],
+            [180.0, -65.0],
+            [180.0, -35.0],
+            [0.0, -35.0],
+            [-180.0, -35.0],
+            [-180.0, -65.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "JRA55DO/JRA55DO004",
+        "title": "Southern Hemisphere westerly wind stress too strong",
+        "message": "Since v1.3, wind speed is adjusted with an offset rather than a multiplicative factor, which strengthens the zonal wind stress in the mid-latitude westerlies. Compared with the SCOW scatterometer climatology, the stress in the Northern Hemisphere mid-latitudes is close, but in the Southern Hemisphere it is too strong. It is still an improvement on raw JRA-55.",
+        "level": "warning",
+        "variables": [
+          "wind vector",
+          "zonal wind stress"
+        ],
+        "references": [
+          {
+            "title": "User manual of JRA-55 based surface dataset for driving ocean–sea-ice models (JRA55-do), v1.6 (14 December 2024), Appendix C.9",
+            "url": "https://climate.mri-jma.go.jp/pub/ocean/JRA55-do/docs/v1_6-manual/User_manual_jra55_do_v1_6.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The zonal wind stresses in the mid latitudes of the Northern Hemisphere get close to whereas those of the Southern Hemisphere get too strong relative to the Scatterometer Oceanic Wind Stress (SCOW) product (Risien and Chelton, 2008) in version 1.3.",
+            "url": "https://climate.mri-jma.go.jp/pub/ocean/JRA55-do/docs/v1_6-manual/User_manual_jra55_do_v1_6.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO005",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [125.0, 0.0],
+              [180.0, 0.0],
+              [180.0, 15.0],
+              [125.0, 15.0],
+              [125.0, 0.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, 0.0],
+              [-78.0, 0.0],
+              [-78.0, 15.0],
+              [-180.0, 15.0],
+              [-180.0, 0.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "JRA55DO/JRA55DO005",
+        "title": "ITCZ wind adjustment weakens North Equatorial Countercurrent",
+        "message": "The adjustment corrects weak ITCZ winds in the raw reanalysis by increasing wind speed there. This wrongly strengthens the weaker mean easterlies along the ITCZ relative to their surroundings and weakens the wind stress curl north and south of it. Models forced with JRA55-do, as with CORE, simulate a too-weak eastward North Equatorial Countercurrent at 6-8°N and a sea surface height bias.",
+        "level": "warning",
+        "variables": [
+          "wind speed",
+          "wind stress curl"
+        ],
+        "references": [
+          {
+            "title": "Evaluation of global ocean–sea-ice model simulations based on the experimental protocols of the Ocean Model Intercomparison Project phase 2 (OMIP-2), Tsujino et al., Geosci. Model Dev. 13, 3643–3708, 2020",
+            "url": "https://gmd.copernicus.org/articles/13/3643/2020/gmd-13-3643-2020.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The weak wind variabilities in the Intertropical Convergence Zone (ITCZ) in the original reanalysis products have been adjusted by increasing the wind speed in both forcing datasets (see Fig. 10 of Tsujino et al., 2018). This wind speed increase results in the erroneous strengthening of the weaker mean easterly wind along the ITCZ relative to its surroundings, which was reproduced rather realistically in the original JRA-55 reanalysis.",
+            "url": "https://gmd.copernicus.org/articles/13/3643/2020/gmd-13-3643-2020.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO006",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-100.0, 5.0],
+            [-77.0, 5.0],
+            [-77.0, 20.0],
+            [-100.0, 20.0],
+            [-100.0, 5.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "JRA55DO/JRA55DO006",
+        "title": "Uncertain wind direction off Central America",
+        "message": "JRA55-do rotates JRA-55 wind directions toward QuikSCAT using a fit that works in most regions but not in several coastal ones, where the rotation is tapered. The eastern tropical North Pacific off Central America is one of them, because orography strongly affects wind direction there. The producers say simulation results in these regions should be interpreted with some care.",
+        "level": "warning",
+        "instruction": "Interpret simulation results here with care. The rotation scripts are freely available and could be modified, for example to remove the rotation correction in such regions.",
+        "variables": [
+          "wind vector",
+          "wind direction"
+        ],
+        "references": [
+          {
+            "title": "JRA-55 based surface dataset for driving ocean–sea-ice models (JRA55-do), Tsujino et al., Ocean Modelling 130 (2018) 79–139, Section 3.4.2",
+            "url": "https://data.coaps.fsu.edu/pub/eric/papers_html/Tsujino_et_al_18.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The eastern tropical North Pacific off the coast of Central America is one of those regions where the wind direction is strongly affected by orography. Simulation results should be interpreted with some care in those regions.",
+            "url": "https://data.coaps.fsu.edu/pub/eric/papers_html/Tsujino_et_al_18.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO007",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-100.0, 60.0],
+            [-75.0, 60.0],
+            [-75.0, 58.0],
+            [-10.0, 58.0],
+            [-10.0, 84.0],
+            [-60.0, 84.0],
+            [-75.0, 84.0],
+            [-100.0, 84.0],
+            [-100.0, 60.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "2017-01-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "JRA55DO/JRA55DO007",
+        "title": "Greenland and Arctic runoff is climatology after 2016",
+        "message": "From v1.4, runoff from Greenland and from Canadian Arctic glaciers follows the monthly 1958-2016 series of Bamber et al. (2018). After 2016 it repeats the 2012-2016 monthly climatology, so it has no interannual variability.",
+        "level": "warning",
+        "variables": [
+          "friver",
+          "licalvf"
+        ],
+        "references": [
+          {
+            "title": "User manual of JRA-55 based surface dataset for driving ocean–sea-ice models (JRA55-do), v1.6 (14 December 2024), Section 2.1 and Appendix C.10",
+            "url": "https://climate.mri-jma.go.jp/pub/ocean/JRA55-do/docs/v1_6-manual/User_manual_jra55_do_v1_6.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "For the period before 1958 and after 2016, the monthly climatology from 1958 to 1962 and from 2012 to 2016 is used, respectively.",
+            "url": "https://climate.mri-jma.go.jp/pub/ocean/JRA55-do/docs/v1_6-manual/User_manual_jra55_do_v1_6.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA55DO/JRA55DO008",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1958-01-01",
+          "1958-12-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA55DO/JRA55DO008",
+        "title": "River discharge too high in 1958",
+        "message": "River discharge in JRA55-do is excessive in 1958. JRA-55's land-surface model produced high runoff that year, and the adjustment could not correct it because it applies the 1963 factor to 1958-1962.",
+        "level": "warning",
+        "variables": [
+          "friver",
+          "river runoff"
+        ],
+        "references": [
+          {
+            "title": "JRA-55 based surface dataset for driving ocean–sea-ice models (JRA55-do), Tsujino et al., Ocean Modelling 130 (2018) 79–139, Section 4",
+            "url": "https://data.coaps.fsu.edu/pub/eric/papers_html/Tsujino_et_al_18.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The excessive river discharge in 1958 of JRA55-do occurred because the high runoff from the land-surface component of JRA-55 of that year could not be appropriately corrected by the present adjustment method that uses the multiplicative factor for 1963 during the period 1958–1962.",
+            "url": "https://data.coaps.fsu.edu/pub/eric/papers_html/Tsujino_et_al_18.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

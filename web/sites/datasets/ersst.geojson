@@ -1,0 +1,45 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "ERSSTv5: known issues",
+    "description": "Known issues of NOAA Extended Reconstructed Sea Surface Temperature version 5 (ERSSTv5) that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "ERSST/ERSST001",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1854-01-01",
+          "1949-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ERSST/ERSST001",
+        "title": "Data more reliable after the 1940s",
+        "message": "NCEI's ERSST product page states, in the version 5 specifications, that the data are more reliable after the 1940s.",
+        "level": "warning",
+        "instruction": "Treat SST from before about 1950 with more caution than later values.",
+        "variables": [
+          "SST",
+          "SSTA"
+        ],
+        "references": [
+          {
+            "title": "Extended Reconstructed Sea Surface Temperature (ERSST) | National Centers for Environmental Information (NCEI)",
+            "url": "https://www.ncei.noaa.gov/products/extended-reconstructed-sst"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Data are more reliable after the 1940’s",
+            "url": "https://www.ncei.noaa.gov/products/extended-reconstructed-sst"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

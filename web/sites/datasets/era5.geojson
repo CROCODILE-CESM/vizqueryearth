@@ -1,0 +1,400 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "ERA5: known issues",
+    "description": "Known issues of ERA5 global atmospheric reanalysis (ECMWF / Copernicus Climate Change Service), 1940 to present, including the 1940-1978 back extension, ERA5.1 (2000-2006 re-run) and ERA5T (initial release) that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5001",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2000-01-01",
+          "2006-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5001",
+        "title": "ERA5 is too cold in the lower stratosphere, 2000-2006",
+        "message": "From 2000 to 2006 ERA5 fits radiosonde temperatures poorly in the stratosphere, with a cold bias in the lower stratosphere, and a warm bias higher up persists for much of the ERA5 period. ERA5.1, a re-run of ERA5 for 2000 to 2006 only, rectifies the lower stratospheric cold bias and better represents upper stratospheric temperature and stratospheric humidity.",
+        "level": "warning",
+        "instruction": "For 2000-2006, use ERA5.1 wherever the stratosphere matters. ERA5.1 comes from MARS (CDS API dataset 'reanalysis-era5.1-complete'), not from the CDS disks.",
+        "variables": [
+          "stratospheric temperature",
+          "stratospheric humidity"
+        ],
+        "references": [
+          {
+            "title": "ERA5: data documentation, Known issues (Copernicus Knowledge Base, ECMWF)",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "From 2000 to 2006, ERA5 has a poor fit to radiosonde temperatures in the stratosphere, with a cold bias in the lower stratosphere. In addition, a warm bias higher up persists for much of the ERA5 period.",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5002",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "..",
+          "1945-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5002",
+        "title": "ERA5 is less reliable before 1946, with a cold stratosphere",
+        "message": "Before the mid-1940s ERA5 had no upper-air observations. On the yearly scale, global mean temperature for the early 1940s agrees less well with reconstructions based only on observations, and the lack of upper-air observations exposes a model cold bias in the lower stratosphere. Agreement is much better from the mid- to late-1940s onwards.",
+        "level": "warning",
+        "instruction": "Treat yearly global mean temperature and lower stratospheric temperature from the early 1940s with caution.",
+        "variables": [
+          "global mean temperature",
+          "lower stratospheric temperature"
+        ],
+        "references": [
+          {
+            "title": "ERA5 reanalysis now available from 1940 (ECMWF Newsletter 175, Spring 2023)",
+            "url": "https://www.ecmwf.int/en/newsletter/175/news/era5-reanalysis-now-available-1940"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "On the yearly scale, there is less agreement in global mean temperature for the early 1940s, while the lack of upper-air observations in these years also exposes a model cold bias in the lower stratosphere. Agreement is much better from the mid- to late-1940s onwards.",
+            "url": "https://www.ecmwf.int/en/newsletter/175/news/era5-reanalysis-now-available-1940"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5003",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180.0, -90.0],
+            [0.0, -90.0],
+            [180.0, -90.0],
+            [180.0, 0.0],
+            [0.0, 0.0],
+            [-180.0, 0.0],
+            [-180.0, -90.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "..",
+          "1969-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5003",
+        "title": "Southern Hemisphere is sparsely observed before 1970",
+        "message": "ERA5 used no satellite data before 1970, and the in-situ observing system over the Southern Hemisphere was sparse; before the mid-1940s there were no upper-air observations at all. ECMWF says ERA5 should give a good estimate of the synoptic situation for large regions of the Northern Hemisphere from 1940. Where ERA5 is controlled more by the model than by observations, it should still describe low-frequency variability well.",
+        "level": "warning",
+        "instruction": "Use the ERA5 ensemble spread to judge when and where the fields are dominated by observations and where they are more controlled by the model.",
+        "references": [
+          {
+            "title": "ERA5 reanalysis now available from 1940 (ECMWF Newsletter 175, Spring 2023)",
+            "url": "https://www.ecmwf.int/en/newsletter/175/news/era5-reanalysis-now-available-1940"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "In ERA5, no satellite data were used before 1970. The in‑situ observing system was sparse over the southern hemisphere, and before the mid‑1940s no upper‑air observations were available.",
+            "url": "https://www.ecmwf.int/en/newsletter/175/news/era5-reanalysis-now-available-1940"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5004",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-92.5, 41.0],
+            [-75.5, 41.0],
+            [-75.5, 49.5],
+            [-92.5, 49.5],
+            [-92.5, 41.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "..",
+          "2013-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5004",
+        "title": "Great Lakes 2 m temperature cycle too strong before 2014",
+        "message": "Before 2014 ERA5 did not use sea surface temperature over the Great Lakes to nudge its lake model. As a result, 2 metre temperature there has an annual cycle that is too strong, too cold in winter and too warm in summer.",
+        "level": "warning",
+        "instruction": "Treat the ERA5 2 metre temperature seasonal cycle over the Great Lakes before 2014 with caution, including trends that cross 2014.",
+        "variables": [
+          "2 metre temperature"
+        ],
+        "references": [
+          {
+            "title": "ERA5: data documentation, Known issues (Copernicus Knowledge Base, ECMWF)",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Prior to 2014, the SST was not used over the Great Lakes to nudge the lake model. Consequently, the 2 metre temperature has an annual cycle that is too strong, with temperatures being too cold in winter and too warm in summer.",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5005",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-75.0, 82.0],
+            [0.0, 82.0],
+            [0.0, 90.0],
+            [-75.0, 90.0],
+            [-75.0, 82.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1979-01-01",
+          "1989-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5005",
+        "title": "Too little sea ice north of Greenland, 1979-1989",
+        "message": "From 1979 to 1989, in a region just to the north of Greenland, ERA5 sea-ice cover outside the melt season is too low, and hence 2 metre temperature is too high.",
+        "level": "warning",
+        "instruction": "Do not rely on ERA5 2 metre temperature trends north of Greenland that span the 1980s.",
+        "variables": [
+          "sea-ice cover",
+          "2 metre temperature"
+        ],
+        "references": [
+          {
+            "title": "ERA5: data documentation, Known issues (Copernicus Knowledge Base, ECMWF)",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "ERA5 sea-ice cover and 2 metre temperature: in the period 1979-1989, in a region just to the north of Greenland, the sea-ice cover outside of the melt season is too low and hence the 2 metre temperature is too high.",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5006",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-8.0, 38.0],
+            [-6.0, 38.0],
+            [-6.0, 43.0],
+            [-8.0, 43.0],
+            [-8.0, 38.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1977-12-01",
+          "1979-03-31"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5006",
+        "title": "Spurious snow in Iberia, December 1977 to March 1979",
+        "message": "Because erroneous in situ snow observations were assimilated, ERA5 has snow in Iberia throughout 1978, and 2 m temperature shows negative anomalies of several degrees Celsius. In the monthly means the erroneous snow depth lasts from December 1977 to March 1979. ERA5-Land has no snow there but inherits the 2 m temperature anomaly from its ERA5 forcing.",
+        "level": "warning",
+        "instruction": "Treat ERA5 snow depth and 2 m temperature, and ERA5-Land 2 m temperature, over Iberia from December 1977 to March 1979 as erroneous.",
+        "variables": [
+          "snow depth",
+          "2m temperature"
+        ],
+        "references": [
+          {
+            "title": "ERA5: data documentation, Known issues (Copernicus Knowledge Base, ECMWF)",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Snow present in Iberia throughout 1978 due to assimilation of erroneous in situ snow data. This has an effect on 2m temperature, which shows negative anomalies of several degrees Celsius.",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5007",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-154.0, -74.0],
+            [-100.0, -74.0],
+            [-100.0, -68.0],
+            [-154.0, -68.0],
+            [-154.0, -74.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1996-05-01",
+          "1996-10-31"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5007",
+        "title": "False cyclone over the Amundsen Sea, May to October 1996",
+        "message": "From May to October 1996 ERA5 has a highly unrealistic semi-permanent cyclone over the Amundsen Sea, which corrupts near-surface winds over the Southern Ocean near Antarctica. It comes from the wrong station altitude sometimes being reported for the nearest observation station.",
+        "level": "warning",
+        "instruction": "Treat ERA5 near-surface winds over the Amundsen Sea from May to October 1996 as unreliable.",
+        "variables": [
+          "near-surface winds"
+        ],
+        "references": [
+          {
+            "title": "ERA5: data documentation, Known issues (Copernicus Knowledge Base, ECMWF)",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "From May-October 1996 there is a semi-permanent cyclone which appears in ERA5 over the Amundsen Sea region (approximately 74 to 68°S, 206-260°E) which is highly unrealistic. This is due to the wrong station altitude sometimes being reported for the nearest observation station.",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/76414402/ERA5+data+documentation#ERA5:datadocumentation-Knownissues"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ERA5/ERA5008",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [163.9, -74.3],
+              [165.4, -74.3],
+              [165.4, -73.8],
+              [163.9, -73.8],
+              [163.9, -74.3]
+            ]
+          ],
+          [
+            [
+              [137.0, -6.0],
+              [138.35, -6.0],
+              [138.35, -4.95],
+              [137.0, -4.95],
+              [137.0, -6.0]
+            ]
+          ],
+          [
+            [
+              [78.0, 37.8],
+              [89.6, 37.8],
+              [89.6, 42.8],
+              [78.0, 42.8],
+              [78.0, 37.8]
+            ]
+          ],
+          [
+            [
+              [74.4, 42.6],
+              [75.6, 42.6],
+              [75.6, 43.4],
+              [74.4, 43.4],
+              [74.4, 42.6]
+            ]
+          ],
+          [
+            [
+              [39.0, 40.65],
+              [40.2, 40.65],
+              [40.2, 41.4],
+              [39.0, 41.4],
+              [39.0, 40.65]
+            ]
+          ],
+          [
+            [
+              [-80.1, -2.35],
+              [-79.1, -2.35],
+              [-79.1, -1.0],
+              [-80.1, -1.0],
+              [-80.1, -2.35]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1979-01-01",
+          "2020-02-18"
+        ]
+      },
+      "properties": {
+        "name": "ERA5/ERA5008",
+        "title": "Spurious 10 m wind spikes at a few locations, 1979-2020",
+        "message": "A few times per year, ERA5's analysed low-level winds, such as the 10 m winds, become unrealistically large at one of a few apparently preferred locations, reaching about 300 m/s. The cause is an instability in the analysis method towards the end of the assimilation windows, and 100 m winds are sometimes affected too. From 19 February 2020, ERA5 replaces the analysed 10 m winds with the '4v' winds whenever either component exceeds 50 m/s.",
+        "level": "warning",
+        "instruction": "For dates from 1979 to 18 February 2020, check the source's tables of events where a 10 m wind component exceeds 50 m/s. For those times, use the '4v' 10 m wind components from 'reanalysis-era5-complete' (MARS), as the page's CDS API script shows.",
+        "variables": [
+          "10 metre U wind component",
+          "10 metre V wind component",
+          "100m winds"
+        ],
+        "references": [
+          {
+            "title": "ERA5: large 10m winds (Copernicus Knowledge Base, ECMWF)",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/140382814/ERA5+large+10m+winds"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "A few times per year, the analysed low-level winds, e.g. the 10m winds, become unrealistically large in a particular location, which varies amongst a few apparently preferred locations. The largest values seen so far are about 300 ms-1.",
+            "url": "https://confluence.ecmwf.int/spaces/CKB/pages/140382814/ERA5+large+10m+winds"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

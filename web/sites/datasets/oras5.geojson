@@ -1,0 +1,371 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "ORAS5: known issues",
+    "description": "Known issues of ECMWF Ocean Reanalysis System 5 (ORAS5), 1958 to present that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-82.0, 28.0],
+            [-40.0, 28.0],
+            [-40.0, 48.0],
+            [-82.0, 48.0],
+            [-82.0, 28.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "ORAS5/ORAS5001",
+        "title": "Large SST biases in the Gulf Stream",
+        "message": "The producers report that SST biases in the Gulf Stream region remain large in ORAS5. They link the biases to a misrepresentation of front positions and an overshoot of the Gulf Stream's northward transport.",
+        "level": "warning",
+        "instruction": "Treat ORAS5 SST and front positions in the Gulf Stream and its extension with caution.",
+        "variables": [
+          "SST"
+        ],
+        "references": [
+          {
+            "title": "Ocean Reanalysis System 5 (ORAS5) | ECMWF",
+            "url": "https://www.ecmwf.int/en/forecasts/datasets/ocean-reanalysis-system-5-oras5"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The SST biases in the Gulf Stream region remain large in ORAS5 though, which is associated with a misrepresentation of front positions and overshoot of the northward transport of the Gulf Stream.",
+            "url": "https://www.ecmwf.int/en/forecasts/datasets/ocean-reanalysis-system-5-oras5"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5002",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-64.0, 52.0],
+            [-50.0, 52.0],
+            [-50.0, 45.0],
+            [-30.0, 45.0],
+            [-30.0, 55.0],
+            [-45.0, 55.0],
+            [-45.0, 66.0],
+            [-64.0, 66.0],
+            [-64.0, 52.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1981-01-01",
+          "1996-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ORAS5/ORAS5002",
+        "title": "Too-strong AMOC and Gulf Stream in 1981–1996",
+        "message": "In ORAS5's early period (1981–1996) the AMOC is too strong, at about 24 Sv judged against Florida Strait transport, and the authors attribute the excess heat north-east of the Grand Banks to a Gulf Stream that is too strong and feeds too much into the western subpolar gyre. Relaxation to observed SST adds more than 150 W m-2 of cooling there to keep SST close to observations. Forecasts started from ORAS5 in this period, where the relaxation is absent, develop a fast-growing warm SST bias of about 2 K in the region, while the late period 2001–2016 shows no large bias.",
+        "level": "warning",
+        "instruction": "If you initialize or force a model from ORAS5 in the North Atlantic for 1981–1996, expect excess ocean heat transport into the subpolar gyre and fast SST warming once the SST relaxation is gone.",
+        "variables": [
+          "AMOC",
+          "SST",
+          "Florida Strait transports",
+          "barotropic stream function"
+        ],
+        "references": [
+          {
+            "title": "The importance of North Atlantic Ocean transports for seasonal forecasts (Tietsche, Balmaseda, Zuo, Roberts, Mayer and Ferranti, ECMWF; Climate Dynamics 55:1995–2011, 2020)",
+            "url": "https://link.springer.com/content/pdf/10.1007/s00382-020-05364-6.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "In the ocean reanalyses providing the forecast initial conditions, excessive heat transport is balanced by additional surface cooling from relaxing towards observed SST, and therefore the fit to observations is acceptable. However, the additional surface cooling contributes to enhanced deep convection and strengthens the AMOC, thereby establishing a feedback loop.",
+            "url": "https://link.springer.com/content/pdf/10.1007/s00382-020-05364-6.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5003",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, 50.0],
+              [0.0, 50.0],
+              [180.0, 50.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 50.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -50.0],
+              [0.0, -50.0],
+              [-180.0, -50.0],
+              [-180.0, -90.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "ORAS5/ORAS5003",
+        "title": "No sea-level assimilation poleward of 50° or on shelves",
+        "message": "ORAS5 does not assimilate altimeter sea-level anomalies outside 50°S–50°N or in regions shallower than 500 m. The producers attribute ORAS5's poor sea-level performance near the coast and in the extra-tropics partly to this.",
+        "level": "warning",
+        "instruction": "Check ORAS5 sea level against independent altimetry before using it poleward of 50° or on shelves shallower than 500 m.",
+        "variables": [
+          "SLA",
+          "sea level"
+        ],
+        "references": [
+          {
+            "title": "The ECMWF operational ensemble reanalysis–analysis system for ocean and sea ice: a description of the system and assessment (Zuo et al., 2019, Ocean Science 15:779–808)",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Poor performance near the coast and in the extra-tropics could be attributed partly to no SLA assimilation in these regions.",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5004",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1958-01-01",
+          "1992-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ORAS5/ORAS5004",
+        "title": "No altimeter constraint on sea level before 1993",
+        "message": "Before 1993, the mass contribution to global mean sea level in ORAS5 is constrained only by a GRACE-derived climatology, and altimeter-derived global mean sea level is assimilated only after 1993. In the producers' tests, removing altimeter sea-level anomaly data significantly degraded the system's sea-level performance.",
+        "level": "warning",
+        "variables": [
+          "GMSL",
+          "SLA",
+          "sea level"
+        ],
+        "references": [
+          {
+            "title": "The ECMWF operational ensemble reanalysis–analysis system for ocean and sea ice: a description of the system and assessment (Zuo et al., 2019, Ocean Science 15:779–808)",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Prior to 1993, mass variation that contributes to the change in Global Mean Sea Level (GMSL) in ORAS5 was constrained using the GRACE-derived climatology.",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5005",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1958-01-01",
+          "1982-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ORAS5/ORAS5005",
+        "title": "Spin-up before 1979 and ocean heat drift to 1982",
+        "message": "ORAS5 proper starts in 1979. The 1958–1978 data come from a spin-up run that assimilated in situ data, which the producers say can be treated as a backward extension. The ensemble spread inherited from the spin-ups stays high especially in 1975–1979, and global ocean heat content falls in all members during 1975–1982.",
+        "level": "warning",
+        "instruction": "Treat 1958–1978 as a backward extension rather than the reanalysis proper, and be careful with ocean heat content trends that start before 1983.",
+        "variables": [
+          "ocean heat content (OHC)"
+        ],
+        "references": [
+          {
+            "title": "The ECMWF operational ensemble reanalysis–analysis system for ocean and sea ice: a description of the system and assessment (Zuo et al., 2019, Ocean Science 15:779–808)",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "ORAS5 provides historical ocean and sea-ice conditions from 1979 onwards. And a spin-up period between 1958 and 1978 is also provided (INI1 in Table 2), which can be treated as a backward extension by users that are interested in a longer reanalysis period.",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5006",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2015-01-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "ORAS5/ORAS5006",
+        "title": "Forcing and observation switch in 2015",
+        "message": "From 2015, ORAS5 is forced by ECMWF operational NWP fields instead of ERA-Interim, and after May 2015 it assimilates near-real-time GTS in situ data instead of reprocessed EN4. The switch to GTS brought a noticeable drop in available Argo observations and a small rise in temperature and salinity errors.",
+        "level": "warning",
+        "instruction": "Treat the end of 2014 as a possible discontinuity in trend or climate-monitoring work. The producers say consistent forcing and reprocessed observations are needed for time series suitable for climate monitoring beyond 2014.",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "The ECMWF operational ensemble reanalysis–analysis system for ocean and sea ice: a description of the system and assessment (Zuo et al., 2019, Ocean Science 15:779–808)",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "After 2015 a noticeable drop in the available Argo observations is due to switching from reprocessed EN4 to the NRT GTS data stream, leading to small rise in ORAS5 temperature and salinity RMSEs in Fig. 16.",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5007",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-64.0, 52.0],
+              [-45.0, 52.0],
+              [-45.0, 59.0],
+              [-5.0, 59.0],
+              [-5.0, 81.0],
+              [-45.0, 81.0],
+              [-45.0, 66.0],
+              [-64.0, 66.0],
+              [-64.0, 52.0]
+            ]
+          ],
+          [
+            [
+              [9.0, 53.0],
+              [31.0, 53.0],
+              [31.0, 66.0],
+              [9.0, 66.0],
+              [9.0, 53.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "ORAS5/ORAS5007",
+        "title": "Sea-ice biases in Labrador Sea and off East Greenland",
+        "message": "Against ESA CCI sea-ice data, ORAS5 sea-ice concentration errors are largest (RMSE up to 20%) in the Labrador Sea in winter, from a positive bias in the west and a negative bias in the east. Errors are also high off east Greenland, from a positive bias in the East Greenland Current north of Iceland and a negative bias south of it. Errors along Arctic coastlines and in the Baltic Sea are attributed to observation errors in the assimilated OSTIA sea-ice reanalysis.",
+        "level": "warning",
+        "variables": [
+          "SIC"
+        ],
+        "references": [
+          {
+            "title": "The ECMWF operational ensemble reanalysis–analysis system for ocean and sea ice: a description of the system and assessment (Zuo et al., 2019, Ocean Science 15:779–808)",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The largest ORAS5 SIC RMSE (up to 20 %) appears in the Labrador Sea in Arctic winter (Fig. 23c), which is caused by a mean positive (negative) SIC bias in the western (eastern) part of Labrador Sea.",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ORAS5/ORAS5008",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [137.0, -10.0],
+              [180.0, -10.0],
+              [180.0, 10.0],
+              [137.0, 10.0],
+              [137.0, -10.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -10.0],
+              [-95.0, -10.0],
+              [-95.0, 10.0],
+              [-180.0, 10.0],
+              [-180.0, -10.0]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "2012-01-01",
+          "2014-12-31"
+        ]
+      },
+      "properties": {
+        "name": "ORAS5/ORAS5008",
+        "title": "TAO/TRITON mooring gap raises tropical errors, 2012–2014",
+        "message": "A disruption of the TAO/TRITON mooring array between 2012 and 2014 slightly increased ORAS5 errors in the tropics during that period. The producers also note a drastic reduction in TAO/TRITON observations since 2012.",
+        "level": "info",
+        "variables": [
+          "temperature"
+        ],
+        "references": [
+          {
+            "title": "The ECMWF operational ensemble reanalysis–analysis system for ocean and sea ice: a description of the system and assessment (Zuo et al., 2019, Ocean Science 15:779–808)",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "A disruption in TAO/TRITON mooring array between 2012 and 2014 is also visible in Fig. 16a, which caused slightly increased ORAS5 RMSE in the tropics during this period (not shown).",
+            "url": "https://os.copernicus.org/articles/15/779/2019/os-15-779-2019.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

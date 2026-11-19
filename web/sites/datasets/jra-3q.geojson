@@ -1,0 +1,348 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "JRA-3Q: known issues",
+    "description": "Known issues of Japanese Reanalysis for Three Quarters of a Century (JRA-3Q), Japan Meteorological Agency that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q001",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, 40.0],
+              [0.0, 40.0],
+              [180.0, 40.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 40.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -50.0],
+              [0.0, -50.0],
+              [-180.0, -50.0],
+              [-180.0, -90.0]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1985-06-01",
+          "2013-04-30"
+        ]
+      },
+      "properties": {
+        "name": "JRA3Q/JRA3Q001",
+        "title": "Sea ice spread into open ocean, June 1985 to April 2013",
+        "message": "From June 1985 to April 2013, ice cover within about 250 km of sea-ice areas, which should be 0.0, is reported as an average of 0.15. A step meant only for coasts, which expands ice areas by several grid cells before regridding, was also applied in the open ocean. Nearby, this raises surface upward short-wave flux, lowers upward long-wave, sensible and latent heat fluxes and 2-m temperature, and raises 2-m relative humidity. JMA says the differences are a fraction of the year-to-year standard deviation and the effects are local and minor.",
+        "level": "warning",
+        "instruction": "Take this into account when using ice cover, surface fluxes or screen-level fields near the sea-ice edge from June 1985 to April 2013. Data outside this period are not affected.",
+        "variables": [
+          "Ice cover",
+          "Surface upward short-wave radiation flux",
+          "Surface upward long-wave radiation flux",
+          "Sensible/latent heat fluxes",
+          "Surface temperature/relative humidity"
+        ],
+        "references": [
+          {
+            "title": "JRA-3Q Usage: Local issues with sea ice parameters (JMA Information Infrastructure Department, 9 December 2022)",
+            "url": "https://www.data.jma.go.jp/jra/html/JRA-3Q/document/JRA-3Q_qualityissue_20221209_en.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The Japanese Reanalysis for Three Quarters of a Century (JRA-3Q) contained errors in ice cover for the period from June 1985 to April 2013. As a result, values within around 250 km surrounding the relevant area (with coverage of 0.1 or above), which should be 0.0, is reported as an average of 0.15.",
+            "url": "https://www.data.jma.go.jp/jra/html/JRA-3Q/document/JRA-3Q_qualityissue_20221209_en.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q002",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1985-05-01",
+          "1985-06-30"
+        ]
+      },
+      "properties": {
+        "name": "JRA3Q/JRA3Q002",
+        "title": "SST source changes from COBE-SST2 to MGDSST in June 1985",
+        "message": "The SST lower boundary is COBE-SST2 (1 degree, in situ based) until May 1985 and MGDSST (0.25 degree, satellite based) from June 1985. Compared with the JRA-3Q-COBE run over 1986-1990, the switch gives steeper SST gradients along western boundary currents and more precipitation east of Japan and along the east coast of North America, by about half the interannual standard deviation. The producers say care is needed for low-frequency variability and trends across the two periods, especially in variables sensitive to the lower boundary.",
+        "level": "warning",
+        "instruction": "Take care analysing trends or low-frequency variability across June 1985. Compare with the JRA-3Q-COBE sub-product (COBE-SST2 kept for June 1985 to December 1990) to judge the impact on your variables.",
+        "variables": [
+          "sea surface temperature",
+          "precipitation",
+          "latent heat fluxes"
+        ],
+        "references": [
+          {
+            "title": "Kosaka et al. (2024), The JRA-3Q Reanalysis, J. Meteor. Soc. Japan, 102, 49-109, Section 9.5 Impact of switching SST datasets",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Care is needed in using the JRA-3Q products, especially variables that have large sensitivity to lower-boundary conditions, for analyzing low-frequency variability and trends across the two periods (until May 1985 and from June 1985) during which the different SST datasets were used.",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q003",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-92.5, 41.0],
+            [-75.5, 41.0],
+            [-75.5, 49.5],
+            [-92.5, 49.5],
+            [-92.5, 41.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1985-06-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "JRA3Q/JRA3Q003",
+        "title": "Great Lakes surface temperatures are filled, not analysed",
+        "message": "From June 1985 MGDSST has no Great Lakes surface temperatures, so JRA-3Q fills them with zonal-mean sea SSTs at the same latitude, corrected for elevation. Over 1986-1990 this makes latent heat fluxes over the Great Lakes about 30 W m-2 larger than in the COBE-SST2 run, comparable to the difference in the Gulf Stream region. The water temperature in JRA-3Q is the model's lower-boundary condition and is not the same as the original SST datasets.",
+        "level": "warning",
+        "instruction": "Do not treat JRA-3Q lake surface temperature or lake fluxes over the Great Lakes as observed; compare with JRA-3Q-COBE for June 1985 to December 1990 to gauge the sensitivity.",
+        "variables": [
+          "lake surface temperature",
+          "latent heat flux"
+        ],
+        "references": [
+          {
+            "title": "Kosaka et al. (2024), The JRA-3Q Reanalysis, J. Meteor. Soc. Japan, 102, 49-109, Section 9.5 Impact of switching SST datasets",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "In the original MGDSST, analyses of lake surface temperatures over the Great Lakes were not generated but instead were left as missing values. As a substitute that takes account of the dependence of surface temperature on latitude and elevation, those missing surface temperatures over lakes in MGDSST have been replaced in JRA-3Q with zonal mean SSTs over the sea at the same latitude after elevation correction.",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q004",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1959-09-01",
+          "2022-01-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA3Q/JRA3Q004",
+        "title": "Discontinuities where production streams join",
+        "message": "JRA-3Q was produced in three streams: C (September 1947 to September 1959), B (October 1959 to December 1990) and A (from 1991, continuing in near real time). May 2013 to December 2021 was recalculated to fix inappropriate tropical cyclone bogus data outside the western North Pacific. As a result the combined record has three discontinuities: 1 October 1959, 1 January 1991 and 1 January 2022.",
+        "level": "warning",
+        "instruction": "Check for jumps at these dates when a trend, composite or climatology spans them.",
+        "variables": [
+          "all analysed fields"
+        ],
+        "references": [
+          {
+            "title": "Kosaka et al. (2024), The JRA-3Q Reanalysis, J. Meteor. Soc. Japan, 102, 49-109, Section 6 Production",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "In JRA-3Q, the period covered is divided into three streams to shorten the production time: Stream A (from 1991 onward), Stream B (October 1959 to December 1990), and Stream C (September 1947 to September 1959).",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q005",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1982-01-01",
+          "1993-12-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA3Q/JRA3Q005",
+        "title": "Too little stratospheric warming after volcanic eruptions",
+        "message": "The JRA-3Q forecast model does not include year-to-year changes in volcanic aerosols, so stratospheric warming after major eruptions is smaller than expected. Departures from radiosondes near 30 hPa jump after El Chichon (1982) and Mt. Pinatubo (1991), and top-of-atmosphere reflected solar radiation shows no volcanic aerosol signal.",
+        "level": "warning",
+        "variables": [
+          "stratospheric temperature",
+          "reflected solar radiation at the top of the atmosphere"
+        ],
+        "references": [
+          {
+            "title": "Kosaka et al. (2024), The JRA-3Q Reanalysis, J. Meteor. Soc. Japan, 102, 49-109, Section 10 Conclusions",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Several problems have also been identified in our initial quality assessment. Stratospheric warming after major volcanic eruptions is smaller than expected, primarily due to the fact that the interannual variations of volcanic aerosols are not taken into account in the forecast model.",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q006",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1947-09-01",
+          "1956-12-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA3Q/JRA3Q006",
+        "title": "Few observations before 1957, worst in the 1940s",
+        "message": "Before the International Geophysical Year (1957-1958), regular radiosonde networks were not yet global and few observations are available; almost no upper-level observations were assimilated in 1947. Errors against surface pressure observations were about twice as large in 1947 as in 1959, which the producers say points to quality issues, especially in the 1940s.",
+        "level": "warning",
+        "instruction": "Check the quality of the reanalysis carefully before using data from this period.",
+        "variables": [
+          "surface pressure",
+          "upper-air fields"
+        ],
+        "references": [
+          {
+            "title": "Kosaka et al. (2024), The JRA-3Q Reanalysis, J. Meteor. Soc. Japan, 102, 49-109, Section 9.4 Representation of past weather prior to the IGY",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "It is also a period when international regular radiosonde observations had not yet been established on a global basis, and there are few available observations prior to 1957. It is therefore important to carefully check the quality of the reanalysis data before using them.",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q007",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180.0, -10.0],
+            [0.0, -10.0],
+            [180.0, -10.0],
+            [180.0, 10.0],
+            [0.0, 10.0],
+            [-180.0, 10.0],
+            [-180.0, -10.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1947-09-01",
+          "1964-12-31"
+        ]
+      },
+      "properties": {
+        "name": "JRA3Q/JRA3Q007",
+        "title": "Degraded QBO in the early 1960s and before",
+        "message": "In the equatorial stratosphere, JRA-3Q's quasi-biennial oscillation in the early 1960s and before is substantially degraded, with amplitude falling below the 95% confidence level. In this early period it shows a period of about one year in the middle stratosphere and too small an amplitude in the lower stratosphere before the late 1960s, inconsistent with the observed QBO.",
+        "level": "warning",
+        "variables": [
+          "zonal wind",
+          "temperature"
+        ],
+        "references": [
+          {
+            "title": "Naoe et al. (2025), Representation of quasi-biennial oscillation in JRA-3Q, J. Meteor. Soc. Japan, 103, 233-255",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/103/2/103_2025-012/_html/-char/en"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "However, the JRA-3Q QBO in the early 1960s and before is substantially degraded, falling below the 95 % confidence level.",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/103/2/103_2025-012/_html/-char/en"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "JRA3Q/JRA3Q008",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180.0, -22.0],
+            [0.0, -22.0],
+            [180.0, -22.0],
+            [180.0, 22.0],
+            [0.0, 22.0],
+            [-180.0, 22.0],
+            [-180.0, -22.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "JRA3Q/JRA3Q008",
+        "title": "Excess tropical rain, mostly in the ITCZ",
+        "message": "JRA-3Q precipitation is too high compared with GPCP in the tropics, especially in the Intertropical Convergence Zone, though the excess is about 30% smaller than in JRA-55. The bias grows most from the 1990s to the 2000s.",
+        "level": "warning",
+        "instruction": "Treat JRA-3Q tropical precipitation, especially in the ITCZ, as biased high relative to observations such as GPCP.",
+        "variables": [
+          "precipitation"
+        ],
+        "references": [
+          {
+            "title": "Kosaka et al. (2024), The JRA-3Q Reanalysis, J. Meteor. Soc. Japan, 102, 49-109, Section 9.3 Precipitation",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The precipitation biases are excessive in the tropics, especially in the Intertropical Convergence Zone (ITCZ) in both JRA-3Q and JRA-55 reanalyses, but they are smaller in JRA-3Q than in JRA-55.",
+            "url": "https://www.jstage.jst.go.jp/article/jmsj/102/1/102_2024-004/_html/-char/en"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

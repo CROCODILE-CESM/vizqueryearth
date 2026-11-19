@@ -1,0 +1,340 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "GEBCO: known issues",
+    "description": "Known issues of GEBCO global bathymetric grid (General Bathymetric Chart of the Oceans; GEBCO_2026, the latest, and GEBCO_2024) with its Type Identifier (TID) grid that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180.0, 70.0],
+            [0.0, 70.0],
+            [180.0, 70.0],
+            [180.0, 90.0],
+            [0.0, 90.0],
+            [-180.0, 90.0],
+            [-180.0, 70.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO001",
+        "title": "GEBCO_2024 has gridding artifacts in the Arctic north of 70N",
+        "message": "The GEBCO_2024 Grid has artifacts in the Arctic region, largely north of 70N, that appear as lines or structure pointing towards the North Pole. They were created during grid generation, and GEBCO lists the issue as being investigated.",
+        "level": "warning",
+        "variables": [
+          "elevation"
+        ],
+        "references": [
+          {
+            "title": "Errata and known issues | GEBCO",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "There are artifacts in the GEBCO_2024 Grid in the Arctic region, largely north of 70N. The artifacts appear as lines/structure pointing towards the North pole.",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO002",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [117.0, 10.0],
+              [180.0, 10.0],
+              [180.0, 64.0],
+              [117.0, 64.0],
+              [117.0, 10.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, 10.0],
+              [-83.0, 10.0],
+              [-83.0, 64.0],
+              [-180.0, 64.0],
+              [-180.0, 10.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO002",
+        "title": "GEBCO_2026 depths are offset in the North Pacific, 10N-64N",
+        "message": "Depth values in the GEBCO_2026 Grid are offset from those in GEBCO_2025 in the North Pacific between 10N and 64N; the errata page files it under the area off the north-west coast of the USA. The offset comes from an issue in processing one of the source data sets, and GEBCO aims to correct it in a future release.",
+        "level": "warning",
+        "variables": [
+          "elevation"
+        ],
+        "references": [
+          {
+            "title": "Errata and known issues | GEBCO",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "An offset in depth values has been identified between the 2025 and 2026 releases of the GEBCO grid in the North Pacific region (between 10N and 64N). This relates to an issue in the processing of one of the source data sets used in the compilation of the GEBCO_2026 Grid.",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO003",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-93.0, 40.0],
+            [-75.0, 40.0],
+            [-75.0, 49.0],
+            [-93.0, 49.0],
+            [-93.0, 40.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO003",
+        "title": "GEBCO_2026 has discontinuities in the Great Lakes",
+        "message": "Some data sets compiled into the GEBCO grid in the Great Lakes region use different vertical datums, and this has generated discontinuities in the grid there.",
+        "level": "warning",
+        "variables": [
+          "elevation"
+        ],
+        "references": [
+          {
+            "title": "Errata and known issues | GEBCO",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "It has been noted that there is a difference in vertical datum used for some of the data sets included in the compilation of the GEBCO grid in the Great Lakes region. There has generated discontinuities in the data set.",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO004",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [131.77, 32.28],
+            [131.87, 32.28],
+            [131.87, 32.38],
+            [131.77, 32.38],
+            [131.77, 32.28]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO004",
+        "title": "GEBCO_2026 has erroneous data off Hyuga, Japan",
+        "message": "The GEBCO_2026 Grid has erroneous data at 32.3312N, 131.8187E on the continental shelf off Hyuga, Japan. GEBCO is investigating and aims to correct this in a future release.",
+        "level": "warning",
+        "variables": [
+          "elevation"
+        ],
+        "references": [
+          {
+            "title": "Errata and known issues | GEBCO",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Erroneous data have been identified at 32.3312 N, 131.8187 E in the continental shelf region off the coast of Hyuga, Japan.",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO005",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-70.84, 40.12],
+            [-70.74, 40.12],
+            [-70.74, 40.22],
+            [-70.84, 40.22],
+            [-70.84, 40.12]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO005",
+        "title": "GEBCO_2024 has a false land spike in the NW Atlantic",
+        "message": "The GEBCO_2024 Grid has an erroneous 'land' feature at 70.7934846W, 40.168019N in the Northwest Atlantic. Erroneous soundings in one of the source data sets put a data spike into the grid during grid generation.",
+        "level": "warning",
+        "variables": [
+          "elevation"
+        ],
+        "references": [
+          {
+            "title": "Errata and known issues | GEBCO",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Erroneous 'land' feature in the GEBCO_2024 Grid at 70.7934846W; 40.168019N. The anomalous feature is due to erroneous soundings in one of the source data sets used to generate the GEBCO grid.",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO006",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [114.0, 10.0],
+            [115.0, 10.0],
+            [115.0, 11.0],
+            [114.0, 11.0],
+            [114.0, 10.0]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO006",
+        "title": "GEBCO_2024 lacks some islands and atolls, South China Sea",
+        "message": "GEBCO is investigating a reported issue in the GEBCO_2024 Grid in part of the South China Sea (114-115E, 10-11N): some island and atoll features are not shown in the data set.",
+        "level": "warning",
+        "variables": [
+          "elevation"
+        ],
+        "references": [
+          {
+            "title": "Errata and known issues | GEBCO",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "We are investigating a reported issue in the GEBCO_2024 Grid in part of the South China Sea region. This is in regard to some island/atoll features not shown in the data set.",
+            "url": "https://www.gebco.net/data-products/gridded-bathymetry-data/data-set-errata"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO007",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO007",
+        "title": "Depths between surveys are interpolated; see the TID grid",
+        "message": "The level of detail in the GEBCO grid depends on its source data: areas based on soundings with interpolation guided by satellite-derived gravity data show less detail than areas based on multibeam data. Where the grid comes from a pre-generated grid (TID 70), measured and interpolated areas cannot be told apart, so the whole region may appear mapped.",
+        "level": "info",
+        "instruction": "Check the TID grid to see whether the cells in your area are based on measured data or on interpolation.",
+        "variables": [
+          "elevation",
+          "TID"
+        ],
+        "references": [
+          {
+            "title": "GEBCO TID Grid | GEBCO",
+            "url": "https://www.gebco.net/gebco-tid-grid"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "This difference in data source is reflected in the level of detail shown in the bathymetric grid.",
+            "url": "https://www.gebco.net/gebco-tid-grid"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "GEBCO/GEBCO008",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -60.0],
+              [0.0, -60.0],
+              [-180.0, -60.0],
+              [-180.0, -90.0]
+            ]
+          ],
+          [
+            [
+              [-75.0, 59.0],
+              [-10.0, 59.0],
+              [-10.0, 84.0],
+              [-75.0, 84.0],
+              [-75.0, 59.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "GEBCO/GEBCO008",
+        "title": "Main grid shows ice surface over Antarctica and Greenland",
+        "message": "The primary GEBCO grid contains land and ice-surface elevation. Under-ice topography and bathymetry for Greenland and Antarctica is in a separate version of the grid. Both are taken from BedMachine Greenland and BedMachine Antarctica.",
+        "level": "warning",
+        "instruction": "Use the under-ice topography version of the grid where you need the bed or seabed beneath the Greenland and Antarctic ice.",
+        "variables": [
+          "elevation"
+        ],
+        "references": [
+          {
+            "title": "The GEBCO_2026 Grid | GEBCO",
+            "url": "https://www.gebco.net/data-products-gridded-bathymetry-data/gebco2026-grid"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The primary GEBCO_2026 grid contains land and ice surface elevation information. A version is also made available with under-ice topography/bathymetry information for Greenland and Antarctica.",
+            "url": "https://www.gebco.net/data-products-gridded-bathymetry-data/gebco2026-grid"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

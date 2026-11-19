@@ -1,0 +1,310 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "HYCOM GOFS 3.1: known issues",
+    "description": "Known issues of HYCOM + NCODA Global Ocean Forecasting System (GOFS) 3.1, 1/12° global analysis (2014-07 to 2024-09-04) and reanalysis (GLBv0.08/expt_53.X, 1994-2015) that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM001",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [122.0, 22.0],
+            [133.0, 22.0],
+            [133.0, 32.0],
+            [122.0, 32.0],
+            [122.0, 22.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1994-01-01",
+          "2015-12-31"
+        ]
+      },
+      "properties": {
+        "name": "HYCOM/HYCOM001",
+        "title": "Unrealistic deep water in the Ryukyu Trench",
+        "message": "The GOFS 3.1 reanalysis (GLBb0.08-53.X) has unrealistic deep water formation in the Ryukyu Trench in the western Pacific, and possibly other locations, caused by a bad interaction between HYCOM's hybrid grid generator and NCODA's deepest analysis level, plus a mismatch between the HYCOM and NCODA bathymetries there. Water that was too warm and too saline, though of the proper density, pooled in the deep trench and led to occasional instabilities over the entire depth of the water column.",
+        "level": "warning",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "GOFS 3.1: 41-layer HYCOM + NCODA Global 1/12° Reanalysis",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/reanalysis"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The GOFS 3.1-like reanalysis (GLBb0.08-53.X) has unrealistic deep water formation in the Ryukyu Trench in the western Pacific Ocean (and possibly other locations).",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/reanalysis"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM002",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [120.0, 5.0],
+            [147.0, 5.0],
+            [147.0, 35.0],
+            [120.0, 35.0],
+            [120.0, 5.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1994-01-01",
+          "2015-12-31"
+        ]
+      },
+      "properties": {
+        "name": "HYCOM/HYCOM002",
+        "title": "Noisy sea surface height in the Philippine Sea",
+        "message": "The GOFS 3.1 reanalysis has noisy sea surface height and layer interfaces in the Philippine Sea. HYCOM was first initialized from climatology with layer 37 inactive there, then gradually grew this layer over many years of integration until it became unstable, and the noise spread from the deep interfaces all the way to the sea surface.",
+        "level": "warning",
+        "variables": [
+          "sea surface height",
+          "interfaces"
+        ],
+        "references": [
+          {
+            "title": "GOFS 3.1: 41-layer HYCOM + NCODA Global 1/12° Reanalysis",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/reanalysis"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "A second problem of noisy sea surface height and interfaces is known to exist in the Philippine Sea in this reanalysis.",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/reanalysis"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM003",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-160.0, 69.0],
+            [-125.0, 69.0],
+            [-125.0, 68.0],
+            [-60.0, 68.0],
+            [-60.0, 81.0],
+            [-10.0, 81.0],
+            [-10.0, 88.0],
+            [-70.0, 88.0],
+            [-70.0, 83.0],
+            [-125.0, 83.0],
+            [-125.0, 80.0],
+            [-160.0, 80.0],
+            [-160.0, 69.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "2014-07-01",
+          "2015-06-30"
+        ]
+      },
+      "properties": {
+        "name": "HYCOM/HYCOM003",
+        "title": "Arctic sea ice thickness biases by region",
+        "message": "In the producers' GOFS 3.1 validation, comparisons with NASA Operation IceBridge flights in spring 2015 showed ice thickness generally higher than observed in the Beaufort Sea and Canadian Archipelago and too thin north of Greenland. GOFS 3.1 was closer to the observations than the Navy's ACNFS in the Beaufort Sea and Canadian Archipelago, while ACNFS had lower error north of Greenland.",
+        "level": "warning",
+        "variables": [
+          "ice thickness"
+        ],
+        "references": [
+          {
+            "title": "Global Ocean Forecast System 3.1 Validation Testing (Metzger et al., NRL/MR/7320--17-9722, 2017)",
+            "url": "https://www7320.nrlssc.navy.mil/pubs/2017/metzger-2017.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Table 6 also indicates that ice thickness is generally higher than observed in the Beaufort Sea and Canadian Archipelago whereas it is too thin north of Greenland.",
+            "url": "https://www7320.nrlssc.navy.mil/pubs/2017/metzger-2017.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM004",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "name": "HYCOM/HYCOM004",
+        "title": "Temperature is in-situ, not potential temperature",
+        "message": "The GOFS 3.1 NetCDF output gives in-situ temperature, not potential temperature. NRL notes this on the analysis and reanalysis pages.",
+        "level": "warning",
+        "instruction": "Convert to potential (or conservative) temperature, using salinity and depth, before using it where a model or analysis expects potential temperature.",
+        "variables": [
+          "water_temp",
+          "water_temp_bottom"
+        ],
+        "references": [
+          {
+            "title": "GOFS 3.1: 41-layer HYCOM + NCODA Global 1/12° Analysis",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/analysis"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Note: NRL writes out in-situ temperature, not potential temperature.",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/analysis"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM005",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2008-02-22",
+          "2008-02-22"
+        ]
+      },
+      "properties": {
+        "name": "HYCOM/HYCOM005",
+        "title": "Corrupted reanalysis output on 2008-02-22",
+        "message": "A HYCOM developer stated on the HYCOM forum that the reanalysis file for 2008-02-22 03Z (hycom_GLBv0.08_535_2008022112_t015.nc) is corrupted on both the HYCOM and Navy servers and should not be used, and that the 06Z and 09Z times for that day are not available. The problem was found from extreme temperature and salinity values (about 50 °C at depth, and values over land) reported off the Washington and Oregon coast.",
+        "level": "warning",
+        "instruction": "Do not use the 2008-02-22 03Z reanalysis output; skip or replace that time, and note that 06Z and 09Z are missing too.",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "HYCOM GOFS 3.1 Re-Analysis Issues WA Coast (HYCOM.org Forum)",
+            "url": "https://groups.google.com/a/hycom.org/g/forum/c/NqpIpgyk4WU"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The file hycom_GLBv0.08_535_2008022112_t015.nc is corrupted (on our server and on the Navy server) and should not be used. Note that t018 and t021 are not available for that day.",
+            "url": "https://groups.google.com/a/hycom.org/g/forum/c/NqpIpgyk4WU"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM006",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1994-01-01",
+          "2015-12-31"
+        ]
+      },
+      "properties": {
+        "name": "HYCOM/HYCOM006",
+        "title": "Missing output times in the 1994-2015 reanalysis",
+        "message": "HYCOM lists missing output times in every year of the GOFS 3.1 reanalysis (GLBv0.08/expt_53.X), 1994-2015, from runs that failed because of computer issues, problematic input data or other problems. HYCOM will not fill these gaps.",
+        "level": "info",
+        "instruction": "Check the list for your period, then fill or skip the missing 3-hourly times before using the series, for example to force a model.",
+        "references": [
+          {
+            "title": "Did you know there are missing days in the GOFS 3.1 Global Reanalysis?",
+            "url": "https://www.hycom.org/faqs/471-did-you-know-there-are-missing-days-in-the-gofs-3pt1-global-reanalysis"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "We are aware that some days in the GOFS 3.1 Global Reanalysis (GLBv0.08/expt_53.X) are missing data. We will not be filling in these data gaps.",
+            "url": "https://www.hycom.org/faqs/471-did-you-know-there-are-missing-days-in-the-gofs-3pt1-global-reanalysis"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM007",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2016-05-01",
+          "2020-02-18"
+        ]
+      },
+      "properties": {
+        "name": "HYCOM/HYCOM007",
+        "title": "Analysis experiment and grid changes, 2016-2020",
+        "message": "The GOFS 3.1 analysis is a sequence of experiments (56.3 -> 57.2 -> 92.8 -> 57.7 -> 92.9 -> 93.0). NRL's NetCDF output moved from the GLBv0.08 grid (0.08° between 40°S and 40°N, 0.04° in latitude poleward), which was discontinued on 2020-02-18, to the GLBy0.08 grid (0.08° lon x 0.04° lat, 80°S to 90°N).",
+        "level": "info",
+        "instruction": "When a period spans these changes, regrid GLBv0.08 and GLBy0.08 files to a common grid before joining them, and note which experiment each date comes from.",
+        "references": [
+          {
+            "title": "GOFS 3.1: 41-layer HYCOM + NCODA Global 1/12° Analysis",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/analysis"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "NRL interpolates the archive files from GLBb0.08 to GLBy0.08 (GLBv0.08 Discontinued on 2020-Feb-18), using isubaregion.",
+            "url": "https://www.hycom.org/dataserver/gofs-3pt1/analysis"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "HYCOM/HYCOM008",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2024-09-05",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "HYCOM/HYCOM008",
+        "title": "GOFS 3.1 analysis ended on 2024-09-04",
+        "message": "The Navy's GOFS 3.1 analysis was decommissioned on 4 September 2024, and hycom.org switched to output from the Navy's ESPC system (ESPC-D-V02). A producer note in the same thread says the ESPC-D v2 output served at 0.08° will not be exactly on the GLBy0.08 grid and may have other land/sea inconsistencies.",
+        "level": "warning",
+        "instruction": "For dates after 2024-09-04 use ESPC-D-V02, and check its grid and land mask against GOFS 3.1 before joining the two records.",
+        "references": [
+          {
+            "title": "Navy's GOFS 3.1 Analysis Reaching End of Life (HYCOM.org Forum)",
+            "url": "https://groups.google.com/a/hycom.org/g/forum/c/vT2LJyDisCY"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The Navy's GOFS 3.1 Analysis was finally decommissioned on Sept 4, 2024 and the final switch was made to the ESPC outputs.",
+            "url": "https://groups.google.com/a/hycom.org/g/forum/c/vT2LJyDisCY"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

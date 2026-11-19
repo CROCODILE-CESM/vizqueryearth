@@ -1,0 +1,340 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "GPM IMERG: known issues",
+    "description": "Known issues of GPM IMERG: Integrated Multi-satellitE Retrievals for GPM (NASA), Version 07 that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG001",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, 60.0],
+              [0.0, 60.0],
+              [180.0, 60.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 60.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -60.0],
+              [0.0, -60.0],
+              [-180.0, -60.0],
+              [-180.0, -90.0]
+            ]
+          ]
+        ]
+      },
+      "time": null,
+      "properties": {
+        "name": "IMERG/IMERG001",
+        "title": "Low skill at polar latitudes and over frozen surfaces",
+        "message": "Since V07, IMERG includes passive microwave estimates over snow/ice-covered land and sea ice, giving near-global coverage, but performance at polar latitudes is diminished and half-hourly Quality Index values over frozen surfaces are lowered. Snowfall rates over land are low because CORRA, used to intercalibrate the microwave estimates, is deficient for snow, and retrievals over Antarctica are particularly problematic because snowfall rates there are very low and hard to detect.",
+        "level": "warning",
+        "instruction": "Exercise caution when interpreting estimates at polar latitudes, account for the reduced skill in applications, and examine snowfall estimates critically; the Quality Index flags these estimates as low confidence.",
+        "variables": [
+          "precipitation",
+          "precipitationQualityIndex"
+        ],
+        "references": [
+          {
+            "title": "IMERG V07 Release Notes (20 November 2024)",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Nevertheless, users should be aware of the diminished performance of estimates at the polar latitudes, exercise appropriate caution in their interpretation of the results, and account for the reduced skill in their applications. Accordingly, the half-hourly Quality Index (QI) values for precipitation estimates over frozen surfaces are reduced based on You et al. (2023) to reflect the lower confidence.",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG002",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [122.0, 62.0],
+            [145.0, 62.0],
+            [145.0, 70.0],
+            [122.0, 70.0],
+            [122.0, 62.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "2023-12-01",
+          "2023-12-31"
+        ]
+      },
+      "properties": {
+        "name": "IMERG/IMERG002",
+        "title": "Spurious high precipitation in eastern Siberia, Dec 2023",
+        "message": "Calibrating the microwave sensors to GMI/TMI has produced isolated spots of anomalously high precipitation over land at high latitudes. In the Final Run, mean rates above 1 mm/h for December 2023 were observed north of the Aldan River (~63°N) in eastern Siberia. The producers say the cause is unclear, but it likely came from limited sampling and extensive frozen surface that month.",
+        "level": "warning",
+        "variables": [
+          "precipitation"
+        ],
+        "references": [
+          {
+            "title": "IMERG V07 Release Notes (20 November 2024)",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Specifically, mean precipitation rates for the month of December 2023 exceeding 1 mm / h have been observed north of the Aldan River (~63°N) in eastern Siberia in the Final Run. The exact reason for the miscalibration is unclear, but it likely arose from limited sampling in the region and extensive frozen surface during this month.",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG003",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1998-01-01",
+          "2000-05-31"
+        ]
+      },
+      "properties": {
+        "name": "IMERG/IMERG003",
+        "title": "Lower quality and gaps from Jan 1998 to May 2000",
+        "message": "On 7 November 2024 the V07B record was extended back from June 2000 to January 1998, using GridSat-B1 infrared data in place of the CPC 4-km merged IR. The IR precipitation from GridSat-B1 is of lower quality and may be inconsistent with the rest of the record, and this period has more missing values (-9999.9) and possible three-hourly artifacts.",
+        "level": "warning",
+        "instruction": "Avoid Jan 1998–May 2000 data unless your purpose needs it; if you use it, watch for artifacts and exclude missing values (-9999.9) when computing statistics such as means.",
+        "variables": [
+          "precipitation",
+          "IRprecipitation"
+        ],
+        "references": [
+          {
+            "title": "IMERG V07 Release Notes (20 November 2024)",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The use of GridSat-B1 IR Tb in place of the CPC 4-km merged IR Tb may introduce characteristics that are inconsistent with the rest of the record. Specifically, preliminary analysis suggested that the IR precipitation derived from GridSat-B1 is of lower quality compared to the CPC 4-km IR.",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG004",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [125.0, 20.0],
+            [155.0, 20.0],
+            [155.0, 50.0],
+            [125.0, 50.0],
+            [125.0, 20.0]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "2005-11-17",
+          "2006-03-22"
+        ]
+      },
+      "properties": {
+        "name": "IMERG/IMERG004",
+        "title": "No IR data over Japan, Nov 2005 to Mar 2006",
+        "message": "From late on 17 November 2005 to the middle of 22 March 2006, the IR dataset has a dropout for the Japanese sector because NOAA had trouble with the format of the then-new MTSat-1. A small sector over Japan has no IR data and depends on possibly long-interval propagated microwave estimates, and IR in the adjacent regions comes only from high-zenith-angle Meteosat (west) and GOES-W (east) views.",
+        "level": "warning",
+        "variables": [
+          "precipitation",
+          "IRprecipitation"
+        ],
+        "references": [
+          {
+            "title": "IMERG V07 Technical Documentation (13 July 2023)",
+            "url": "https://gpm.nasa.gov/sites/default/files/2023-07/IMERG_TechnicalDocumentation_final_230713.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "There is an extended data dropout in the presently available IR dataset for Japanese sector from late on 17 November 2005 to the middle of 22 March 2006 due to issues in NOAA coping with the format of the then-newly introduced MTSat-1. Consequently, during that period a small sector over Japan lacks all IR data, and depends on (potentially) long-interval propagated PMW estimates.",
+            "url": "https://gpm.nasa.gov/sites/default/files/2023-07/IMERG_TechnicalDocumentation_final_230713.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG005",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, 37.0],
+              [0.0, 37.0],
+              [180.0, 37.0],
+              [180.0, 90.0],
+              [0.0, 90.0],
+              [-180.0, 90.0],
+              [-180.0, 37.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -90.0],
+              [0.0, -90.0],
+              [180.0, -90.0],
+              [180.0, -37.0],
+              [0.0, -37.0],
+              [-180.0, -37.0],
+              [-180.0, -90.0]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "1998-01-01",
+          "2014-05-31"
+        ]
+      },
+      "properties": {
+        "name": "IMERG/IMERG005",
+        "title": "TRMM-era calibration poleward of 37° is approximate",
+        "message": "In the TRMM era, TRMM calibrates the microwave constellation only within 37°N-S; poleward of that band a monthly climatology of GPM-based corrections is used, so the calibration is more approximate. The January calibration file also has shifts in its distribution from spin-up issues, which show up from 1 to 30 January each year of the TRMM era in the mid-latitudes as a higher count of light-to-moderate rates.",
+        "level": "warning",
+        "variables": [
+          "precipitation"
+        ],
+        "references": [
+          {
+            "title": "IMERG V07 Release Notes (20 November 2024)",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The V07 GPM background climatological calibration file for January has shifts in its distribution. This is apparent by examining the histograms for January data outside the latitude band 37°N-S during the TRMM era and is a result of spin-up issues when constructing the calibration files.",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG006",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "name": "IMERG/IMERG006",
+        "title": "Record not homogeneous: jumps at orbit and sensor changes",
+        "message": "IMERG is designed to give the best estimate for each grid box and time, not climate-scale consistency, so trends and interannual variability can contain artifacts from the changing satellite constellation. CORRA and GPROF, which IMERG uses for most estimates and for calibration, jump at the TRMM orbit boost (August 2001), the switch from TRMM- to GPM-based estimates (June 2014) and the GPM orbit boost (November 2023). In the Final Run, gauge adjustment helps reduce these jumps over land.",
+        "level": "warning",
+        "instruction": "For trends or interannual variability, check that the time series is consistent and the features are not artifacts of the evolving constellation; Climate Data Record products such as GPCP are designed for long-term homogeneity.",
+        "variables": [
+          "precipitation"
+        ],
+        "references": [
+          {
+            "title": "IMERG V07 Release Notes (20 November 2024)",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The CORRA and GPROF products have apparent jumps in values at (1) the TRMM orbit boost (August 2001), (2) the shift from TRMM- to GPM-based estimates (June 2014), and (3) the GPM-CO orbit boost (November 2023). For example, the CORRA tropical values are reduced around 6% over ocean and 4% over land from the pre- to the post-boost TRMM record.",
+            "url": "https://gpm.nasa.gov/sites/default/files/2024-12/IMERG_V07_ReleaseNotes_241126.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG007",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2025-10-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "IMERG/IMERG007",
+        "title": "V07 Final Run ends Sept 2025; Early/Late in hybrid mode",
+        "message": "The V07 Final Run record ends in September 2025 because its parent products, CORRA and GPROF, are being upgraded to V08. The V07 Late and Early Runs continue in a 'hybrid' mode that runs the V07 algorithm on GPROF V08 inputs, so there may be discontinuities in the record.",
+        "level": "warning",
+        "instruction": "Expect possible discontinuities when joining Early or Late Run data from after September 2025 to the earlier Final Run record.",
+        "variables": [
+          "precipitation"
+        ],
+        "references": [
+          {
+            "title": "IMERG V08 Transition Schedule (GPM Data News, 28 April 2026)",
+            "url": "https://gpm.nasa.gov/data/news/imerg-v08-transition-schedule"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Already, IMERG V07 Late and Early are operating in “hybrid” mode, using the IMERG V07 algorithm but ingesting GPROF V08. As such, there may be discontinuities in the record.",
+            "url": "https://gpm.nasa.gov/data/news/imerg-v08-transition-schedule"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "IMERG/IMERG008",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "name": "IMERG/IMERG008",
+        "title": "Coastal jumps and artifacts in coastal precipitation",
+        "message": "The GPCC gauge analysis used in the gauge adjustment is trimmed to the coastline at the IMERG 0.1° grid scale, giving a somewhat unphysical jump in values across coastlines, and small islands are masked out. In GPROF2017, inland water bodies in the Southeastern U.S., Lake Nasser and desert coasts showed anomalously high precipitation while oceanic coastal regions tended to be deficient; the producers suspect GPROF2021 behaves similarly.",
+        "level": "warning",
+        "variables": [
+          "precipitation"
+        ],
+        "references": [
+          {
+            "title": "IMERG V07 Technical Documentation (13 July 2023)",
+            "url": "https://gpm.nasa.gov/sites/default/files/2023-07/IMERG_TechnicalDocumentation_final_230713.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The GPCC analysis is trimmed to the coastline at the IMERG grid scale. This results in a somewhat unphysical jump in values across coastlines, but seems preferable to extending the GPCC values over the water, and giving sometimes-unphysical jumps on the edges of the coarser GPCC grid.",
+            "url": "https://gpm.nasa.gov/sites/default/files/2023-07/IMERG_TechnicalDocumentation_final_230713.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}

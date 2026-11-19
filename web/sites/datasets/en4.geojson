@@ -1,0 +1,339 @@
+{
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "EN4: known issues",
+    "description": "Known issues of EN4 quality-controlled subsurface ocean temperature and salinity profiles and objective analyses (Met Office Hadley Centre, EN.4.2.2) that its producers document, gathered by Claude: every rule quotes its source page, and the quote was checked to be on that page, but no person has reviewed the periods and regions. Draw your area and give your dates to see which issues apply."
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "EN4/EN4001",
+      "geometry": null,
+      "time": null,
+      "properties": {
+        "name": "EN4/EN4001",
+        "title": "Analyses relax to climatology where data are sparse",
+        "message": "EN4 analysis values are partly set by observations and partly by background fields, as shown by the observation weight variables. In the long-term absence of observations, EN.4.2.2 analyses relax back to the 1971-2000 climatology, and the producers do not encourage using the analyses for trend analysis where observation weights are low.",
+        "level": "warning",
+        "instruction": "Check the observation weight variables before using the analysis fields, especially for long-term trends. Values near one mean observations shaped the analysis, and values near zero mean it is mostly background.",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "EN4: Frequently Asked Questions (Met Office Hadley Centre)",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/FAQ.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "We would not encourage the use of EN4 analyses for trend analysis in areas where the observation weights are low. In the long term absence of observations, EN.4.2.2 analyses will relax back to the 1971 - 2000 climatology.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/FAQ.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EN4/EN4002",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1938-01-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "EN4/EN4002",
+        "title": "XBT and MBT bias corrections differ between members",
+        "message": "EN.4.2.2 provides four ensemble members (l09, g10, c13, c14). Each uses a different combination of mechanical (MBT) and expendable (XBT) bathythermograph bias corrections, and the guide shows that the choice changes results such as 0-700 m ocean heat content. Only XBT and MBT data are corrected.",
+        "level": "warning",
+        "instruction": "Repeat your analysis with all four ensemble members to see how much the bathythermograph corrections affect your conclusions.",
+        "variables": [
+          "TEMP",
+          "POTM_CORRECTED",
+          "temperature"
+        ],
+        "references": [
+          {
+            "title": "EN.4.2.2 Product User Guide v1.0",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/EN.4.2.2_Product_User_Guide_v1.0.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "We encourage users to explore the impact of different ensemble members on their application to ensure that uncertainty arising from necessary, but imperfect, bathythermograph bias corrections is represented.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/EN.4.2.2_Product_User_Guide_v1.0.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EN4/EN4003",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "1938-01-01",
+          "2004-12-31"
+        ]
+      },
+      "properties": {
+        "name": "EN4/EN4003",
+        "title": "Salinity much sparser than temperature before Argo",
+        "message": "MBTs (from the late 1930s) and XBTs (from the late 1960s) do not measure salinity, so after they appear far fewer profiles are good for salinity than for temperature. Coverage of the two becomes more similar once Argo is introduced, although an offset remains.",
+        "level": "warning",
+        "instruction": "Check the salinity observation weights before relying on EN4 salinity analyses from this period.",
+        "variables": [
+          "salinity",
+          "PSAL_CORRECTED"
+        ],
+        "references": [
+          {
+            "title": "EN.4.2.2 Product User Guide v1.0",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/EN.4.2.2_Product_User_Guide_v1.0.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "With the advent of Mechanical BathyThermographs (MBTs) and eXpendable BathyThermographs (XBTs) in the late 1930s and late 1960s respectively, the prevalence of the two variables diverges as MBTs and XBTs do not measure salinity. Coverage becomes more similar with the introduction of Argo, though still with an offset.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/EN.4.2.2_Product_User_Guide_v1.0.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EN4/EN4004",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2000-01-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "EN4/EN4004",
+        "title": "Some Argo floats with salinity drift not flagged",
+        "message": "Some batches of Argo floats drift in salinity. Many are flagged as bad through the Argo grey list, and EN4 uses corrected delayed-mode Argo data where it can. Some drifting floats had not been identified when EN.4.2.2 was created and still show the drift.",
+        "level": "warning",
+        "instruction": "Use the EN4 QC flags, watch for drifting Argo salinity, and report any such floats to the Met Office.",
+        "variables": [
+          "PSAL_CORRECTED",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "EN4: Frequently Asked Questions (Met Office Hadley Centre)",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/FAQ.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Some floats will not have been identified at the time of the creation of EN.4.2.2 and therefore will still exhibit this salinity drift. If you identify any such floats, please notify us.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/FAQ.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EN4/EN4005",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [135.0, -10.0],
+              [180.0, -10.0],
+              [180.0, 10.0],
+              [135.0, 10.0],
+              [135.0, -10.0]
+            ]
+          ],
+          [
+            [
+              [-180.0, -10.0],
+              [-90.0, -10.0],
+              [-90.0, 10.0],
+              [-180.0, 10.0],
+              [-180.0, -10.0]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "2015-01-01",
+          "2016-12-31"
+        ]
+      },
+      "properties": {
+        "name": "EN4/EN4005",
+        "title": "Spurious TAO buoy salinity in EN.4.2.1",
+        "message": "A user found spurious salinity values from eight TAO buoys in 2015-2016 in EN.4.2.1. EN.4.2.2 removes those sections of data by adding them to the reject list, and also removes one early Argo float with stuck values.",
+        "level": "info",
+        "instruction": "Use EN.4.2.2. If you must use EN.4.2.1, treat TAO buoy salinity for 2015-2016 as suspect.",
+        "variables": [
+          "salinity",
+          "PSAL_CORRECTED"
+        ],
+        "references": [
+          {
+            "title": "EN4 quality controlled ocean data: Select version to download (Met Office Hadley Centre)",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/download.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "EN.4.2.2 removes sections of data from eight TAO buoys between 2015 and 2016 after these were shown to have spurious salinity values and also removes one early Argo float with stuck temperature values.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/download.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EN4/EN4006",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2020-10-01",
+          ".."
+        ]
+      },
+      "properties": {
+        "name": "EN4/EN4006",
+        "title": "Fewer profiles after WOD ingestion stopped in 2020",
+        "message": "The World Ocean Database 2018 data in EN.4.2.2 were taken as a single download in October 2020 and will not be updated until a new EN4 version. Only Argo and GTSPP data are added each month. The number of profiles in EN.4.2.2 drops in late 2020, when WOD profiles stopped being ingested.",
+        "level": "info",
+        "instruction": "Check the observation weights in the analyses for months from late 2020 onwards.",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "EN.4.2.2 Product User Guide v1.0",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/EN.4.2.2_Product_User_Guide_v1.0.pdf"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Likewise, there is a drop in the number of profiles in EN.4.2.2 in late 2020, as this is when WOD profiles stopped being ingested.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/EN.4.2.2_Product_User_Guide_v1.0.pdf"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EN4/EN4007",
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [
+            [
+              [-180.0, -60.0],
+              [-70.0, -60.0],
+              [-70.0, 0.0],
+              [-78.0, 0.0],
+              [-78.0, 8.0],
+              [-85.0, 8.0],
+              [-85.0, 15.5],
+              [-100.0, 15.5],
+              [-100.0, 66.0],
+              [-180.0, 66.0],
+              [-180.0, 0.0],
+              [-180.0, -60.0]
+            ]
+          ],
+          [
+            [
+              [120.0, 0.0],
+              [147.0, 0.0],
+              [147.0, -60.0],
+              [180.0, -60.0],
+              [180.0, 0.0],
+              [180.0, 66.0],
+              [120.0, 66.0],
+              [120.0, 0.0]
+            ]
+          ]
+        ]
+      },
+      "time": {
+        "interval": [
+          "2024-09-01",
+          "2024-09-30"
+        ]
+      },
+      "properties": {
+        "name": "EN4/EN4007",
+        "title": "Preliminary Sep 2024 files lack Pacific GTSPP data",
+        "message": "A data processing problem meant the preliminary (.p.) September 2024 files were made without any GTSPP (non-Argo) data in the Pacific Ocean. The final (.f.) September 2024 files, released in November 2024, use the usual Argo and GTSPP inputs.",
+        "level": "info",
+        "instruction": "Use the final (.f.) September 2024 files, not the preliminary (.p.) ones.",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "EN4 quality controlled ocean data: Download EN.4.2.2 (Met Office Hadley Centre)",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/download-en4-2-2.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "The preliminary September 2024 data files were produced without any GTSPP (our non-Argo source) data in the Pacific Ocean owing to a data processing problem.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/download-en4-2-2.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "EN4/EN4008",
+      "geometry": null,
+      "time": {
+        "interval": [
+          "2025-09-01",
+          "2025-10-31"
+        ]
+      },
+      "properties": {
+        "name": "EN4/EN4008",
+        "title": "Partial GTSPP input for Sep and Oct 2025",
+        "message": "Because of a pause in the GTSPP service, only some GTSPP (non-Argo) data were available for the preliminary and final September 2025 files, and none for the preliminary October 2025 file. The GTSPP service has since resumed and the Met Office is monitoring the issue.",
+        "level": "warning",
+        "variables": [
+          "temperature",
+          "salinity"
+        ],
+        "references": [
+          {
+            "title": "EN4 quality controlled ocean data: Download EN.4.2.2 (Met Office Hadley Centre)",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/download-en4-2-2.html"
+          }
+        ],
+        "evidence": [
+          {
+            "quote": "Owing to a pause in the GTSPP service: for the preliminary and final September 2025 data files, only some GTSPP (our non-Argo source) data were available; for the preliminary October 2025 data file there were no GTSPP data available.",
+            "url": "https://www.metoffice.gov.uk/hadobs/en4/download-en4-2-2.html"
+          }
+        ],
+        "gathered_by": "Claude, from the source page, whose quote was checked to be on it; the period and region were not reviewed by a person"
+      }
+    }
+  ]
+}
