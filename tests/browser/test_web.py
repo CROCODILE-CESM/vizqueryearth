@@ -102,8 +102,8 @@ def state(page):
     return page.evaluate(f"{APP}.page.state")
 
 
-def codes(page):
-    return [rule["code"] for rule in state(page)["rules"]]
+def names(page):
+    return [rule["name"] for rule in state(page)["rules"]]
 
 
 def row(page, node):
@@ -111,14 +111,14 @@ def row(page, node):
     return page.locator(f'#rule-tree [data-node="{node}"] > .tree-row')
 
 
-def open_rule(page, code):
+def open_rule(page, name):
     """Open the categories a rule is in, and click it."""
-    path = code.split("/")[:-1]
+    path = name.split("/")[:-1]
     for i in range(1, len(path) + 1):
         node = page.locator(f'[data-node="cat:{"/".join(path[:i])}"]')
         if node.get_attribute("aria-expanded") == "false":
             node.locator(":scope > .tree-row .twisty").click()
-    row(page, f"rule:{codes(page).index(code)}").locator(".code").click()
+    row(page, f"rule:{names(page).index(name)}").locator(".code").click()
 
 
 def drag(page, handle, onto):
@@ -152,7 +152,7 @@ def test_check_a_drawn_domain():
     assert tree.locator(".rule-row").count() == 0  # the categories start closed
     assert row(page, "cat:OCN").locator(".count").inner_text() == "3"
     row(page, "cat:OCN").locator(".twisty").click()
-    row(page, f"rule:{codes(page).index('OCN/OCN002')}").hover()  # a tooltip
+    row(page, f"rule:{names(page).index('OCN/OCN002')}").hover()  # a tooltip
     assert "OCN/OCN002" in page.locator("#tip").inner_text()
     row(page, "cat:OCN").locator(".twisty").click()
 
@@ -169,7 +169,7 @@ def test_check_a_drawn_domain():
     page.fill("[data-dim=variable]", "thetao")
     page.locator("#check").get_by_role("button", name="Check", exact=True).click()
     page.wait_for_function(f"{APP}.page.results !== null")
-    assert page.evaluate(f"{APP}.page.results") == [codes(page).index("OCN/OCN002")]
+    assert page.evaluate(f"{APP}.page.results") == [names(page).index("OCN/OCN002")]
 
     page.locator("#check .card").click()  # opens the rule in the panel, read only
     text = page.locator("#rule .rule-card").inner_text()
@@ -190,7 +190,7 @@ def test_edit_a_rule_and_download_the_file():
     row(page, "cat:DOMAIN/ICE").locator(".name").click()  # where + Rule adds
     page.locator(".mode-bar").get_by_role("button", name="+ Rule in ICE").click()
     page.wait_for_function(f"{APP}.page.state.rules.length === 6")
-    assert page.input_value("#f-code") == "DOMAIN/ICE/ICE002"
+    assert page.input_value("#f-name") == "DOMAIN/ICE/ICE002"
 
     page.fill("#f-title", "Thin ice")
     page.locator("#f-title").blur()
@@ -212,7 +212,7 @@ def test_edit_a_rule_and_download_the_file():
 
     saved = json.loads(downloaded(page, "Download"))
     rule = saved["features"][5]
-    assert saved["queryearth"] == "0.7"
+    assert saved["queryearth"] == "0.8"
     assert rule["properties"]["title"] == "Thin ice"
     assert rule["properties"]["level"] == "error"
     assert rule["properties"]["dimensions"] == {"model": ["demo_model"]}
@@ -228,18 +228,18 @@ def test_move_rules_and_categories_in_the_tree():
     row(page, "cat:DOMAIN").locator(".twisty").click()
     row(page, "cat:OCN").locator(".twisty").click()
     drag(page, row(page, "rule:0").locator(".drag"), row(page, "cat:DOMAIN/OBC"))
-    page.wait_for_function(f"{APP}.page.state.rules[0].code === 'DOMAIN/OBC/OCN001'")
+    page.wait_for_function(f"{APP}.page.state.rules[0].name === 'DOMAIN/OBC/OCN001'")
     assert "OCN/OCN001 is now DOMAIN/OBC/OCN001" in page.inner_text("#status")
 
     open_rule(page, "OCN/OCN002")
     page.select_option("#f-category", "")  # none, the top level
-    page.wait_for_function(f"{APP}.page.state.rules[1].code === 'OCN002'")
+    page.wait_for_function(f"{APP}.page.state.rules[1].name === 'OCN002'")
 
     row(page, "cat:DOMAIN").locator(".name").click()  # its form, on the right
     page.fill('[id="c-name-DOMAIN"]', "SETUP")
     page.locator('[id="c-name-DOMAIN"]').blur()
-    page.wait_for_function(f"{APP}.page.state.rules[2].code === 'SETUP/ICE/ICE001'")
-    assert codes(page) == [
+    page.wait_for_function(f"{APP}.page.state.rules[2].name === 'SETUP/ICE/ICE001'")
+    assert names(page) == [
         "SETUP/OBC/OCN001",
         "OCN002",
         "SETUP/ICE/ICE001",
@@ -258,7 +258,7 @@ def test_move_rules_and_categories_in_the_tree():
     assert "OCN still has rules" in page.inner_text("#status")
 
     saved = json.loads(downloaded(page, "Download"))
-    assert [f["properties"]["code"] for f in saved["features"]] == codes(page)
+    assert [f["properties"]["name"] for f in saved["features"]] == names(page)
     assert errors == []
 
 
@@ -278,33 +278,32 @@ def test_download_as_a_web_page(tmp_path):
     assert errors == [] and more == []
 
 
-def test_open_a_queryearth_0_6_file_by_link(tmp_path):
-    old = {
+def test_open_a_file_by_link_and_refuse_one_queryearth_cannot_read(tmp_path):
+    rule = {"name": "OCN/OCN001", "title": "One", "message": "From a link."}
+    rules = {
         "type": "FeatureCollection",
-        "queryearth": "0.6",
-        "categories": {"OCN": "Ocean", "BAD": "Edge rules"},
-        "features": [
-            {"type": "Feature", "geometry": None, "properties": {"code": "OCN001", "title": "Old", "message": "From 0.6."}},  # fmt: skip
-        ],
+        "queryearth": "0.8",
+        "features": [{"type": "Feature", "geometry": None, "properties": rule}],
     }
-    (tmp_path / "old.geojson").write_text(json.dumps(old))
-    page, errors = visit(f"{app()}/?src={serve(tmp_path)}/old.geojson", 1)
-    assert codes(page) == ["OCN/OCN001"]
+    (tmp_path / "rules.geojson").write_text(json.dumps(rules))
+    page, errors = visit(f"{app()}/?src={serve(tmp_path)}/rules.geojson", 1)
+    assert names(page) == ["OCN/OCN001"]
 
-    edge = {"code": "BAD001", "title": "Edge", "message": "Where a domain's edge crosses.", "edge": True}  # fmt: skip
-    old["features"].append({"type": "Feature", "geometry": None, "properties": edge})
-    (tmp_path / "edge.geojson").write_text(json.dumps(old))
+    old = json.loads(json.dumps(rules))  # from queryearth 0.7, with a code
+    old["queryearth"] = "0.7"
+    old["features"][0]["properties"]["code"] = old["features"][0]["properties"].pop(
+        "name"
+    )
+    (tmp_path / "old.geojson").write_text(json.dumps(old))
     page.get_by_role("button", name="Open link").click()
-    page.fill("#link-url", f"{serve(tmp_path)}/edge.geojson")
+    page.fill("#link-url", f"{serve(tmp_path)}/old.geojson")
     page.locator("#linkbar").get_by_role("button", name="Open", exact=True).click()
     page.wait_for_function(
         "document.getElementById('status').textContent.includes('Could not')"
     )
-    assert (
-        "Could not open edge.geojson: feature 1: BAD/BAD001: ['edge']"
-        in page.inner_text("#status")
-    )
-    assert codes(page) == ["OCN/OCN001"]  # the open file stays
+    assert "Could not open old.geojson: feature 0:" in page.inner_text("#status")
+    assert "needs a name" in page.inner_text("#status")
+    assert names(page) == ["OCN/OCN001"]  # the open file stays
     assert errors == []
 
 
@@ -316,12 +315,12 @@ def test_crocodash_rules():
         f"{app()}/?src={serve(rules.parent)}/{rules.name}#create", count
     )
     assert downloaded(page, "Download") == rules.read_text()
-    first = codes(page)[0]
+    first = names(page)[0]
     page.locator("#rule-tree .tree-row .name").nth(1).click()  # a category
     page.wait_for_timeout(300)
     open_rule(page, first)
     page.select_option("#f-category", "")
     page.wait_for_function(
-        f"{APP}.page.state.rules[0].code === '{first.split('/')[-1]}'"
+        f"{APP}.page.state.rules[0].name === '{first.split('/')[-1]}'"
     )
     assert errors == []

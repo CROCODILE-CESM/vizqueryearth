@@ -21,7 +21,7 @@ const LIBS = {
   land: "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@v5.1.2/geojson/ne_50m_land.geojson",
   pyodide: "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.js",
 };
-const QUERYEARTH = "queryearth==0.7.0"; // a requirement or a wheel URL, for micropip
+const QUERYEARTH = "queryearth==0.8.0"; // a requirement or a wheel URL, for micropip
 const PY_FILES = ["__init__.py", "shapes.py", "session.py"];
 const LEVEL_COLOR = { error: "#c62828", warning: "#e08a00", info: "#1e6fd9" };
 const LEVELS = ["info", "warning", "error"];
@@ -389,7 +389,7 @@ function resultsView(results) {
       return el(
         "div",
         { class: "card", role: "button", tabindex: "0", onclick: () => select(r.index, { reveal: true }), onkeydown: (e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), select(r.index, { reveal: true })) },
-        el("div", { class: "head" }, el("span", { class: `chip ${r.level}` }, r.level), el("strong", {}, r.code), el("span", {}, r.title)),
+        el("div", { class: "head" }, el("span", { class: `chip ${r.level}` }, r.level), el("strong", {}, r.name), el("span", {}, r.title)),
         el("p", {}, r.message),
         typeof instruction === "string" ? el("p", { class: "instruction" }, el("strong", {}, "What to do: "), instruction) : null
       );
@@ -405,7 +405,7 @@ function clearArea() {
   render();
 }
 
-// ---- the rules as a tree, from the paths of their codes -------------------------
+// ---- the rules as a tree, from the paths of their names -------------------------
 // Node ids: "all" (the root), "cat:DOMAIN/OBC" (a category, by path), "rule:5"
 // (a rule, by position).
 const ALL = "all";
@@ -426,7 +426,7 @@ function lastPart(path) {
   return path.slice(path.lastIndexOf("/") + 1);
 }
 
-// Every category: those of the rules' codes and those made empty here, with
+// Every category: those of the rules' names and those made empty here, with
 // the categories they sit in, sorted by name.
 function categories() {
   const paths = new Set();
@@ -438,7 +438,7 @@ function categories() {
 
 function textMatches(rule) {
   const words = page.filter.text.trim().toLowerCase();
-  return !words || rule.code.toLowerCase().includes(words) || rule.title.toLowerCase().includes(words);
+  return !words || rule.name.toLowerCase().includes(words) || rule.title.toLowerCase().includes(words);
 }
 
 // A rule the globe shows: in the category picked (at any depth), and matching
@@ -509,7 +509,7 @@ function rulesSection() {
     "section",
     { id: "rules" },
     el("h2", {}, "Rules"),
-    el("div", { class: "filter" }, el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter", value: page.filter.text, oninput: filterText })),
+    el("div", { class: "filter" }, el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by name or title", placeholder: "Filter", value: page.filter.text, oninput: filterText })),
     el("ul", { id: "rule-tree", class: "tree", role: "tree", "aria-label": "Rules by category", onkeydown: treeKeydown }, treeItems())
   );
 }
@@ -530,7 +530,7 @@ function renderTree() {
 function treeItems() {
   const state = page.state;
   if (!state) return [];
-  const kept = state.rules.filter((r) => r.index === page.selected || textMatches(r)).sort((a, b) => byName(a.code, b.code));
+  const kept = state.rules.filter((r) => r.index === page.selected || textMatches(r)).sort((a, b) => byName(a.name, b.name));
   const paths = categories();
   const filtering = Boolean(page.filter.text.trim());
   const inside = (parent, level) =>
@@ -599,12 +599,12 @@ function ruleNode(r, level) {
   const row = el(
     "div",
     { class: "tree-row rule-row", onclick: rowClick(() => select(selected ? null : r.index)), ...rowTip(r) },
-    edit ? dragHandle({ kind: "rule", index: r.index, label: `${r.code} ${r.title}` }) : el("span", { class: "twisty" }),
+    edit ? dragHandle({ kind: "rule", index: r.index, label: `${r.name} ${r.title}` }) : el("span", { class: "twisty" }),
     el("span", { class: `dot ${r.level}` }),
-    el("span", { class: "code" }, lastPart(r.code)),
+    el("span", { class: "code" }, lastPart(r.name)),
     el("span", { class: "title" }, r.title)
   );
-  return treeNode({ id: `rule:${r.index}`, level, label: `${r.code} ${r.title}, ${r.level}`, row });
+  return treeNode({ id: `rule:${r.index}`, level, label: `${r.name} ${r.title}, ${r.level}`, row });
 }
 
 // ---- moving rules and categories, from a select or by dragging --------------------
@@ -613,14 +613,14 @@ async function moveRule(index, category) {
     const out = await call("move", { index, category });
     edited(out.state);
     openTo(category); // where it went
-    say(`${out.was} is now ${out.code}.`);
+    say(`${out.was} is now ${out.name}.`);
   } catch (err) {
     say(`Not moved: ${err.message}`, true);
   }
   render();
 }
 
-// Rename or move a category: the codes of the rules in it take its new path.
+// Rename or move a category: the names of the rules in it take its new path.
 async function renameCategory(path, to) {
   if (!to.split("/").every((part) => part.trim())) return say(`Not kept: a category's name cannot be empty.`, true);
   try {
@@ -833,7 +833,7 @@ function ruleSection() {
       "div",
       { class: "rule-head" },
       el("span", { class: `chip ${rule.level}` }, rule.level),
-      el("strong", { class: "code" }, rule.code),
+      el("strong", { class: "code" }, rule.name),
       el("span", { class: "grow" }),
       create ? deleteButton(rule) : null,
       el("button", { type: "button", class: "small", "aria-label": "Close", title: "Close", onclick: () => select(null) }, "×")
@@ -873,17 +873,17 @@ function ruleCard(rule) {
 }
 
 function copyButton(rule) {
-  return el("button", { type: "button", onclick: (e) => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { after: e.target.closest(".row") }) }, "Copy GeoJSON");
+  return el("button", { type: "button", onclick: (e) => copyText(packed(rule.record), `${rule.name} as GeoJSON`, { after: e.target.closest(".row") }) }, "Copy GeoJSON");
 }
 
 // ---- a rule's record, as the rules file holds it, to read and copy ----------------
 // Always shown in Create, under the form, and redrawn after every edit.
 function geojsonWindow(rule) {
-  const text = el("pre", { class: "geojson", id: "f-geojson-text", tabindex: "0", "aria-label": `${rule.code} as GeoJSON` }, packed(rule.record));
+  const text = el("pre", { class: "geojson", id: "f-geojson-text", tabindex: "0", "aria-label": `${rule.name} as GeoJSON` }, packed(rule.record));
   return el(
     "div",
     { id: "f-geojson" },
-    el("div", { class: "rule-head" }, el("h3", {}, "GeoJSON"), el("span", { class: "grow" }), el("button", { type: "button", class: "small", onclick: () => copyText(packed(rule.record), `${rule.code} as GeoJSON`, { shown: text }) }, "Copy")),
+    el("div", { class: "rule-head" }, el("h3", {}, "GeoJSON"), el("span", { class: "grow" }), el("button", { type: "button", class: "small", onclick: () => copyText(packed(rule.record), `${rule.name} as GeoJSON`, { shown: text }) }, "Copy")),
     text
   );
 }
@@ -947,7 +947,7 @@ function ruleForm(rule) {
     el(
       "div",
       { class: "two" },
-      field("f-code", "Code", el("input", { id: "f-code", value: rule.code, onchange: edit((e) => ({ code: e.target.value })) })),
+      field("f-name", "Name", el("input", { id: "f-name", value: rule.name, onchange: edit((e) => ({ name: e.target.value })) })),
       field("f-level", "Level", el("select", { id: "f-level", onchange: edit((e) => ({ level: e.target.value })) }, LEVELS.map((level) => el("option", { value: level, selected: level === rule.level }, level))))
     ),
     paths.length
@@ -1019,7 +1019,7 @@ function timeFields() {
 
 function deleteButton(rule) {
   // Two clicks delete: the first asks, the second deletes; asking ends after a while.
-  const button = el("button", { type: "button", class: "small danger", "aria-label": `Delete ${rule.code}` }, "Delete");
+  const button = el("button", { type: "button", class: "small danger", "aria-label": `Delete ${rule.name}` }, "Delete");
   button.onclick = () => {
     if (button.dataset.asking) return deleteRule(rule);
     button.dataset.asking = "1";
@@ -1039,7 +1039,7 @@ function edit(fields) {
     const index = page.selected;
     try {
       edited(await call("update", { index, fields: fields(event) }));
-      say(`Kept ${page.state.rules[index].code}.`);
+      say(`Kept ${page.state.rules[index].name}.`);
       render();
     } catch (err) {
       event.target.setAttribute?.("aria-invalid", "true");
@@ -1075,7 +1075,7 @@ async function newRule(category) {
     const out = await call("new", { category });
     edited(out.state);
     select(out.index, { reveal: true });
-    say(`Added ${page.state.rules[out.index].code}.`);
+    say(`Added ${page.state.rules[out.index].name}.`);
   } catch (err) {
     say(err.message, true);
   }
@@ -1088,14 +1088,14 @@ async function deleteRule(rule) {
     return say(err.message, true);
   }
   page.selected = null;
-  say(`Deleted ${rule.code}.`);
+  say(`Deleted ${rule.name}.`);
   render();
 }
 
 async function shapeCall(name, args) {
   try {
     edited(await call(name, { index: page.selected, ...args }));
-    say(`Kept the shape of ${page.state.rules[page.selected].code}.`);
+    say(`Kept the shape of ${page.state.rules[page.selected].name}.`);
   } catch (err) {
     say(err.message, true);
   }
@@ -1479,7 +1479,7 @@ function drawRules() {
     .filter((r) => r.label)
     .map((r) =>
       new maplibregl.Marker({
-        element: el("div", { class: `label ${r.level}${r.index === page.selected ? " selected" : ""}`, onclick: (e) => (e.stopPropagation(), labelClicked(r)), onpointermove: (e) => e.pointerType === "mouse" && !page.drawing && showTip([r], e.clientX, e.clientY), onpointerleave: hideTip }, lastPart(r.code)),
+        element: el("div", { class: `label ${r.level}${r.index === page.selected ? " selected" : ""}`, onclick: (e) => (e.stopPropagation(), labelClicked(r)), onpointermove: (e) => e.pointerType === "mouse" && !page.drawing && showTip([r], e.clientX, e.clientY), onpointerleave: hideTip }, lastPart(r.name)),
         opacityWhenCovered: 0, // labels on the far side of the globe are hidden
       })
         .setLngLat(r.label)
@@ -1495,7 +1495,7 @@ function drawArea() {
   map.getSource("area").setData(collection(features));
 }
 
-// ---- tooltips: a rule's level, code, title and message, on hover -----------------
+// ---- tooltips: a rule's level, name, title and message, on hover -----------------
 // One box for the globe's shapes and labels and the tree's rows, placed by the
 // pointer (or the row) and kept inside the window.
 function showTip(rules, x, y, gap = 14) {
@@ -1505,7 +1505,7 @@ function showTip(rules, x, y, gap = 14) {
     el(
       "div",
       { class: "tip-rule" },
-      el("div", { class: "head" }, el("span", { class: `chip ${r.level}` }, r.level), el("strong", {}, r.code)),
+      el("div", { class: "head" }, el("span", { class: `chip ${r.level}` }, r.level), el("strong", {}, r.name)),
       r.title ? el("div", { class: "tip-title" }, r.title) : null,
       r.message ? el("p", {}, r.message) : null
     )
@@ -1684,7 +1684,7 @@ async function finishDrawing() {
 async function keepShape(features) {
   try {
     edited(await call("draw", { index: page.selected, features }));
-    say(`Kept the shape of ${page.state.rules[page.selected].code}.`);
+    say(`Kept the shape of ${page.state.rules[page.selected].name}.`);
   } catch (err) {
     say(err.message, true);
   }

@@ -9,7 +9,7 @@ from vizqueryearth import Session
 
 RULES = {
     "type": "FeatureCollection",
-    "queryearth": "0.7",
+    "queryearth": "0.8",
     "features": [
         {
             "type": "Feature",
@@ -22,7 +22,7 @@ RULES = {
             },
             "time": {"interval": ["1993-01-01", ".."]},
             "properties": {
-                "code": "REGION/GULF/GULF001",
+                "name": "REGION/GULF/GULF001",
                 "title": "glorys is too fresh off the Mississippi",
                 "message": "Near the delta, glorys surface salinity runs low.",
                 "level": "warning",
@@ -36,7 +36,7 @@ RULES = {
             "geometry": None,
             "time": None,
             "properties": {
-                "code": "GRID/GRID001",
+                "name": "GRID/GRID001",
                 "title": "Turn off GM at high resolution",
                 "message": "Below 8 km eddies are partly resolved.",
                 "level": "info",
@@ -66,8 +66,8 @@ def saved(session):
     return json.loads(call(session, "text"))
 
 
-def codes(session):
-    return [rule.code for rule in session.rules]
+def names(session):
+    return [rule.name for rule in session.rules]
 
 
 def test_a_file_saved_untouched_is_as_queryearth_wrote_it(tmp_path):
@@ -136,7 +136,7 @@ def test_a_file_for_a_later_queryearth_leaves_the_open_file():
     later = {"type": "FeatureCollection", "queryearth": "9.0", "features": []}
     with pytest.raises(ValueError, match="needs queryearth 9.0"):
         call(session, "open", text=json.dumps(later))
-    assert codes(session) == ["REGION/GULF/GULF001", "GRID/GRID001"]
+    assert names(session) == ["REGION/GULF/GULF001", "GRID/GRID001"]
 
 
 def test_a_rule_is_edited_and_saved():
@@ -160,7 +160,7 @@ def test_a_rule_is_edited_and_saved():
         "resolution": {"ge": 2, "lt": 8, "unit": "km"},
         "product": ["glorys", "era5*"],
     }
-    assert saved(session)["queryearth"] == "0.7"
+    assert saved(session)["queryearth"] == "0.8"
 
 
 def test_empty_fields_remove_a_rules_time_and_values():
@@ -184,8 +184,8 @@ def test_a_refused_edit_leaves_the_rule_as_it_was():
     with pytest.raises(ValueError, match="level is one of"):
         call(session, "update", index=0, fields={"level": "loud"})
     with pytest.raises(ValueError, match="already a rule here"):
-        call(session, "update", index=0, fields={"code": "GRID/GRID001"})
-    assert session.rules[0].code == "REGION/GULF/GULF001"
+        call(session, "update", index=0, fields={"name": "GRID/GRID001"})
+    assert session.rules[0].name == "REGION/GULF/GULF001"
     assert session.rules[0].level == "warning"
 
 
@@ -199,33 +199,33 @@ def test_other_properties_are_kept():
 def test_a_new_rule_takes_the_next_number_in_its_category():
     session = opened()
     out = call(session, "new", category="REGION/GULF")
-    assert out["index"] == 2 and codes(session)[2] == "REGION/GULF/GULF002"
+    assert out["index"] == 2 and names(session)[2] == "REGION/GULF/GULF002"
     call(session, "new", category="REGION/ITF")
     call(session, "new")
-    assert codes(session)[3:] == ["REGION/ITF/ITF001", "RULE001"]
+    assert names(session)[3:] == ["REGION/ITF/ITF001", "RULE001"]
 
 
-def test_moving_a_rule_renames_its_codes_path():
+def test_moving_a_rule_renames_its_names_path():
     session = opened()
     out = call(session, "move", index=1, category="REGION/GULF")
-    assert (out["was"], out["code"]) == ("GRID/GRID001", "REGION/GULF/GRID001")
+    assert (out["was"], out["name"]) == ("GRID/GRID001", "REGION/GULF/GRID001")
     call(session, "move", index=1, category="")
-    assert codes(session)[1] == "GRID001"
+    assert names(session)[1] == "GRID001"
 
 
-def test_renaming_a_category_rewrites_the_codes_under_it():
+def test_renaming_a_category_rewrites_the_names_under_it():
     session = opened()
     call(session, "rename", category="REGION", to="AREAS/REGION")
-    assert codes(session) == ["AREAS/REGION/GULF/GULF001", "GRID/GRID001"]
+    assert names(session) == ["AREAS/REGION/GULF/GULF001", "GRID/GRID001"]
     call(session, "rename", category="AREAS/REGION/GULF", to="GULF")
-    assert codes(session)[0] == "GULF/GULF001"
+    assert names(session)[0] == "GULF/GULF001"
 
 
 def test_a_category_cannot_move_into_itself():
     session = opened()
     with pytest.raises(ValueError, match="REGION cannot sit in itself"):
         call(session, "rename", category="REGION", to="REGION/GULF/REGION")
-    assert codes(session)[0] == "REGION/GULF/GULF001"
+    assert names(session)[0] == "REGION/GULF/GULF001"
 
 
 def test_a_drawn_shape_or_a_polar_cap_becomes_the_rules_geometry():
@@ -247,45 +247,18 @@ def test_a_query_gives_the_rules_that_apply():
     assert call(session, "query", values={"resolution": "9"}) == []
 
 
-def test_a_queryearth_0_6_file_opens_with_path_codes():
-    old = {
-        "type": "FeatureCollection",
-        "queryearth": "0.6",
-        "categories": {"DOMAIN": "Domain design", "OBC": {"title": "Open boundaries", "parent": "DOMAIN"}},  # fmt: skip
-        "dimensions": [{"name": "model", "kind": "labels"}],
-        "features": [
-            {
-                "type": "Feature",
-                "id": "OBC001",
-                "geometry": None,
-                "properties": {
-                    "code": "OBC001",
-                    "title": "A strong current",
-                    "message": "Give the boundary a sponge.",
-                    "box": {"west": 170, "width": 20, "south": 50, "north": 60},
-                    "changes": [
-                        {"target": "MOM_input", "key": "SPONGE", "value": True}
-                    ],
-                },
-            }
-        ],
-    }
-    session = opened(old)
-    rule = saved(session)["features"][0]
-    assert rule["properties"]["code"] == "DOMAIN/OBC/OBC001"
-    assert rule["properties"]["level"] == "info"  # a rule with changes was info
-    assert rule["geometry"]["type"] == "MultiPolygon"  # the box, across the date line
-    assert call(session, "state")["dimensions"] == [{"name": "model", "kind": "labels"}]
-
-
-def test_a_queryearth_0_5_file_names_its_categories_groups():
+def test_a_file_whose_rules_have_codes_is_refused():
+    session = opened()
     old = json.loads(json.dumps(RULES))
-    old["queryearth"], old["groups"] = "0.5", {"GULF": "Gulf of Mexico"}
-    old["features"][0]["properties"]["code"] = "GULF001"
-    assert codes(opened(old))[0] == "GULF/GULF001"
+    old["queryearth"] = "0.7"
+    for feature in old["features"]:
+        feature["properties"]["code"] = feature["properties"].pop("name")
+    with pytest.raises(ValueError, match="feature 0: .*needs a name"):
+        call(session, "open", text=json.dumps(old))
+    assert names(session) == ["REGION/GULF/GULF001", "GRID/GRID001"]
 
 
-def test_an_old_edge_rule_is_refused_naming_it():
+def test_an_edge_rule_from_queryearth_0_6_is_refused_naming_it():
     old = json.loads(json.dumps(RULES))
     old["features"][0]["properties"]["edge"] = True
     with pytest.raises(ValueError, match=r"feature 0: REGION/GULF/GULF001: \['edge'\]"):

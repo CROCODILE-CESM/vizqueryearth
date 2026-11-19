@@ -32,7 +32,6 @@ _BOUND = re.compile(rf"(<=|>=|≤|≥|<|>)\s*({_NUMBER})")
 _OPS = {"<": "lt", "<=": "le", "≤": "le", ">": "gt", ">=": "ge", "≥": "ge"}
 _SIGNS = {"gt": ">", "ge": ">=", "lt": "<", "le": "<="}
 AXIS_HINT = "<8, <=8, >2, >=2, or 2-8 (from 2 up to, not including, 8)"
-_OLD_CODE = re.compile(r"([A-Z][A-Z0-9]*?)-?[0-9]{3,4}")  # before 0.7: OBC001
 
 
 class Session:
@@ -59,11 +58,11 @@ class Session:
         self, text: str, name: str = "rules.geojson", dimensions: Any = None
     ) -> dict[str, Any]:
         """Read a rule file with queryearth. Its dimensions are those the page
-        gives, as [{name, kind, unit}], then those a file from before
-        queryearth 0.7 declares, then those inferred from the rules. A file
-        queryearth refuses leaves the open file as it was."""
-        data, declared = upgrade(json.loads(text))
-        found = infer(data.get("features") or [], [*(dimensions or []), *declared])
+        gives, as [{name, kind, unit}], then those inferred from the rules. A
+        file queryearth refuses leaves the open file as it was."""
+        data = json.loads(text)
+        features = data.get("features") if isinstance(data, dict) else None
+        found = infer(features or [], dimensions or [])
         found = [_dimension(d) for d in found]
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder, Path(name).name or "rules.geojson")
@@ -97,15 +96,15 @@ class Session:
 
     # ---- editing -----------------------------------------------------------------
     def do_update(self, index: int, fields: Mapping[str, Any]) -> dict[str, Any]:
-        """Change a rule's fields as the page gives them: text for code, title,
+        """Change a rule's fields as the page gives them: text for name, title,
         message and level; [start, end] for time, with "" for an open end; and
         the text typed for each dimension, "" for none."""
         rule = self.rules[index]
         changed = {
-            k: fields[k] for k in ("code", "title", "message", "level") if k in fields
+            k: fields[k] for k in ("name", "title", "message", "level") if k in fields
         }
-        if "code" in changed:
-            changed["code"] = changed["code"].strip()
+        if "name" in changed:
+            changed["name"] = changed["name"].strip()
         scope = dict(rule.scope)
         if "time" in fields:
             start, end = (value or ".." for value in fields["time"])
@@ -126,7 +125,7 @@ class Session:
         stem = category.rpartition("/")[2] or "RULE"
         prefix = f"{category}/{stem}" if category else stem
         numbered = (
-            re.fullmatch(re.escape(prefix) + r"(\d+)", r.code) for r in self.rules
+            re.fullmatch(re.escape(prefix) + r"(\d+)", r.name) for r in self.rules
         )
         number = max((int(m[1]) for m in numbered if m), default=0) + 1
         rule = qe.Rule(
@@ -140,18 +139,18 @@ class Session:
         return self.do_state()
 
     def do_move(self, index: int, category: str) -> dict[str, Any]:
-        """Move a rule to a category, "" for none: its code takes that path and
+        """Move a rule to a category, "" for none: its name takes that path and
         keeps its last part, so REGION/ITF/ITF003 moved to DOMAIN/OBC becomes
-        DOMAIN/OBC/ITF003. Returns the old code and the new one."""
+        DOMAIN/OBC/ITF003. Returns the old name and the new one."""
         rule = self.rules[index]
-        code = "/".join(filter(None, [category, rule.code.rpartition("/")[2]]))
-        if code == rule.code:
-            raise ValueError(f"{rule.code} is in {category or 'no category'} already")
-        self._replace(index, dataclasses.replace(rule, code=code))
-        return {"state": self.do_state(), "was": rule.code, "code": code}
+        name = "/".join(filter(None, [category, rule.name.rpartition("/")[2]]))
+        if name == rule.name:
+            raise ValueError(f"{rule.name} is in {category or 'no category'} already")
+        self._replace(index, dataclasses.replace(rule, name=name))
+        return {"state": self.do_state(), "was": rule.name, "name": name}
 
     def do_rename(self, category: str, to: str) -> dict[str, Any]:
-        """Rename or move a category: every code under it takes the new path,
+        """Rename or move a category: every rule name under it takes the new path,
         so DOMAIN/OBC/OBC001 becomes REGION/OBC/OBC001 when DOMAIN/OBC becomes
         REGION/OBC."""
         if to.startswith(category + "/"):
@@ -160,8 +159,8 @@ class Session:
         self._keep(
             [
                 (
-                    dataclasses.replace(r, code=f"{to}/{r.code[size:]}")
-                    if r.code.startswith(category + "/")
+                    dataclasses.replace(r, name=f"{to}/{r.name[size:]}")
+                    if r.name.startswith(category + "/")
                     else r
                 )
                 for r in self.rules
@@ -214,8 +213,8 @@ class Session:
         for name, text in (values or {}).items():
             if text.strip():
                 query[name] = _query_value(declared.get(name), text)
-        where = {rule.code: i for i, rule in enumerate(self.rules)}
-        return [where[rule.code] for rule in self._keep().query(**query)]
+        where = {rule.name: i for i, rule in enumerate(self.rules)}
+        return [where[rule.name] for rule in self._keep().query(**query)]
 
     # ---- helpers -----------------------------------------------------------------
     def _keep(
@@ -259,7 +258,7 @@ class Session:
         on_globe = dict.fromkeys(("fill", "outline", "label", "editable", "extent"))
         return {
             "index": index,
-            "code": rule.code,
+            "name": rule.name,
             "category": rule.category or "",
             "title": rule.title,
             "message": rule.message,
@@ -271,43 +270,7 @@ class Session:
         } | (on_globe if space is None else shapes.on_globe(space))
 
 
-# ---- old files and dimensions --------------------------------------------------
-def upgrade(data: Any) -> tuple[Any, list[dict[str, str]]]:
-    """A rule file from before queryearth 0.7 in the 0.7 form, and the labels
-    and axis dimensions it declared.
-
-    A code whose prefix the file declares as a category ("groups" before 0.6)
-    takes the category's path: OBC001, in OBC in DOMAIN, becomes
-    DOMAIN/OBC/OBC001. A record's box becomes its geometry, and a rule without
-    a level but with changes, which was info, says so. queryearth refuses what
-    does not map, such as an edge rule, naming the rule.
-    """
-    if not isinstance(data, dict):
-        return data, []
-    categories = data.pop("categories", None) or data.pop("groups", None) or {}
-    declared = data.pop("dimensions", None) or []
-    for feature in data.get("features") or []:
-        props = feature.get("properties") if isinstance(feature, dict) else None
-        if not isinstance(props, dict):
-            continue
-        found = _OLD_CODE.fullmatch(str(props.get("code")))
-        path, prefix = [], found and found[1]
-        while prefix in categories and prefix not in path:
-            path.insert(0, prefix)
-            parent = categories[prefix]
-            prefix = parent.get("parent") if isinstance(parent, dict) else None
-        if path:
-            props["code"] = "/".join([*path, props["code"]])
-        if isinstance(box := props.pop("box", None), dict):
-            east = box["west"] + box["width"]
-            space = sp.box(box["west"], box["south"], east, box["north"])
-            feature["geometry"] = space.to_json()
-        if "level" not in props and props.get("changes"):
-            props["level"] = "info"
-    kinds = ("labels", "axis")
-    return data, [d for d in declared if isinstance(d, dict) and d.get("kind") in kinds]
-
-
+# ---- dimensions ----------------------------------------------------------------
 def infer(
     features: Iterable[Any], declared: Iterable[Mapping[str, str]] = ()
 ) -> list[dict[str, str]]:

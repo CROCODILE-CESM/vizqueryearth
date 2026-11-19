@@ -1,6 +1,6 @@
 {
   "type": "FeatureCollection",
-  "queryearth": "0.7",
+  "queryearth": "0.8",
   "features": [
     {
       "type": "Feature",
@@ -20,7 +20,7 @@
       },
       "time": null,
       "properties": {
-        "code": "OCN/OCN001",
+        "name": "OCN/OCN001",
         "title": "demo_ocean is too fresh near the coast",
         "message": "Near this coast, demo_ocean surface salinity runs low.",
         "level": "warning",
@@ -62,7 +62,7 @@
       },
       "time": null,
       "properties": {
-        "code": "OCN/OCN002",
+        "name": "OCN/OCN002",
         "title": "demo_ocean is too warm in the Bering Sea",
         "message": "In the Bering Sea, demo_ocean sea temperature runs about 1 K too warm.",
         "level": "warning",
@@ -107,7 +107,7 @@
       },
       "time": null,
       "properties": {
-        "code": "DOMAIN/ICE/ICE001",
+        "name": "DOMAIN/ICE/ICE001",
         "title": "Arctic domain: think about sea ice",
         "message": "Part of this domain lies north of the Arctic Circle.",
         "level": "info",
@@ -130,7 +130,7 @@
         ]
       },
       "properties": {
-        "code": "OCN/OCN003",
+        "name": "OCN/OCN003",
         "title": "demo_ocean salinity is poorly constrained before 2004",
         "message": "Few salinity profiles went into demo_ocean before 2004.",
         "level": "warning",
@@ -161,7 +161,7 @@
       },
       "time": null,
       "properties": {
-        "code": "DOMAIN/OBC/OBC001",
+        "name": "DOMAIN/OBC/OBC001",
         "title": "A strong current crosses this box",
         "message": "A strong (made-up) current runs through this box: an open boundary that cuts across it needs care.",
         "level": "warning",

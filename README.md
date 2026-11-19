@@ -14,31 +14,31 @@ The first visit downloads about 20 MB (Python and queryearth, see [How it works]
 
 ## Using the page
 
-What the file holds is on the left: the rules, and under them its dimensions (in Create) and the **File** buttons, **Open file**, **Open link**, **Download** and **Copy**. The globe is in the middle. What you do is on the right: the switch between the two modes, **Check**, for people who read the rules, and **Create**, for people who write them, and under it checking, adding and editing. Hover over a rule's shape or label on the globe, or its row in the list, to see its level, code, title and message; hover over a button for what it does.
+What the file holds is on the left: the rules, and under them its dimensions (in Create) and the **File** buttons, **Open file**, **Open link**, **Download** and **Copy**. The globe is in the middle. What you do is on the right: the switch between the two modes, **Check**, for people who read the rules, and **Create**, for people who write them, and under it checking, adding and editing. Hover over a rule's shape or label on the globe, or its row in the list, to see its level, name, title and message; hover over a button for what it does.
 
 ### Check
 
 **Check.** Draw a **Rectangle** or a **Polygon** where you work, or leave the area empty to ask about anywhere. Give dates if you like, and a value for each dimension the rules use, such as a product or a resolution. **Check** lists the rules that apply and highlights them on the globe. A rule about a dimension you leave empty does not apply, and "No rule applies" means only that no rule matched, not that all is well. Click a result to open that rule at the top of the panel.
 
-**Rules.** The rules are a tree on the left, made from their codes: a code may be a path, such as `REGION/ITF/ITF001`, whose part before the last slash is its category, `REGION/ITF`, inside `REGION`. **All rules** is at the root, then the categories, their subcategories at any depth, and the rules in each, sorted by code; rules whose code has no slash sit at the root. Each category shows how many rules are in it, at any depth, and each row is one line: a long title ends in "…", and the row's tooltip has it whole. The categories start closed. Open or close a branch with its arrow; the page remembers which you opened, in this browser.
+**Rules.** The rules are a tree on the left, made from their names: a rule's name may be a path, such as `REGION/ITF/ITF001`, whose part before the last slash is its category, `REGION/ITF`, inside `REGION`. **All rules** is at the root, then the categories, their subcategories at any depth, and the rules in each, sorted by code; rules whose code has no slash sit at the root. Each category shows how many rules are in it, at any depth, and each row is one line: a long title ends in "…", and the row's tooltip has it whole. The categories start closed. Open or close a branch with its arrow; the page remembers which you opened, in this browser.
 
-Click a category to show its rules on the globe, and those of every category in it; the globe turns to them. Type in the filter box to show only the rules whose code or title has those letters (`OBC`, `strait`, `gulf`), with the categories they are in, opened; the globe shows them too and turns to them. Clear the filter and the branches are as you left them. The page remembers your filter. The tree works from the keyboard: the arrow keys move up and down and open and close branches, Home and End go to the first and last item, and Enter or Space picks a category or opens a rule.
+Click a category to show its rules on the globe, and those of every category in it; the globe turns to them. Type in the filter box to show only the rules whose name or title has those letters (`OBC`, `strait`, `gulf`), with the categories they are in, opened; the globe shows them too and turns to them. Clear the filter and the branches are as you left them. The page remembers your filter. The tree works from the keyboard: the arrow keys move up and down and open and close branches, Home and End go to the first and last item, and Enter or Space picks a category or opens a rule.
 
-Click a rule in the tree, its label or its shape on the globe to open its card at the top of the right panel, with its categories opened in the tree: the globe turns to it, and the card shows what the rule says and what it covers: its code, message and instruction, where and when it applies, what it applies to, its references and evidence, and any other property it carries. **Copy GeoJSON** copies the rule as the rules file holds it.
+Click a rule in the tree, its label or its shape on the globe to open its card at the top of the right panel, with its categories opened in the tree: the globe turns to it, and the card shows what the rule says and what it covers: its name, message and instruction, where and when it applies, what it applies to, its references and evidence, and any other property it carries. **Copy GeoJSON** copies the rule as the rules file holds it.
 
 ### Create
 
 **Adding.** At the top of the right side, under the switch: **+ Rule** adds a rule in the category you are in, the selected rule's or the one picked in the tree, and its label says which (`+ Rule in OBC`); it is numbered after the last part of the category's path, such as `DOMAIN/OBC/OBC006` after `DOMAIN/OBC/OBC005`, or `RULE001` at the root. **+ Category** makes a category there, and picks it so that **+ Rule** puts the next rule in it; it holds no rule yet, so it is kept only while the page is open: put a rule in it to keep it in the file. **+ Dimension** adds a dimension (see Dimensions below).
 
-**Rules.** The same tree, where you also move rules and categories. A category exists because a rule's code is in it, so moving and renaming change codes:
+**Rules.** The same tree, where you also move rules and categories. A category exists because a rule's name is in it, so moving and renaming change names:
 
-- To move a rule, drag it by its handle (⠿) onto a category, or onto **All rules** for none, or pick another **Category** in its form. Its code takes the new path and keeps its last part: `REGION/ITF/ITF003` moved to `DOMAIN/OBC` becomes `DOMAIN/OBC/ITF003`;
-- To move a category, drag it onto another one (or onto **All rules**, for the top level), or click it and pick another category in **Inside** in its form on the right. Renaming it there works the same way: every code in it takes the new path;
+- To move a rule, drag it by its handle (⠿) onto a category, or onto **All rules** for none, or pick another **Category** in its form. Its name takes the new path and keeps its last part: `REGION/ITF/ITF003` moved to `DOMAIN/OBC` becomes `DOMAIN/OBC/ITF003`;
+- To move a category, drag it onto another one (or onto **All rules**, for the top level), or click it and pick another category in **Inside** in its form on the right. Renaming it there works the same way: every rule name in it takes the new path;
 - **Remove**, in a category's form, removes a category with no rules; one that holds rules is not removed, and the page says why.
 
-Clicking a rule opens its form at the top of the right panel, with **Delete** beside its code (it asks you to click a second time):
+Clicking a rule opens its form at the top of the right panel, with **Delete** beside its name (it asks you to click a second time):
 
-- code, level (info, warning or error), category (picking another moves the rule, as dragging does), title and message;
+- name, level (info, warning or error), category (picking another moves the rule, as dragging does), title and message;
 - **Where:** draw a **Rectangle** or a **Polygon**, **Move corners** of the current shape, **Clear** it (the rule then applies anywhere), or give it the **Arctic cap** or **Antarctic cap** from a latitude;
 - **When:** from and to dates;
 - **Applies to:** one field per dimension (see the table below);
@@ -67,9 +67,9 @@ What to type for a dimension:
 
 ## Rules files
 
-A rules file is a GeoJSON FeatureCollection with one Feature per rule, as queryearth 0.7 reads and writes it (`Registry.from_file`, `Registry.to_file`); see [Rule files](https://crocodile-cesm.github.io/queryearth/) in the queryearth docs. Open one with **Open file** or **Open link**, or give its address in the page's own: `?src=<link>`. A file that needs a later queryearth than the page's is not opened, and the line at the bottom of the page says which release it needs.
+A rules file is a GeoJSON FeatureCollection with one Feature per rule, as queryearth 0.8 reads and writes it (`Registry.from_file`, `Registry.to_file`); see [Rule files](https://crocodile-cesm.github.io/queryearth/) in the queryearth docs. Open one with **Open file** or **Open link**, or give its address in the page's own: `?src=<link>`. A file that needs a later queryearth than the page's is not opened, and the line at the bottom of the page says which release it needs.
 
-**Older files.** Files written for queryearth 0.6 or before open where they map onto 0.7: each code takes the path of the category it was in (`OBC001`, in `OBC` in `DOMAIN`, becomes `DOMAIN/OBC/OBC001`; the categories were called `groups` before 0.6), the dimensions the file declared become the page's, and a record's `box` becomes its geometry. They are saved as 0.7 files. Category titles are not kept. A rule that 0.7 cannot read as its author meant, such as an edge rule or one that recurs every year, is refused, and the page names it.
+Files from queryearth 0.7 or before are not read: their rules have a `code`, which queryearth 0.8 calls `name`.
 
 ## Sharing
 
@@ -120,16 +120,15 @@ For example, `web/sites/demo/site.json`:
 
 ## Using it from Python
 
-The page's Python is a small package, not on PyPI; to work with rule files in Python, use queryearth itself. It needs Python 3.11 or later and `queryearth>=0.7,<0.8`. `vizqueryearth.Session` holds the rules a page shows and answers its calls, `upgrade()` turns a file from queryearth 0.6 or before into the 0.7 form, and `infer()` reads a file's dimensions from its rules:
+The page's Python is a small package, not on PyPI; to work with rule files in Python, use queryearth itself. It needs Python 3.11 or later and `queryearth>=0.8,<0.9`. `vizqueryearth.Session` holds the rules a page shows and answers its calls, and `infer()` reads a file's dimensions from its rules:
 
 ```python
 import json
 
-import queryearth as qe
-from vizqueryearth import infer, upgrade
+from vizqueryearth import infer
 
-data, declared = upgrade(json.load(open("old_rules.geojson")))
-dimensions = infer(data["features"], declared)  # [{"name", "kind", "unit"}]
+data = json.load(open("rules.geojson"))
+dimensions = infer(data["features"])  # [{"name", "kind", "unit"}]
 ```
 
 ## Local development
