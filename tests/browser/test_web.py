@@ -184,9 +184,8 @@ def test_check_a_drawn_domain():
 def test_edit_a_rule_and_download_the_file():
     page, errors = visit("/sites/demo/#create", 5)
     row(page, "cat:DOMAIN").locator(".twisty").click()
-    row(page, "cat:DOMAIN/ICE").get_by_role(
-        "button", name="New rule in DOMAIN/ICE"
-    ).click()
+    row(page, "cat:DOMAIN/ICE").locator(".name").click()  # where + Rule adds
+    page.locator(".mode-bar").get_by_role("button", name="+ Rule in ICE").click()
     page.wait_for_function(f"{APP}.page.state.rules.length === 6")
     assert page.input_value("#f-code") == "DOMAIN/ICE/ICE002"
 
@@ -233,7 +232,7 @@ def test_move_rules_and_categories_in_the_tree():
     page.select_option("#f-category", "")  # none, the top level
     page.wait_for_function(f"{APP}.page.state.rules[1].code === 'OCN002'")
 
-    row(page, "cat:DOMAIN").get_by_role("button", name="More for DOMAIN").click()
+    row(page, "cat:DOMAIN").locator(".name").click()  # its form, on the right
     page.fill('[id="c-name-DOMAIN"]', "SETUP")
     page.locator('[id="c-name-DOMAIN"]').blur()
     page.wait_for_function(f"{APP}.page.state.rules[2].code === 'SETUP/ICE/ICE001'")
@@ -246,11 +245,12 @@ def test_move_rules_and_categories_in_the_tree():
     ]
 
     # a category without rules is kept in the page; one with rules stays
-    row(page, "cat:OCN").get_by_role("button", name="More for OCN").click()
-    page.fill('[id="new-category-OCN"]', "SALT")
-    page.locator('[data-node="cat:OCN"] .add-category').get_by_role("button").click()
+    row(page, "cat:OCN").locator(".name").click()
+    page.locator(".mode-bar").get_by_role("button", name="+ Category").click()
+    page.fill("#new-category", "SALT")
+    page.locator("#add-category").get_by_role("button", name="Add").click()
     assert row(page, "cat:OCN/SALT").locator(".count").inner_text() == "0"
-    row(page, "cat:OCN").get_by_role("button", name="More for OCN").click()
+    row(page, "cat:OCN").locator(".name").click()
     page.get_by_role("button", name="Remove OCN").click()
     assert "OCN still has rules" in page.inner_text("#status")
 
@@ -261,10 +261,11 @@ def test_move_rules_and_categories_in_the_tree():
 
 def test_download_as_a_web_page(tmp_path):
     page, errors = visit("/sites/demo/#create", 5)
+    page.locator(".mode-bar").get_by_role("button", name="+ Dimension").click()
     page.fill("#d-name", "resolution")
     page.select_option("#d-kind", "axis")
     page.fill("#d-unit", "km")
-    page.locator("#dimensions").get_by_role("button", name="Add", exact=True).click()
+    page.locator("#add-dimension").get_by_role("button", name="Add").click()
     page.wait_for_function(f"{APP}.page.state.dimensions.length === 4")
     page.fill("#page-title", "Demo copy")
     (tmp_path / "index.html").write_text(downloaded(page, "Download web page"))

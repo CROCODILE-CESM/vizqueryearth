@@ -14,7 +14,7 @@ The first visit downloads about 20 MB (Python and queryearth, see [How it works]
 
 ## Using the page
 
-The rules are on the left, the globe in the middle and the panel for the mode on the right. The page has two modes, switched at the top: **Check**, for people who read the rules, and **Create**, for people who write them. **Open file** and **Open link** work in both. Hover over a rule's shape or label on the globe, or its row in the list, to see its level, code, title and message; hover over a button for what it does.
+What the file holds is on the left: the rules, and under them its dimensions (in Create) and the **File** buttons, **Open file**, **Open link**, **Download** and **Copy**. The globe is in the middle. What you do is on the right: the switch between the two modes, **Check**, for people who read the rules, and **Create**, for people who write them, and under it checking, adding and editing. Hover over a rule's shape or label on the globe, or its row in the list, to see its level, code, title and message; hover over a button for what it does.
 
 ### Check
 
@@ -28,12 +28,13 @@ Click a rule in the tree, its label or its shape on the globe to open its card a
 
 ### Create
 
-**Rules.** The same tree, where you also manage the rules and categories. A category exists because a rule's code is in it, so moving and renaming change codes:
+**Adding.** At the top of the right side, under the switch: **+ Rule** adds a rule in the category you are in, the selected rule's or the one picked in the tree, and its label says which (`+ Rule in OBC`); it is numbered after the last part of the category's path, such as `DOMAIN/OBC/OBC006` after `DOMAIN/OBC/OBC005`, or `RULE001` at the root. **+ Category** makes a category there, and picks it so that **+ Rule** puts the next rule in it; it holds no rule yet, so it is kept only while the page is open: put a rule in it to keep it in the file. **+ Dimension** adds a dimension (see Dimensions below).
+
+**Rules.** The same tree, where you also move rules and categories. A category exists because a rule's code is in it, so moving and renaming change codes:
 
 - To move a rule, drag it by its handle (⠿) onto a category, or onto **All rules** for none, or pick another **Category** in its form. Its code takes the new path and keeps its last part: `REGION/ITF/ITF003` moved to `DOMAIN/OBC` becomes `DOMAIN/OBC/ITF003`;
-- To move a category, drag it onto another one (or onto **All rules**, for the top level), or use **Move to…** in its **⋯**. Renaming it there works the same way: every code in it takes the new path;
-- **+ Rule** on a category (it shows when you point at the category) adds a rule numbered after the last part of its path, such as `DOMAIN/OBC/OBC006` after `DOMAIN/OBC/OBC005`; on **All rules** it adds `RULE001` at the root;
-- **+ Category** on **All rules**, and **Add** in a category's **⋯**, make a category. It holds no rule yet, so it is kept only while the page is open: put a rule in it to keep it in the file. **Remove** in the **⋯** removes a category with no rules; one that holds rules is not removed, and the page says why.
+- To move a category, drag it onto another one (or onto **All rules**, for the top level), or click it and pick another category in **Inside** in its form on the right. Renaming it there works the same way: every code in it takes the new path;
+- **Remove**, in a category's form, removes a category with no rules; one that holds rules is not removed, and the page says why.
 
 Clicking a rule opens its form at the top of the right panel, with **Delete** beside its code (it asks you to click a second time):
 
@@ -47,9 +48,9 @@ Other properties of a rule, such as its instruction, references and evidence, ar
 
 Every edit is checked by queryearth before it is kept. If queryearth refuses one, the field keeps what you typed, marked in red, and the line at the bottom of the page says why.
 
-**Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km. A rules file does not list them, so the page reads them from the rules' values: a range such as `{"lt": 8, "unit": "km"}` makes an axis in that unit, and a name or a list of names makes labels. Set an axis's unit here when its rules give none, add a dimension to check against, or remove one no rule uses.
+**Dimensions.** What the rules can depend on besides place and time. Labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km. A rules file does not list them, so the page reads them from the rules' values: a range such as `{"lt": 8, "unit": "km"}` makes an axis in that unit, and a name or a list of names makes labels. They are listed on the left, under the rules: set an axis's unit there when its rules give none, or remove one no rule uses. **+ Dimension**, on the right, adds one to check against.
 
-**File.** **Download** saves the rules as queryearth writes rule files (it is also at the top of the page in Create), and **Copy** copies the same text. **Download web page** saves a page that shows them, with the title typed beside it; see [Sharing](#sharing).
+**File.** On the left, under the rules, in both modes: **Download** saves the rules as queryearth writes rule files, and **Copy** copies the same text. In Create, **Download web page** saves a page that shows them, with the title typed above it; see [Sharing](#sharing).
 
 Edits you have not downloaded are kept in your browser. When you come back to the same page address, Create mode offers them back; the page switches to Create to show you, unless its address asked for Check.
 

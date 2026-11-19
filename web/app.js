@@ -202,53 +202,42 @@ const page = {
   pageTitle: "",
   filter: { text: "", category: "" }, // which rules the tree and the globe show
   empty: [], // categories made in Create that hold no rule yet, by path
-  panel: null, // the category whose actions are open in Create (ALL: the root's)
+  adding: null, // the add form open in Create: "category", "dimension" or null
+  linking: false, // whether the Open link field is open
+  linkText: "", // and what is typed in it
   treeFocus: null, // the tree item that takes the keyboard
 };
 let map, draw, maplibregl, pythonReady;
 
+// The left side is what the file holds: the rules, its dimensions and the file
+// itself. The right side is what you do: the mode, checking, adding and editing.
 function build() {
   const s = page.settings;
   document.title = s.title;
   page.pageTitle = s.title === "vizqueryearth" ? "My rules" : s.title;
-  const fileInput = el("input", { type: "file", accept: ".geojson,.json", hidden: true, onchange: openFile });
   document.body.append(
+    el("header", { class: "bar" }, el("h1", {}, s.title)),
     el(
-      "header",
-      { class: "bar" },
-      el("h1", {}, s.title),
-      el(
-        "div",
-        { class: "modes", role: "group", "aria-label": "Mode" },
-        el("button", { type: "button", "data-mode": "check", title: "Which rules apply to your area", onclick: () => setMode("check") }, "Check"),
-        el("button", { type: "button", "data-mode": "create", title: "Write and edit rules", onclick: () => setMode("create") }, "Create")
-      ),
-      el("span", { class: "grow" }),
-      el("button", { onclick: () => fileInput.click() }, "Open file"),
-      el("button", { id: "open-link", "aria-expanded": false, "aria-controls": "linkbar", onclick: () => showLinkBar(document.getElementById("linkbar").hidden) }, "Open link"),
-      el("button", { class: "create-only", title: "Download the rules file", onclick: downloadRules }, "Download"),
-      fileInput
+      "main",
+      {},
+      el("aside", { id: "rules-panel" }, el("div", { id: "rules-list", class: "side" }), el("div", { id: "rules-foot", class: "side" })),
+      el("div", { id: "map" }),
+      el("aside", { id: "panel", class: "side" })
     ),
-    el(
-      "form",
-      { id: "linkbar", class: "bar linkbar", hidden: true, onsubmit: submitLink },
-      el("input", { id: "link-url", type: "text", inputmode: "url", autocomplete: "off", spellcheck: "false", "aria-label": "Link to a rules file", title: "The file's host must let other sites read it, as GitHub and gists do", placeholder: "https://…/rules.geojson", required: true }),
-      el("button", { class: "primary", type: "submit" }, "Open"),
-      el("button", { type: "button", onclick: () => showLinkBar(false) }, "Cancel")
-    ),
-    el("main", {}, el("aside", { id: "rules-panel", class: "side" }), el("div", { id: "map" }), el("aside", { id: "panel", class: "side" })),
     el("div", { id: "status", role: "status" }),
-    el("div", { id: "tip", role: "tooltip", hidden: true })
+    el("div", { id: "tip", role: "tooltip", hidden: true }),
+    el("input", { id: "file-input", type: "file", accept: ".geojson,.json", hidden: true, onchange: openFile })
   );
 }
 
 function render() {
   hideTip(); // the rows and shapes under it are about to be replaced
-  document.getElementById("rules-panel").replaceChildren(rulesSection());
-  const parts =
-    page.mode === "create"
-      ? [page.draft ? draftNotice() : null, ruleSection(), dimensionsSection(), fileSection()]
-      : [page.draft ? draftPointer() : null, ruleSection(), checkSection()];
+  const create = page.mode === "create";
+  document.getElementById("rules-list").replaceChildren(rulesSection());
+  document.getElementById("rules-foot").replaceChildren(...[create ? dimensionsSection() : null, fileSection()].filter(Boolean));
+  const parts = create
+    ? [modeBar(), page.draft ? draftNotice() : null, ruleSection() || categorySection() || el("p", { id: "rule", class: "hint" }, "Pick a rule or a category in the list.")]
+    : [modeBar(), page.draft ? draftPointer() : null, ruleSection(), checkSection()];
   document.getElementById("panel").replaceChildren(...parts.filter(Boolean));
   drawRules();
   drawArea();
@@ -267,11 +256,53 @@ function setMode(name) {
   if (!MODES.includes(mode)) return;
   stopDrawing(); // a drawing belongs to the mode it was started in
   page.mode = mode;
+  page.adding = null;
   document.body.dataset.mode = mode;
-  for (const button of document.querySelectorAll(".modes button")) button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
   modeStore.set(mode);
   if (location.hash !== `#${mode}`) history.replaceState(null, "", `${location.pathname}${location.search}#${mode}`);
   render();
+}
+
+// The top of the right side: the mode, and in Create everything that adds.
+function modeBar() {
+  const create = page.mode === "create";
+  const titles = { check: "Which rules apply to your area", create: "Write and edit rules" };
+  return el(
+    "div",
+    { class: "mode-bar" },
+    el(
+      "div",
+      { class: "modes", role: "group", "aria-label": "Mode" },
+      MODES.map((mode) => el("button", { type: "button", "data-mode": mode, "aria-pressed": page.mode === mode, title: titles[mode], onclick: () => setMode(mode) }, mode === "check" ? "Check" : "Create"))
+    ),
+    create ? addRow() : null,
+    create && page.adding === "category" ? addCategoryForm() : null,
+    create && page.adding === "dimension" ? addDimensionForm() : null
+  );
+}
+
+// Where a new rule or category goes: the selected rule's category, else the
+// category picked in the tree, else the top level.
+function here() {
+  const rule = page.selected === null ? null : page.state?.rules[page.selected];
+  return rule ? rule.category : page.filter.category;
+}
+
+function addRow() {
+  const into = here();
+  return el(
+    "div",
+    { class: "row add-row" },
+    el("button", { type: "button", class: "primary", title: into ? `A new rule in ${into}` : "A new rule, in no category", onclick: () => newRule(here()) }, into ? `+ Rule in ${lastPart(into)}` : "+ Rule"),
+    el("button", { type: "button", "aria-expanded": page.adding === "category", onclick: () => toggleAdding("category") }, "+ Category"),
+    el("button", { type: "button", "aria-expanded": page.adding === "dimension", onclick: () => toggleAdding("dimension") }, "+ Dimension")
+  );
+}
+
+function toggleAdding(kind) {
+  page.adding = page.adding === kind ? null : kind;
+  render();
+  document.querySelector(".add-form input")?.focus();
 }
 
 // #create or #check in the address, else the viewer's last mode, else Check. A
@@ -293,9 +324,8 @@ function checkSection() {
     { id: "check" },
     s.description ? el("p", { class: "hint" }, s.description) : null,
     state && !state.rules.length && !s.source
-      ? el("p", { class: "notice" }, "No rules yet. Open a file, ", el("a", { href: new URL("sites/demo/", APP).href }, "try the demo"), ", or start some in Create.")
+      ? el("p", { class: "notice" }, "No rules yet: open a file, ", el("a", { href: new URL("sites/demo/", APP).href }, "try the demo"), ", or start some in Create.")
       : null,
-    el("h2", {}, "Check"),
     el(
       "div",
       { class: "row", title: "Where you work. No area: anywhere." },
@@ -427,8 +457,11 @@ function setFilter(change) {
   filterStore.set(page.filter);
 }
 
-// Pick a category: the globe shows everything under it, and turns to it.
+// Pick a category: the globe shows everything under it, and turns to it; in
+// Create, the right side shows its form.
 function pickCategory(path) {
+  stopDrawing();
+  page.selected = null;
   setFilter({ category: path });
   if (path) setExpanded(`cat:${path}`, true, { quiet: true });
   render();
@@ -442,13 +475,6 @@ function filterText(event) {
   renderTree();
   clearTimeout(fitSoon); // once typing stops, turn to the rules it leaves
   fitSoon = setTimeout(() => fitRules({ quiet: true }), 500);
-}
-
-function countText() {
-  const total = page.state?.rules.length || 0;
-  const n = page.state ? page.state.rules.filter(textMatches).length : 0;
-  if (!total) return "No rules yet.";
-  return n === total ? `${total} rule${total === 1 ? "" : "s"}` : `${n} of ${total} rules`;
 }
 
 function opened() {
@@ -483,7 +509,6 @@ function rulesSection() {
     { id: "rules" },
     el("h2", {}, "Rules"),
     el("div", { class: "filter" }, el("input", { id: "rule-filter", type: "search", "aria-label": "Filter the rules by code or title", placeholder: "Filter", value: page.filter.text, oninput: filterText })),
-    el("p", { id: "rule-count", class: "hint" }, countText()),
     el("ul", { id: "rule-tree", class: "tree", role: "tree", "aria-label": "Rules by category", onkeydown: treeKeydown }, treeItems())
   );
 }
@@ -494,7 +519,6 @@ function renderTree() {
   const focused = document.activeElement?.closest?.("#rule-tree [role=treeitem]")?.dataset.node;
   hideTip();
   tree.replaceChildren(...treeItems());
-  document.getElementById("rule-count").textContent = countText();
   drawRules();
   if (focused) focusNode(focused, { scroll: false });
 }
@@ -516,12 +540,12 @@ function treeItems() {
   const categoryNode = (path, level) => {
     const count = kept.filter((r) => within(r.category, path)).length;
     if (filtering && !count) return null;
-    return treeNode({ id: `cat:${path}`, level, label: `${path}, ${count} rule${count === 1 ? "" : "s"}`, row: categoryRow(path, count), children: inside(path, level + 1), panel: page.panel === path ? categoryPanel(path) : null });
+    return treeNode({ id: `cat:${path}`, level, label: `${path}, ${count} rule${count === 1 ? "" : "s"}`, row: categoryRow(path, count), children: inside(path, level + 1) });
   };
-  return [treeNode({ id: ALL, level: 1, label: `All rules, ${kept.length}`, row: allRow(kept.length), children: inside("", 2), panel: page.panel === ALL ? addCategoryForm("") : null })];
+  return [treeNode({ id: ALL, level: 1, label: `All rules, ${kept.length}`, row: allRow(kept.length), children: inside("", 2) })];
 }
 
-function treeNode({ id, level, label, row, children = null, panel = null }) {
+function treeNode({ id, level, label, row, children = null }) {
   const open = children ? isExpanded(id) : undefined;
   const rule = id.startsWith("rule:") ? page.state.rules[Number(id.slice(5))] : null;
   const picked = rule ? rule.index === page.selected : page.filter.category === (id === ALL ? "" : id.slice(4));
@@ -529,7 +553,6 @@ function treeNode({ id, level, label, row, children = null, panel = null }) {
     "li",
     { role: "treeitem", "data-node": id, "aria-level": level, "aria-label": label, "aria-expanded": open, "aria-selected": picked, tabindex: id === (page.treeFocus || ALL) ? "0" : "-1" },
     row,
-    panel,
     children && open && children.length ? el("ul", { role: "group" }, children) : null
   );
 }
@@ -548,19 +571,12 @@ function twisty(id) {
 }
 
 function allRow(count) {
-  const edit = page.mode === "create";
   return el(
     "div",
     { class: `tree-row all-row${page.filter.category ? "" : " picked"}`, title: "Show every rule on the globe", "data-drop": "", onclick: rowClick(() => pickCategory("")) },
     twisty(ALL),
     el("span", { class: "name" }, "All rules"),
-    el("span", { class: "count" }, String(count)),
-    edit
-      ? [
-          el("button", { type: "button", class: "small", title: "A new rule, in no category", onclick: () => newRule("") }, "+ Rule"),
-          el("button", { type: "button", class: "small", "aria-expanded": page.panel === ALL, onclick: () => togglePanel(ALL) }, "+ Category"),
-        ]
-      : null
+    el("span", { class: "count" }, String(count))
   );
 }
 
@@ -572,13 +588,7 @@ function categoryRow(path, count) {
     twisty(`cat:${path}`),
     edit ? dragHandle({ kind: "category", path, label: path }) : null,
     el("span", { class: "name" }, lastPart(path)),
-    el("span", { class: "count", title: "rules in it, at any depth" }, String(count)),
-    edit
-      ? [
-          el("button", { type: "button", class: "small", title: `A new rule in ${path}`, "aria-label": `New rule in ${path}`, onclick: () => newRule(path) }, "+ Rule"),
-          el("button", { type: "button", class: "small", "aria-expanded": page.panel === path, "aria-label": `More for ${path}`, title: "Move, rename, add a subcategory, or remove", onclick: () => togglePanel(path) }, "⋯"),
-        ]
-      : null
+    el("span", { class: "count", title: "rules in it, at any depth" }, String(count))
   );
 }
 
@@ -597,19 +607,6 @@ function ruleNode(r, level) {
 }
 
 // ---- moving rules and categories, from a select or by dragging --------------------
-// A select that moves something to a category, "" for the top level.
-function moveSelect(id, label, top, except, move) {
-  return el(
-    "select",
-    { id, class: "move", onchange: (e) => move(e.target.value) },
-    el("option", { value: "-", selected: true, disabled: true }, label),
-    top ? el("option", { value: "" }, top) : null,
-    categories()
-      .filter((path) => !except(path))
-      .map((path) => el("option", { value: path }, path))
-  );
-}
-
 async function moveRule(index, category) {
   try {
     const out = await call("move", { index, category });
@@ -629,7 +626,6 @@ async function renameCategory(path, to) {
     if (page.state.rules.some((r) => within(r.category, path))) edited(await call("rename", { category: path, to }));
     page.empty = page.empty.map((p) => (within(p, path) ? to + p.slice(path.length) : p));
     if (within(page.filter.category, path)) setFilter({ category: to + page.filter.category.slice(path.length) });
-    page.panel = null;
     openTo(to);
     say(`${path} is now ${to}.`);
   } catch (err) {
@@ -639,7 +635,8 @@ async function renameCategory(path, to) {
 }
 
 // Drag a rule or a category by its handle onto a category, with a mouse, a pen
-// or a finger; the "Move to…" selects do the same from the keyboard.
+// or a finger; the Category select of a rule's form and the Inside select of a
+// category's form do the same from the keyboard.
 function dragHandle(what) {
   return el("span", { class: "drag", title: "Drag to move", "aria-hidden": "true", onpointerdown: (e) => startDrag(e, what) }, "⠿");
 }
@@ -695,45 +692,67 @@ function startDrag(event, what) {
 
 // ---- managing categories: add, rename, move, remove ------------------------------
 // A category with no rule is kept only in this page until a rule is put in it.
-function togglePanel(id) {
-  page.panel = page.panel === id ? null : id;
-  render();
-  focusNode(id === ALL ? ALL : `cat:${id}`, { scroll: false });
-}
 
-function categoryPanel(path) {
+// The category picked in the tree, in Create when no rule is selected: its
+// name, the category it is in, and Remove.
+function categorySection() {
+  const path = page.filter.category;
+  if (!path) return null;
   const parent = parentOf(path);
   const name = lastPart(path);
-  const move = moveSelect(`c-move-${path}`, "Move to…", parent ? "Top level" : null, (p) => within(p, path) || p === parent, (to) => renameCategory(path, to ? `${to}/${name}` : name));
-  const rename = el("input", { id: `c-name-${path}`, value: name, onchange: (e) => renameCategory(path, parent ? `${parent}/${e.target.value.trim()}` : e.target.value.trim()) });
+  const count = (page.state?.rules || []).filter((r) => within(r.category, path)).length;
   return el(
-    "div",
-    { class: "tree-panel" },
-    field(`c-move-${path}`, "Move to", move),
-    field(`c-name-${path}`, "Name", rename),
-    addCategoryForm(path),
-    el("div", { class: "row" }, el("button", { type: "button", class: "danger", onclick: () => removeCategory(path) }, `Remove ${name}`))
+    "section",
+    { id: "category" },
+    el(
+      "div",
+      { class: "rule-head" },
+      el("strong", { class: "code" }, path),
+      el("span", { class: "unit" }, `${count} rule${count === 1 ? "" : "s"}`),
+      el("span", { class: "grow" }),
+      el("button", { type: "button", class: "small danger", "aria-label": `Remove ${name}`, title: "Remove this category; it must hold no rules", onclick: () => removeCategory(path) }, "Remove"),
+      el("button", { type: "button", class: "small", "aria-label": "Close", title: "Close", onclick: () => pickCategory("") }, "×")
+    ),
+    field(`c-name-${path}`, "Name", el("input", { id: `c-name-${path}`, value: name, onchange: (e) => renameCategory(path, parent ? `${parent}/${e.target.value.trim()}` : e.target.value.trim()) })),
+    field(
+      `c-move-${path}`,
+      "Inside",
+      // picking another moves the category, as dragging it does
+      el(
+        "select",
+        { id: `c-move-${path}`, onchange: (e) => renameCategory(path, e.target.value ? `${e.target.value}/${name}` : name) },
+        el("option", { value: "", selected: !parent }, "Top level"),
+        categories()
+          .filter((p) => !within(p, path))
+          .map((p) => el("option", { value: p, selected: p === parent }, p))
+      )
+    )
   );
 }
 
-function addCategoryForm(parent) {
-  const label = parent ? `Name of a subcategory of ${parent}` : "Name of a new category";
+function addCategoryForm() {
+  const parent = here();
   return el(
     "form",
-    { class: "row add-category", onsubmit: (e) => addCategory(e, parent) },
-    el("input", { id: `new-category-${parent || "top"}`, class: "new-name", "aria-label": label, placeholder: parent ? "New subcategory" : "New category", required: true }),
+    { id: "add-category", class: "row add-form", onsubmit: addCategory },
+    el("input", { id: "new-category", "aria-label": parent ? `Name of a new category in ${parent}` : "Name of a new category", placeholder: parent ? `New category in ${lastPart(parent)}` : "New category", required: true }),
     el("button", { type: "submit" }, "Add")
   );
 }
 
-function addCategory(event, parent) {
+// A new category is picked, so + Rule puts the next rule in it.
+function addCategory(event) {
   event.preventDefault();
-  const name = event.target.querySelector(".new-name").value.trim();
+  const parent = here();
+  const name = document.getElementById("new-category").value.trim();
   const path = parent ? `${parent}/${name}` : name;
   if (!path.split("/").every((part) => part.trim())) return say("Not added: a category's name cannot be empty.", true);
   if (categories().includes(path)) return say(`Not added: ${path} is a category already.`, true);
+  stopDrawing();
   page.empty = [...page.empty, path];
-  page.panel = null;
+  page.adding = null;
+  page.selected = null;
+  setFilter({ category: path });
   openTo(path);
   say(`Added ${path}. It is kept in the file once a rule is in it.`);
   render();
@@ -743,7 +762,6 @@ function removeCategory(path) {
   if (page.state.rules.some((r) => within(r.category, path))) return say(`${path} still has rules: move or delete them first.`, true);
   page.empty = page.empty.filter((p) => !within(p, path));
   if (within(page.filter.category, path)) setFilter({ category: "" });
-  page.panel = null;
   say(`Removed ${path}.`);
   render();
 }
@@ -806,7 +824,7 @@ function treeKeydown(event) {
 function ruleSection() {
   const create = page.mode === "create";
   const rule = page.selected === null ? null : page.state?.rules[page.selected];
-  if (!rule) return create ? el("p", { id: "rule", class: "hint" }, "Pick a rule to edit, or click + Rule.") : null;
+  if (!rule) return null;
   return el(
     "section",
     { id: "rule" },
@@ -1040,7 +1058,15 @@ function select(index, { reveal = false } = {}) {
   render();
   if (rule?.extent) fitExtent(rule.extent);
   if (reveal) document.querySelector(`[data-node="rule:${index}"]`)?.scrollIntoView({ block: "nearest" });
-  if (rule) document.getElementById("rule")?.scrollIntoView({ block: "start" }); // the top of the right panel
+  if (rule) showPanelTop();
+}
+
+// The selected rule is at the top of the right side: scroll there, in the panel,
+// or on a phone, where the page scrolls, down to the panel.
+function showPanelTop() {
+  const panel = document.getElementById("panel");
+  panel.scrollTop = 0;
+  if (getComputedStyle(panel).overflowY === "visible") panel.scrollIntoView({ block: "start" });
 }
 
 async function newRule(category) {
@@ -1096,15 +1122,19 @@ function dimensionsSection() {
           el("button", { type: "button", class: "remove", "aria-label": `Remove ${d.name}`, title: `Remove ${d.name}`, onclick: () => setDimensions(dims.filter((_, j) => j !== i)) }, "×")
         )
       )
-    ),
-    el(
-      "form",
-      { class: "row add-dim", onsubmit: addDimension },
-      el("input", { id: "d-name", "aria-label": "Name of the dimension", placeholder: "Name", required: true }),
-      el("select", { id: "d-kind", "aria-label": "Kind", onchange: (e) => (document.getElementById("d-unit").disabled = e.target.value !== "axis") }, KINDS.map((k) => el("option", { value: k }, k))),
-      el("input", { id: "d-unit", "aria-label": "Unit", placeholder: "Unit", disabled: true }),
-      el("button", { type: "submit" }, "Add")
     )
+  );
+}
+
+// On the right, under + Dimension.
+function addDimensionForm() {
+  return el(
+    "form",
+    { id: "add-dimension", class: "row add-form", onsubmit: addDimension },
+    el("input", { id: "d-name", "aria-label": "Name of the dimension", placeholder: "Name", required: true }),
+    el("select", { id: "d-kind", "aria-label": "Kind", title: "Labels are names, such as a product; an axis is numbers in a unit, such as a resolution in km", onchange: (e) => (document.getElementById("d-unit").disabled = e.target.value !== "axis") }, KINDS.map((k) => el("option", { value: k }, k))),
+    el("input", { id: "d-unit", "aria-label": "Unit", placeholder: "Unit", disabled: true }),
+    el("button", { type: "submit" }, "Add")
   );
 }
 
@@ -1113,33 +1143,59 @@ async function addDimension(event) {
   const kind = document.getElementById("d-kind").value;
   const added = { name: document.getElementById("d-name").value.trim(), kind };
   if (kind === "axis") added.unit = document.getElementById("d-unit").value.trim();
-  await setDimensions([...(page.state?.dimensions || []), added]);
+  if (await setDimensions([...(page.state?.dimensions || []), added], { quiet: true })) {
+    page.adding = null;
+    say(`Added ${added.name}.`);
+    render();
+  }
 }
 
-async function setDimensions(dimensions) {
+// Whether queryearth kept them.
+async function setDimensions(dimensions, { quiet = false } = {}) {
+  let kept = false;
   try {
     edited(await call("dimensions", { dimensions }));
-    say("Kept the dimensions.");
+    kept = true;
+    if (!quiet) say("Kept the dimensions.");
   } catch (err) {
     say(`Not kept: ${err.message}`, true);
   }
   render();
+  return kept;
 }
 
 // ---- file: download the rules, or a web page that shows them ---------------------
+// On the left, under the rules: open, download and copy; in Create, also a web page.
 function fileSection() {
   const state = page.state;
   return el(
     "section",
     { id: "file" },
-    el("h2", {}, "File ", el("span", { class: "unit" }, state?.name || "rules.geojson")),
-    el("div", { class: "row" }, el("button", { class: "primary", title: "Download the rules file", onclick: downloadRules }, "Download"), el("button", { title: "Copy the whole rules file", onclick: copyRules }, "Copy")),
+    el("h2", {}, "File ", el("span", { class: "unit" }, state?.name || "")),
     el(
       "div",
-      { class: "row", title: "A page that shows these rules on the globe, for GitHub Pages, any web host, or your computer" },
-      el("input", { id: "page-title", class: "grow", "aria-label": "Title of the web page", placeholder: "Page title", value: page.pageTitle, oninput: (e) => (page.pageTitle = e.target.value) }),
-      el("button", { onclick: downloadPage }, "Download web page")
-    )
+      { class: "row" },
+      el("button", { onclick: () => document.getElementById("file-input").click() }, "Open file"),
+      el("button", { id: "open-link", "aria-expanded": page.linking, "aria-controls": "linkbar", onclick: () => showLinkBar(!page.linking) }, "Open link")
+    ),
+    page.linking
+      ? el(
+          "form",
+          { id: "linkbar", class: "row linkbar", onsubmit: submitLink },
+          el("input", { id: "link-url", type: "text", inputmode: "url", autocomplete: "off", spellcheck: "false", "aria-label": "Link to a rules file", title: "The file's host must let other sites read it, as GitHub and gists do", placeholder: "https://…/rules.geojson", required: true, value: page.linkText, oninput: (e) => (page.linkText = e.target.value) }),
+          el("button", { class: "primary", type: "submit" }, "Open"),
+          el("button", { type: "button", onclick: () => showLinkBar(false) }, "Cancel")
+        )
+      : null,
+    el("div", { class: "row" }, el("button", { title: "Download the rules file", onclick: downloadRules, disabled: !state }, "Download"), el("button", { title: "Copy the whole rules file", onclick: copyRules, disabled: !state }, "Copy")),
+    page.mode === "create"
+      ? el(
+          "div",
+          { class: "row", title: "A page that shows these rules on the globe, for GitHub Pages, any web host, or your computer" },
+          el("input", { id: "page-title", class: "grow", "aria-label": "Title of the web page", placeholder: "Page title", value: page.pageTitle, oninput: (e) => (page.pageTitle = e.target.value) }),
+          el("button", { onclick: downloadPage, disabled: !state }, "Download web page")
+        )
+      : null
   );
 }
 
@@ -1153,7 +1209,8 @@ async function downloadRules() {
   const name = page.state?.name || "rules.geojson";
   const warning = download(name, text, "application/geo+json");
   if (warning === false) return;
-  if (!EMBEDDED) store.clear(); // kept where downloads may be blocked
+  // kept where downloads may be blocked, and while edits from an earlier visit wait
+  if (!EMBEDDED && !page.draft) store.clear();
   say(`Downloaded ${name}.${warning}`);
 }
 
@@ -1242,7 +1299,7 @@ async function open(text, name, { fit = true, dimensions = page.settings.dimensi
   page.selected = null;
   page.results = null;
   page.empty = [];
-  page.panel = null;
+  page.adding = null;
   if (!categories().includes(page.filter.category)) setFilter({ category: "" });
   const n = page.state.rules.length;
   say(`Opened ${name}: ${n} rule${n === 1 ? "" : "s"}.`);
@@ -1262,8 +1319,8 @@ async function openFile(event) {
 }
 
 function showLinkBar(show) {
-  document.getElementById("linkbar").hidden = !show;
-  document.getElementById("open-link").setAttribute("aria-expanded", String(show));
+  page.linking = show;
+  render();
   if (show) document.getElementById("link-url").focus();
 }
 
@@ -1271,6 +1328,7 @@ async function submitLink(event) {
   event.preventDefault();
   const url = document.getElementById("link-url").value.trim();
   if (!url) return;
+  page.linkText = "";
   showLinkBar(false);
   if (await openUrl(url)) {
     const params = new URLSearchParams(location.search);
@@ -1635,7 +1693,10 @@ document.addEventListener("keydown", (event) => {
   if (page.drawing && page.drawing !== "corners") {
     stopDrawing();
     say("Stopped drawing.");
-  } else if (!document.getElementById("linkbar")?.hidden) {
+  } else if (page.adding) {
+    page.adding = null;
+    render();
+  } else if (page.linking) {
     showLinkBar(false);
   }
 });
@@ -1650,7 +1711,6 @@ async function main() {
   document.body.dataset.mode = chosen.mode;
   if (chosen.asked && location.hash !== `#${chosen.mode}`) history.replaceState(null, "", `${location.pathname}${location.search}#${chosen.mode}`); // #edit is now #create
   build();
-  for (const button of document.querySelectorAll(".modes button")) button.setAttribute("aria-pressed", String(button.dataset.mode === page.mode));
   window.addEventListener("hashchange", () => setMode(location.hash.slice(1)));
   say("Loading Python and queryearth (about 20 MB on the first visit)…");
   pythonReady = startPython();
