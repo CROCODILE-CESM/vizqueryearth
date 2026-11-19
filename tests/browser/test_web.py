@@ -301,8 +301,10 @@ def test_open_a_file_by_link_and_refuse_one_queryearth_cannot_read(tmp_path):
     page.wait_for_function(
         "document.getElementById('status').textContent.includes('Could not')"
     )
-    assert "Could not open old.geojson: feature 0:" in page.inner_text("#status")
-    assert "needs a name" in page.inner_text("#status")
+    assert (
+        "Could not open old.geojson: feature 0: a rule needs a name"
+        in page.inner_text("#status")
+    )
     assert names(page) == ["OCN/OCN001"]  # the open file stays
     assert errors == []
 

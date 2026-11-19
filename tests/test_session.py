@@ -253,7 +253,7 @@ def test_a_file_whose_rules_have_codes_is_refused():
     old["queryearth"] = "0.7"
     for feature in old["features"]:
         feature["properties"]["code"] = feature["properties"].pop("name")
-    with pytest.raises(ValueError, match="feature 0: .*needs a name"):
+    with pytest.raises(ValueError, match="feature 0: a rule needs a name"):
         call(session, "open", text=json.dumps(old))
     assert names(session) == ["REGION/GULF/GULF001", "GRID/GRID001"]
 
