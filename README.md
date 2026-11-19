@@ -6,8 +6,8 @@ It runs entirely in your browser. There is no server and no sign-in, and nothing
 
 ## Try it
 
-- The demo, with made-up rules: https://crocodile-cesm.github.io/vizqueryearth/sites/demo/
-- CrocoDash's rules, advice for regional ocean model cases: https://crocodile-cesm.github.io/vizqueryearth/sites/crocodash/
+- The demo, with made-up rules: https://crocodile-cesm.github.io/vizqueryearth/?src=sites/demo.geojson
+- CrocoDash's rules, advice for regional ocean model cases: https://crocodile-cesm.github.io/vizqueryearth/?src=sites/crocodash.geojson
 - The page itself, to open your own rules: https://crocodile-cesm.github.io/vizqueryearth/
 
 The first visit downloads about 20 MB (Python and queryearth, see [How it works](#how-it-works)); later visits are quicker.
@@ -91,30 +91,30 @@ To change the rules later, open the page, edit, and download it again.
 
 ## Adding a page to this site
 
-Curated pages live in this repository under `web/sites/<name>/` and appear at `https://crocodile-cesm.github.io/vizqueryearth/sites/<name>/`. To add one, open a pull request with a folder holding three files:
-
-- `index.html`: a copy of `web/sites/demo/index.html`, with your title in `<title>`;
-- `rules.geojson`: the rules;
-- `site.json`: the page's settings.
-
-`site.json`:
+A curated page is one rules file in this repository, `web/sites/<name>.geojson`, added by pull request and opened at `https://crocodile-cesm.github.io/vizqueryearth/?src=sites/<name>.geojson`. Any rules file can say more about itself in an optional `"vizqueryearth"` member, next to `"queryearth"`; queryearth ignores it, and the page keeps it when it saves the file:
 
 | Field | What it is |
 |---|---|
-| `title` | The page's title, at the top and in the browser tab. |
-| `description` | A sentence or two shown at the top of the Check panel. Optional. |
-| `rules` | The rules file: a path relative to the folder (`"rules.geojson"`), a URL, or the FeatureCollection itself. |
-| `dimensions` | Optional: dimensions to declare before those read from the rules, such as one no rule uses yet or an axis's unit: `[{"name": "product", "kind": "labels"}, {"name": "resolution", "kind": "axis", "unit": "km"}]`. |
-| `view` | Optional: where the globe starts, `{"center": [lon, lat], "zoom": 1.6}`. Without it, the globe turns to the rules. |
+| `title` | The page's title, at the top and in the browser tab. Without it, the file's name. |
+| `description` | A sentence or two shown at the top of the Check panel. |
+| `view` | Where the globe starts, `{"center": [lon, lat], "zoom": 1.6}`. Without it, the globe turns to the rules. |
+| `dimensions` | Dimensions to declare before those read from the rules, such as one no rule uses yet or an axis's unit: `[{"name": "product", "kind": "labels"}, {"name": "resolution", "kind": "axis", "unit": "km"}]`. |
 
-For example, `web/sites/demo/site.json`:
+For example, the top of `web/sites/demo.geojson`:
 
 ```json
 {
-  "title": "vizqueryearth demo",
-  "description": "Made-up rules about a made-up ocean product, demo_ocean. ...",
-  "rules": "rules.geojson",
-  "view": {"center": [-150, 45], "zoom": 1.6}
+  "type": "FeatureCollection",
+  "queryearth": "0.8",
+  "vizqueryearth": {
+    "title": "vizqueryearth demo",
+    "description": "Made-up rules about a made-up ocean product, demo_ocean. ...",
+    "view": {
+      "center": [-150, 45],
+      "zoom": 1.6
+    }
+  },
+  "features": [...]
 }
 ```
 
@@ -136,7 +136,7 @@ dimensions = infer(data["features"])  # [{"name", "kind", "unit"}]
 ```bash
 pip install -e ".[test]"
 pytest                               # the Python tests
-python -m http.server 8000 -d web    # then open http://localhost:8000/sites/demo/
+python -m http.server 8000 -d web    # then open http://localhost:8000/?src=sites/demo.geojson
 ```
 
 `web/py/vizqueryearth` is a link to the package, so the page runs the Python you are editing (on Windows, clone with `git config core.symlinks true`). The browser tests drive the page in headless Chromium; they are skipped unless Playwright is installed:

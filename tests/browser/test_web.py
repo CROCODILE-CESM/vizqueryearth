@@ -25,7 +25,7 @@ import pytest
 sync_api = pytest.importorskip("playwright.sync_api")
 
 WEB = Path(__file__).resolve().parents[2] / "web"
-DEMO = json.loads((WEB / "sites" / "demo" / "rules.geojson").read_text())
+DEMO = json.loads((WEB / "sites" / "demo.geojson").read_text())
 APP = "window.__vizqueryearth"
 
 
@@ -147,7 +147,7 @@ def downloaded(page, button):
 
 
 def test_check_a_drawn_domain():
-    page, errors = visit("/sites/demo/", 5)
+    page, errors = visit("/?src=sites/demo.geojson", 5)
     tree = page.locator("#rule-tree")
     assert tree.locator(".rule-row").count() == 0  # the categories start closed
     assert row(page, "cat:OCN").locator(".count").inner_text() == "3"
@@ -185,7 +185,7 @@ def test_check_a_drawn_domain():
 
 
 def test_edit_a_rule_and_download_the_file():
-    page, errors = visit("/sites/demo/#create", 5)
+    page, errors = visit("/?src=sites/demo.geojson#create", 5)
     row(page, "cat:DOMAIN").locator(".twisty").click()
     row(page, "cat:DOMAIN/ICE").locator(".name").click()  # where + Rule adds
     page.locator(".mode-bar").get_by_role("button", name="+ Rule in ICE").click()
@@ -223,7 +223,7 @@ def test_edit_a_rule_and_download_the_file():
 
 
 def test_move_rules_and_categories_in_the_tree():
-    page, errors = visit("/sites/demo/#edit", 5)  # Create's old name
+    page, errors = visit("/?src=sites/demo.geojson#edit", 5)  # Create's old name
     assert page.evaluate("location.hash") == "#create"
     row(page, "cat:DOMAIN").locator(".twisty").click()
     row(page, "cat:OCN").locator(".twisty").click()
@@ -263,7 +263,7 @@ def test_move_rules_and_categories_in_the_tree():
 
 
 def test_download_as_a_web_page(tmp_path):
-    page, errors = visit("/sites/demo/#create", 5)
+    page, errors = visit("/?src=sites/demo.geojson#create", 5)
     page.locator(".mode-bar").get_by_role("button", name="+ Dimension").click()
     page.fill("#d-name", "resolution")
     page.select_option("#d-kind", "axis")

@@ -134,23 +134,19 @@ const MODES = ["check", "create"];
 // Create was called Edit: links with #edit, and modes kept as "edit", still work
 const modeNamed = (name) => (name === "edit" ? "create" : name);
 
-// ---- settings: inline, from a site's site.json, then ?src= ----------------------
+// ---- settings: inline in a downloaded web page, then ?src= -----------------------
+// A rules file may say more about itself in an optional "vizqueryearth" member:
+// title, description, view and dimensions (fileTitle(), open()).
 async function readSettings() {
-  let site = {};
   const inline = document.getElementById("vizqueryearth-site");
-  if (inline) {
-    site = JSON.parse(inline.textContent);
-  } else if (document.body.dataset.site) {
-    const response = await fetch(document.body.dataset.site, { cache: "no-cache" });
-    if (response.ok) site = await response.json();
-  }
+  const site = inline ? JSON.parse(inline.textContent) : {};
   const params = new URLSearchParams(location.search);
   let source = null;
   if (params.get("src")) source = { url: params.get("src") };
   else if (typeof site.rules === "string") source = { url: new URL(site.rules, location.href).href };
   else if (site.rules) source = { text: JSON.stringify(site.rules), name: "rules.geojson" };
   return {
-    site: Boolean(inline || document.body.dataset.site), // a page made for a set of rules
+    site: Boolean(inline), // a downloaded web page, made for a set of rules
     title: site.title || "vizqueryearth",
     description: site.description || "",
     dimensions: site.dimensions || null, // declared before those inferred from the rules
@@ -323,9 +319,9 @@ function checkSection() {
   return el(
     "section",
     { id: "check" },
-    s.description ? el("p", { class: "hint" }, s.description) : null,
+    (state?.meta?.description || s.description) ? el("p", { class: "hint" }, state?.meta?.description || s.description) : null,
     state && !state.rules.length && !s.source
-      ? el("p", { class: "notice" }, "No rules yet: open a file, ", el("a", { href: new URL("sites/demo/", APP).href }, "try the demo"), ", or start some in Create.")
+      ? el("p", { class: "notice" }, "No rules yet: open a file, ", el("a", { href: new URL("?src=sites/demo.geojson", APP).href }, "try the demo"), ", or start some in Create.")
       : null,
     el(
       "div",
@@ -1302,10 +1298,24 @@ async function open(text, name, { fit = true, dimensions = page.settings.dimensi
   page.empty = [];
   page.adding = null;
   if (!categories().includes(page.filter.category)) setFilter({ category: "" });
+  showTitle(fileTitle(name));
   const n = page.state.rules.length;
   say(`Opened ${name}: ${n} rule${n === 1 ? "" : "s"}.`);
   render();
-  if (fit) fitExtent(page.state.extent, { animate: false });
+  const view = page.state.meta?.view;
+  if (view?.center && map) map.jumpTo({ center: view.center, zoom: view.zoom ?? DEFAULT_VIEW.zoom });
+  else if (fit) fitExtent(page.state.extent, { animate: false });
+}
+
+// A downloaded page's title, else the file's own, else the file's name.
+function fileTitle(name) {
+  return (page.settings.site && page.settings.title) || page.state.meta?.title || name.replace(/\.(geo)?json$/i, "");
+}
+
+function showTitle(title) {
+  document.title = title;
+  document.querySelector("header h1").textContent = title;
+  page.pageTitle = title;
 }
 
 async function openFile(event) {

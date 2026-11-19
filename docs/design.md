@@ -14,7 +14,7 @@ A page where anyone can see queryearth rules on a globe, check which of them app
 
 **Hosting.** GitHub Pages, deployed from `main` by `.github/workflows/pages.yml`, which copies `web/` with the `web/py` symlink followed. GitHub Pages sends `Access-Control-Allow-Origin: *`, which pages hosted elsewhere need to load the app.
 
-**Curated pages by pull request.** A page for a set of rules is a folder `web/sites/<name>/` with an `index.html` stub, `site.json` (title, description, rules, optional dimensions and view) and the rules file. Review of the pull request is the only moderation, and the page lives at `/sites/<name>/`.
+**Curated pages by pull request.** A page for a set of rules is one rules file, `web/sites/<name>.geojson`, opened at `?src=sites/<name>.geojson`. What the page shows of a file beyond its rules (title, description, starting view, declared dimensions) sits in the file's optional `"vizqueryearth"` member, which queryearth ignores and the page writes back when it saves; without it, the title is the file's name and the globe turns to the rules. Review of the pull request is the only moderation.
 
 **Self-hosting.** "Download web page" gives one `index.html` that embeds the settings and the rules and loads `app.js` and `app.css` from wherever the app is hosted. It can go on any static host, or be opened from disk, with nothing of ours involved beyond the app's files.
 

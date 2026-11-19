@@ -263,3 +263,17 @@ def test_an_edge_rule_from_queryearth_0_6_is_refused_naming_it():
     old["features"][0]["properties"]["edge"] = True
     with pytest.raises(ValueError, match=r"feature 0: REGION/GULF/GULF001: \['edge'\]"):
         opened(old)
+
+
+def test_a_files_vizqueryearth_member_is_read_and_written_back():
+    data = json.loads(json.dumps(RULES))
+    meta = {"title": "Gulf", "view": {"center": [-90, 25], "zoom": 3}}
+    meta["dimensions"] = [{"name": "depth", "kind": "axis", "unit": "m"}]
+    data = {"type": data["type"], "queryearth": data["queryearth"], "vizqueryearth": meta, "features": data["features"]}  # fmt: skip
+    session = opened(data)
+    assert call(session, "state")["meta"] == meta
+    assert "depth" in [d.name for d in session.dimensions]  # declared by the file
+    text = call(session, "text")
+    assert json.loads(text)["vizqueryearth"] == meta
+    assert '"center": [-90, 25]' in text  # numbers on one line, as queryearth writes
+    assert call(opened(json.loads(text)), "text") == text

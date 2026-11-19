@@ -31,6 +31,8 @@ _RANGE = re.compile(rf"\s*({_NUMBER})\s*(?:\.\.|to|–|-)\s*({_NUMBER})\s*")
 _BOUND = re.compile(rf"(<=|>=|≤|≥|<|>)\s*({_NUMBER})")
 _OPS = {"<": "lt", "<=": "le", "≤": "le", ">": "gt", ">=": "ge", "≥": "ge"}
 _SIGNS = {"gt": ">", "ge": ">=", "lt": "<", "le": "<="}
+# a list of numbers, such as a view's center, spread over lines by json.dumps
+_NUMBERS = re.compile(rf"\[\s*({_NUMBER}(?:,\s*{_NUMBER})*)\s*\]")
 AXIS_HINT = "<8, <=8, >2, >=2, or 2-8 (from 2 up to, not including, 8)"
 
 
@@ -41,6 +43,7 @@ class Session:
         self.name = "rules.geojson"
         self.dimensions: list[qe.Dimension] = []
         self.rules: list[qe.Rule] = []
+        self.meta: dict[str, Any] = {}  # the file's optional "vizqueryearth" member
 
     def call(self, name: str, arguments: str = "{}") -> str:
         """Run one call; its arguments and result are JSON text."""
@@ -58,11 +61,18 @@ class Session:
         self, text: str, name: str = "rules.geojson", dimensions: Any = None
     ) -> dict[str, Any]:
         """Read a rule file with queryearth. Its dimensions are those the page
-        gives, as [{name, kind, unit}], then those inferred from the rules. A
-        file queryearth refuses leaves the open file as it was."""
+        gives, as [{name, kind, unit}], then those its "vizqueryearth" member
+        declares, then those inferred from the rules. That member, optional,
+        holds what the page shows of the file: title, description, view and
+        dimensions; queryearth ignores it. A file queryearth refuses leaves the
+        open file as it was."""
         data = json.loads(text)
+        meta = data.get("vizqueryearth") if isinstance(data, dict) else None
+        meta = meta if isinstance(meta, dict) else {}
         features = data.get("features") if isinstance(data, dict) else None
-        found = infer(features or [], dimensions or [])
+        found = infer(
+            features or [], [*(dimensions or []), *(meta.get("dimensions") or [])]
+        )
         found = [_dimension(d) for d in found]
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder, Path(name).name or "rules.geojson")
@@ -72,14 +82,24 @@ class Session:
             except ValueError as err:
                 raise ValueError(str(err).removeprefix(f"{path.name}: ")) from None
         self.name, self.rules, self.dimensions = name, registry.rules, found
+        self.meta = meta
         return self.do_state()
 
     def do_text(self) -> str:
-        """The rule file, as queryearth writes it."""
+        """The rule file, as queryearth writes it, with the file's
+        "vizqueryearth" member, if it had one, after the "queryearth" member."""
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder, "rules.geojson")
             self._keep().to_file(path)
-            return path.read_text(encoding="utf-8")
+            text = path.read_text(encoding="utf-8")
+        if not self.meta:
+            return text
+        member = json.dumps(self.meta, indent=2, ensure_ascii=False).replace(
+            "\n", "\n  "
+        )
+        member = _NUMBERS.sub(lambda m: "[" + re.sub(r",\s+", ", ", m[1]) + "]", member)
+        at = text.index('",\n', text.index('"queryearth"')) + 3
+        return f'{text[:at]}  "vizqueryearth": {member},\n{text[at:]}'
 
     def do_state(self) -> dict[str, Any]:
         """Everything the page shows: the dimensions and the rules."""
@@ -87,6 +107,7 @@ class Session:
         labels = [d.name for d in self.dimensions if isinstance(d, qe.Labels)]
         return {
             "name": self.name,
+            "meta": self.meta,
             "dimensions": [_described(d) for d in self.dimensions],
             # the names the rules give on each labels dimension, to suggest
             "values": {name: self._names(name) for name in labels},
